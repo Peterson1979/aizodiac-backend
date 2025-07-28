@@ -1,5 +1,4 @@
 const express = require('express');
-const fetch = require('node-fetch');
 const dotenv = require('dotenv');
 dotenv.config(); // Betölti a .env fájl tartalmát (ha van)
 
@@ -8,6 +7,13 @@ const port = process.env.PORT || 3000;
 
 // Middleware a JSON adatok kezeléséhez
 app.use(express.json());
+
+// Segédfüggvény a fetch hívásokhoz (dynamic import miatt)
+async function fetchData(url, options) {
+  const fetch = (await import('node-fetch')).default;
+  const response = await fetch(url, options);
+  return response;
+}
 
 app.get('/horoscope', async (req, res) => {
   const sign = req.query.sign;
@@ -27,7 +33,7 @@ app.get('/horoscope', async (req, res) => {
   const prompt = `Készíts egy napi horoszkópot a ${sign} csillagjegyben született felhasználó számára a ${date} napra. A horoszkóp legyen vidám, és tartalmazzon szerelemre, munkára, egészségre és pénzre vonatkozó előrejelzéseket.`;
 
   try {
-    const response = await fetch(geminiApiUrl, {
+    const response = await fetchData(geminiApiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
