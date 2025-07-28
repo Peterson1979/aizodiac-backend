@@ -34,7 +34,7 @@ app.get('/horoscope', async (req, res) => {
   }
 
   // Gemini API hívás
-  const geminiApiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=' + apiKey;
+  const geminiApiUrl = 'https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=' + apiKey;
   const prompt = `Készíts egy napi horoszkópot a ${sign} csillagjegyben született felhasználó számára a ${date} napra. A horoszkóp legyen vidám, és tartalmazzon szerelemre, munkára, egészségre és pénzre vonatkozó előrejelzéseket.`;
 
   try {
