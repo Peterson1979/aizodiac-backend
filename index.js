@@ -22,10 +22,13 @@ app.get('/', (req, res) => {
 
 app.get('/horoscope', async (req, res) => {
   const sign = req.query.sign;
-  const date = req.query.date; // Példa: "2024-10-27"
+  let date = req.query.date;
 
-  if (!sign || !date) {
-    return res.status(400).json({ error: 'Csillagjegy és dátum megadása kötelező!' });
+  if (!sign) {
+    return res.status(400).json({ error: 'Csillagjegy megadása kötelező!' });
+  }
+  if (!date) {
+    date = new Date().toISOString().slice(0, 10); // mai nap YYYY-MM-DD formátumban
   }
 
   const apiKey = process.env.GEMINI_API_KEY;
@@ -33,28 +36,27 @@ app.get('/horoscope', async (req, res) => {
     return res.status(500).json({ error: 'GEMINI_API_KEY nincs beállítva!' });
   }
 
-  // Gemini API hívás
   const geminiApiUrl = 'https://generativelanguage.googleapis.com/v1/models/gemini-1.5-pro:generateContent?key=' + apiKey;
   const prompt = `Készíts egy napi horoszkópot a ${sign} csillagjegyben született felhasználó számára a ${date} napra. A horoszkóp legyen vidám, és tartalmazzon szerelemre, munkára, egészségre és pénzre vonatkozó előrejelzéseket.`;
 
   try {
     const response = await fetchData(geminiApiUrl, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        contents: [{
-          parts: [{ text: prompt }],
-        }],
-      }),
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
     });
 
     const data = await response.json();
 
     if (response.ok) {
-      const horoscope = data.candidates[0].content.parts[0].text;
-      res.json({ horoscope });
+      // Debug esetén:
+      // console.log(JSON.stringify(data, null, 2));
+      if (data.candidates && data.candidates[0]?.content?.parts?.[0]?.text) {
+        const horoscope = data.candidates[0].content.parts[0].text;
+        res.json({ horoscope });
+      } else {
+        res.status(500).json({ error: 'Nem várt Gemini API válasz.' });
+      }
     } else {
       console.error('Gemini API hiba:', data);
       res.status(500).json({ error: 'Hiba a Gemini API hívásakor!' });
