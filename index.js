@@ -15,11 +15,12 @@ async function fetchData(url, options) {
   return response;
 }
 
-// Gyökér útvonal – csak hogy ne legyen fehér oldal
+// Alap útvonal – csak visszajelzésre
 app.get('/', (req, res) => {
   res.send('AIzodiac backend él – használd a /horoscope végpontot!');
 });
 
+// Horoszkóp végpont
 app.get('/horoscope', async (req, res) => {
   const sign = req.query.sign;
   let date = req.query.date;
@@ -27,8 +28,9 @@ app.get('/horoscope', async (req, res) => {
   if (!sign) {
     return res.status(400).json({ error: 'Csillagjegy megadása kötelező!' });
   }
+
   if (!date) {
-    date = new Date().toISOString().slice(0, 10); // mai nap YYYY-MM-DD formátumban
+    date = new Date().toISOString().slice(0, 10); // Mai nap YYYY-MM-DD formátumban
   }
 
   const apiKey = process.env.GEMINI_API_KEY;
@@ -36,21 +38,27 @@ app.get('/horoscope', async (req, res) => {
     return res.status(500).json({ error: 'GEMINI_API_KEY nincs beállítva!' });
   }
 
-  const geminiApiUrl = 'https://generativelanguage.googleapis.com/v1/models/gemini-1.5-pro:generateContent?key=' + apiKey;
+  // ✅ Itt a helyes URL a Gemini 2.0 Flash modellhez
+  const geminiApiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + apiKey;
+
   const prompt = `Készíts egy napi horoszkópot a ${sign} csillagjegyben született felhasználó számára a ${date} napra. A horoszkóp legyen vidám, és tartalmazzon szerelemre, munkára, egészségre és pénzre vonatkozó előrejelzéseket.`;
 
   try {
     const response = await fetchData(geminiApiUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [{ text: prompt }],
+          },
+        ],
+      }),
     });
 
     const data = await response.json();
 
     if (response.ok) {
-      // Debug esetén:
-      // console.log(JSON.stringify(data, null, 2));
       if (data.candidates && data.candidates[0]?.content?.parts?.[0]?.text) {
         const horoscope = data.candidates[0].content.parts[0].text;
         res.json({ horoscope });
@@ -67,6 +75,7 @@ app.get('/horoscope', async (req, res) => {
   }
 });
 
+// Indítás
 app.listen(port, () => {
   console.log(`Backend fut a http://localhost:${port} címen`);
 });
