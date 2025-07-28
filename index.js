@@ -15,6 +15,11 @@ async function fetchData(url, options) {
   return response;
 }
 
+// Gyökér útvonal – csak hogy ne legyen fehér oldal
+app.get('/', (req, res) => {
+  res.send('AIzodiac backend él – használd a /horoscope végpontot!');
+});
+
 app.get('/horoscope', async (req, res) => {
   const sign = req.query.sign;
   const date = req.query.date; // Példa: "2024-10-27"
@@ -29,7 +34,7 @@ app.get('/horoscope', async (req, res) => {
   }
 
   // Gemini API hívás
-  const geminiApiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=' + apiKey; //Cseréld le a saját API endpoint-oddal, ha szükséges!
+  const geminiApiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=' + apiKey;
   const prompt = `Készíts egy napi horoszkópot a ${sign} csillagjegyben született felhasználó számára a ${date} napra. A horoszkóp legyen vidám, és tartalmazzon szerelemre, munkára, egészségre és pénzre vonatkozó előrejelzéseket.`;
 
   try {
@@ -48,7 +53,6 @@ app.get('/horoscope', async (req, res) => {
     const data = await response.json();
 
     if (response.ok) {
-      // Itt formázhatod a Gemini API válaszát, ha szükséges
       const horoscope = data.candidates[0].content.parts[0].text;
       res.json({ horoscope });
     } else {
