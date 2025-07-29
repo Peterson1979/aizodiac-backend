@@ -44,45 +44,31 @@ app.get('/horoscope', async (req, res) => {
   const prompt = `Készíts egy napi horoszkópot a ${sign} csillagjegyben született felhasználó számára a ${date} napra. A horoszkóp legyen vidám, és tartalmazzon szerelemre, munkára, egészségre és pénzre vonatkozó előrejelzéseket.`;
 
   try {
-    //const response = await fetchData(geminiApiUrl, {
-    //  method: 'POST',
-    //  headers: { 'Content-Type': 'application/json' },
-    //  body: JSON.stringify({
-    //    contents: [
-    //      {
-    //        parts: [{ text: prompt }],
-    //      },
-    //    ],
-    //  }),
-    //});
+    const response = await fetchData(geminiApiUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [{ text: prompt }],
+          },
+        ],
+      }),
+    });
 
-    //const data = await response.json();
+    const data = await response.json();
 
-    //if (response.ok) {
-    //  if (data.candidates && data.candidates[0]?.content?.parts?.[0]?.text) {
-    //    const horoscope = data.candidates[0].content.parts[0].text;
-    //    res.json({ horoscope });
-    //  } else {
-    //    res.status(500).json({ error: 'Nem várt Gemini API válasz.' });
-    //  }
-    //} else {
-    //  console.error('Gemini API hiba:', data);
-    //  res.status(500).json({ error: 'Hiba a Gemini API hívásakor!' });
-    //}
-
-    // Teszt adatok
-    const testHoroscope = {
-      general: "Ma nagyszerű napod lesz!",
-      love: "A szerelemben szerencséd lesz.",
-      work: "A munkádban sikereket érsz el.",
-      health: "Az egészséged jó lesz.",
-      money: "Pénzügyeid stabilak lesznek.",
-      luckyNumber: 7,
-      luckyColor: "Zöld",
-      dailyMantra: "Én vagyok a legjobb!"
-    };
-    res.json(testHoroscope);
-
+    if (response.ok) {
+      if (data.candidates && data.candidates[0]?.content?.parts?.[0]?.text) {
+        const horoscope = data.candidates[0].content.parts[0].text;
+        res.json({ horoscope });
+      } else {
+        res.status(500).json({ error: 'Nem várt Gemini API válasz.' });
+      }
+    } else {
+      console.error('Gemini API hiba:', data);
+      res.status(500).json({ error: 'Hiba a Gemini API hívásakor!' });
+    }
   } catch (error) {
     console.error('Hiba:', error);
     res.status(500).json({ error: 'Hiba történt a kérés feldolgozásakor!' });
