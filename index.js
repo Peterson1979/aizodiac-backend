@@ -108,7 +108,7 @@ IMPORTANT:
         result[normalizedKey] = rest.join(':').trim();
       }
     }
-
+    console.error("Backend response JSON:", JSON.stringify(result));
     res.json(result);
   } catch (error) {
     console.error('Hiba:', error);
