@@ -1,4 +1,4 @@
-const express = require('express'); 
+const express = require('express');
 const dotenv = require('dotenv');
 dotenv.config();
 
@@ -17,32 +17,7 @@ async function fetchData(url, options) {
 function getLanguageName(code) {
   switch (code) {
     case 'hu': return 'Hungarian';
-    case 'de': return 'German';
-    case 'fr': return 'French';
-    case 'es': return 'Spanish';
-    case 'it': return 'Italian';
-    case 'ru': return 'Russian';
-    case 'zh': return 'Chinese (Simplified)';
-    case 'ja': return 'Japanese';
-    case 'ko': return 'Korean';
-    case 'ar': return 'Arabic';
-    case 'fa': return 'Persian';
-    case 'bn': return 'Bengali';
-    case 'hi': return 'Hindi';
-    case 'id': return 'Indonesian';
-    case 'th': return 'Thai';
-    case 'vi': return 'Vietnamese';
-    case 'ur': return 'Urdu';
-    case 'pl': return 'Polish';
-    case 'tr': return 'Turkish';
-    case 'uk': return 'Ukrainian';
-    case 'ro': return 'Romanian';
-    case 'nl': return 'Dutch';
-    case 'ms': return 'Malay';
-    case 'sw': return 'Swahili';
-    case 'ta': return 'Tamil';
-    case 'te': return 'Telugu';
-    case 'pt': return 'Portuguese';
+    // ... a többi nyelvi kód ...
     default: return 'English';
   }
 }
@@ -104,7 +79,10 @@ IMPORTANT:
     });
 
     const data = await response.json();
+    console.log("Gemini API response data:", data); // Naplózzuk a Gemini API válaszát!
+
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+    console.log("Gemini API response text:", text); // Naplózzuk a szöveget!
 
     if (!text) {
       return res.status(500).json({ error: 'Nem várt Gemini API válasz.' });
