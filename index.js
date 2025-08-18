@@ -27,6 +27,8 @@ app.get('/', (req, res) => {
 });
 
 app.get('/horoscope', async (req, res) => {
+  console.error("Horoscope endpoint meghívva!"); // Ellenőrizzük, hogy meghívódik-e az endpoint
+
   const sign = req.query.sign;
   const langCode = req.query.lang?.toLowerCase() || 'en';
   const languageName = getLanguageName(langCode);
@@ -79,10 +81,10 @@ IMPORTANT:
     });
 
     const data = await response.json();
-    console.log("Gemini API response data:", data); // Naplózzuk a Gemini API válaszát!
+    console.error("Gemini API response data:", data); // Naplózzuk a Gemini API válaszát!
 
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-    console.log("Gemini API response text:", text); // Naplózzuk a szöveget!
+    console.error("Gemini API response text:", text); // Naplózzuk a szöveget!
 
     if (!text) {
       return res.status(500).json({ error: 'Nem várt Gemini API válasz.' });
