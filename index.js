@@ -72,7 +72,7 @@ app.get('/horoscope', async (req, res) => {
   const prompt = `
 Create a daily horoscope for the user with the ${sign} zodiac sign for ${date}.
 
-The response should be cheerful and positive. Contain exactly the following 10 sections, in this order, WITHOUT including the section titles:
+The response should be cheerful and positive and contain ONLY the following 10 sections, in this order, WITHOUT including any section titles or labels:
 
 Love: [max 2 sentences, simple, easy-to-understand language for relationships and single life]
 Work: [max 2 sentences about career and work tasks]
