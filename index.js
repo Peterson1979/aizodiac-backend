@@ -13,40 +13,6 @@ async function fetchData(url, options) {
   return response;
 }
 
-// 🔁 Nyelvi kód ➝ nyelv neve
-function getLanguageName(code) {
-  switch (code) {
-    case 'hu': return 'Hungarian';
-    case 'de': return 'German';
-    case 'fr': return 'French';
-    case 'es': return 'Spanish';
-    case 'it': return 'Italian';
-    case 'ru': return 'Russian';
-    case 'zh': return 'Chinese (Simplified)';
-    case 'ja': return 'Japanese';
-    case 'ko': return 'Korean';
-    case 'ar': return 'Arabic';
-    case 'fa': return 'Persian';
-    case 'bn': return 'Bengali';
-    case 'hi': return 'Hindi';
-    case 'id': return 'Indonesian';
-    case 'th': return 'Thai';
-    case 'vi': return 'Vietnamese';
-    case 'ur': return 'Urdu';
-    case 'pl': return 'Polish';
-    case 'tr': return 'Turkish';
-    case 'uk': return 'Ukrainian';
-    case 'ro': return 'Romanian';
-    case 'nl': return 'Dutch';
-    case 'ms': return 'Malay';
-    case 'sw': return 'Swahili';
-    case 'ta': return 'Tamil';
-    case 'te': return 'Telugu';
-    case 'pt': return 'Portuguese';
-    default: return 'English';
-  }
-}
-
 app.get('/', (req, res) => {
   res.send('AIzodiac backend él – használd a /horoscope végpontot!');
 });
@@ -54,9 +20,8 @@ app.get('/', (req, res) => {
 app.get('/horoscope', async (req, res) => {
   const sign = req.query.sign;
   const langCode = req.query.lang?.toLowerCase() || 'en';
-  const languageName = getLanguageName(langCode);
+  const date = req.query.date;
 
-  let date = req.query.date;
   if (!sign) {
     return res.status(400).json({ error: 'Csillagjegy megadása kötelező!' });
   }
@@ -86,7 +51,7 @@ Stars position: [max 2 sentences about Moon/Venus and how it affects the zodiac 
 Daily tip: [a practical, positive advice in 1 sentence to help the user succeed today]
 
 IMPORTANT:
-- The entire response must be written in ${languageName}.
+- The entire response must be written in English.
 - Each section must be on a separate line
 - No intro or outro text
 - No JSON, HTML, or Markdown formatting
@@ -105,8 +70,7 @@ IMPORTANT:
 
     const data = await response.json();
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-    console.log("Gemini API response:", text);
-	
+
     if (!text) {
       return res.status(500).json({ error: 'Nem várt Gemini API válasz.' });
     }
@@ -114,22 +78,10 @@ IMPORTANT:
     const lines = text.split('\n').filter(Boolean);
     const result = {};
 
-    for (let line of lines) {
-      const [key, ...rest] = line.split(':');
-      if (key && rest.length > 0) {
-        const normalizedKey = key.trim().toLowerCase()
-          .replace(/ /g, '')
-          .replace('moodsummary', 'mood')
-          .replace('starsposition', 'starsPosition')
-          .replace('dailyluckynumber', 'dailyLuckyNumber')
-          .replace('luckycolor', 'luckyColor')
-          .replace('dailymantra', 'dailyMantra')
-          .replace('dailytip', 'dailyTip');
-
-        result[normalizedKey] = rest.join(':').trim();
-      }
+    let keyNames = ["love", "work", "health", "money", "dailyluckynumber", "luckycolor", "dailymantra", "moodsummary", "starsposition", "dailytip"];
+    for (let i = 0; i < lines.length; i++) {
+      result[keyNames[i]] = lines[i];
     }
-
     res.json(result);
   } catch (error) {
     console.error('Hiba:', error);
