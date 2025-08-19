@@ -78,10 +78,22 @@ IMPORTANT:
     const lines = text.split('\n').filter(Boolean);
     const result = {};
 
-    let keyNames = ["love", "work", "health", "money", "dailyluckynumber", "luckycolor", "dailymantra", "moodsummary", "starsposition", "dailytip"];
-    for (let i = 0; i < lines.length; i++) {
-      result[keyNames[i]] = lines[i];
+    for (let line of lines) {
+      const [key, ...rest] = line.split(':');
+      if (key && rest.length > 0) {
+        let normalizedKey = key.trim().toLowerCase().replace(/ /g, '');
+        result[normalizedKey] = rest.join(':').trim();
+      }
     }
+
+    // Ellenőrizzük, hogy minden kulcs létezik-e, és ha nem, akkor null értékkel töltjük fel
+    const expectedKeys = ["love", "work", "health", "money", "dailyluckynumber", "luckycolor", "dailymantra", "moodsummary", "starsposition", "dailytip"];
+    for (const key of expectedKeys) {
+      if (!result[key]) {
+        result[key] = null;
+      }
+    }
+
     res.json(result);
   } catch (error) {
     console.error('Hiba:', error);
