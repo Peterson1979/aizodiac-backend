@@ -70,26 +70,26 @@ app.get('/horoscope', async (req, res) => {
   }
 
   const prompt = `
-Create a daily horoscope for the user with the ${sign} zodiac sign for ${date}.
+You are an astrologer AI. Provide a daily horoscope for the zodiac sign "${sign}" for ${date}.
+Respond ONLY in valid JSON with the following exact English keys:
 
-The response should be cheerful and positive and contain ONLY the following 10 sections, in this order, WITHOUT including any section titles or labels:
+{
+  "love": "...",
+  "work": "...",
+  "health": "...",
+  "money": "...",
+  "dailyLuckyNumber": "...",
+  "luckyColor": "...",
+  "dailyMantra": "...",
+  "moodSummary": "...",
+  "starsPosition": "...",
+  "dailyTip": "..."
+}
 
-Love: [max 2 sentences, simple, easy-to-understand language for relationships and single life]
-Work: [max 2 sentences about career and work tasks]
-Health: [max 2 sentences about physical and mental health]
-Money: [max 2 sentences about finances and investments]
-Daily lucky number: [a number between 1 and 99 that can bring luck]
-Lucky color: [a specific color that conveys positive energies]
-Daily mantra: [an inspiring sentence, like a quote, that gives strength for the day]
-Mood summary: [one word or short phrase that reflects the mood of the day]
-Stars position: [max 2 sentences about Moon/Venus and how it affects the zodiac sign]
-Daily tip: [a practical, positive advice in 1 sentence to help the user succeed today]
-
-IMPORTANT:
-- The entire response must be written in ${languageName}.
-- Each section must be on a separate line
-- No intro or outro text
-- No JSON, HTML, or Markdown formatting
+Important:
+- Keep the keys exactly as written above.
+- The values must be written in ${languageName}.
+- No extra text or formatting outside of JSON.
 `;
 
   const geminiApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
@@ -104,34 +104,31 @@ IMPORTANT:
     });
 
     const data = await response.json();
-    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+    let text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
 
-    console.log("Gemini API response:", text); // Log the Gemini API response
+    console.log("Gemini API response:", text);
 
     if (!text) {
       return res.status(500).json({ error: 'Nem várt Gemini API válasz.' });
     }
 
-    const lines = text.split('\n').filter(Boolean);
-    const result = {};
+    // Tisztítás (ha a Gemini extra karaktereket adna vissza)
+    text = text.replace(/```json|```/g, '').trim();
 
-    for (let line of lines) {
-      const [key, ...rest] = line.split(':');
-      if (key && rest.length > 0) {
-        let normalizedKey = key.trim().toLowerCase().replace(/ /g, '');
-        result[normalizedKey] = rest.join(':').trim();
-      }
+    let jsonResponse;
+    try {
+      jsonResponse = JSON.parse(text);
+    } catch (err) {
+      return res.status(500).json({ error: 'Nem lehet feldolgozni a Gemini válaszát.', raw: text });
     }
 
-    // Ellenőrizzük, hogy minden kulcs létezik-e, és ha nem, akkor null értékkel töltjük fel
-    const expectedKeys = ["love", "work", "health", "money", "dailyluckynumber", "luckycolor", "dailymantra", "moodsummary", "starsposition", "dailytip"];
+    // Biztosítjuk, hogy minden kulcs létezzen
+    const expectedKeys = ["love", "work", "health", "money", "dailyLuckyNumber", "luckyColor", "dailyMantra", "moodSummary", "starsPosition", "dailyTip"];
     for (const key of expectedKeys) {
-      if (!result[key]) {
-        result[key] = null;
-      }
+      if (!jsonResponse[key]) jsonResponse[key] = null;
     }
 
-    res.json(result);
+    res.json(jsonResponse);
   } catch (error) {
     console.error('Hiba:', error);
     res.status(500).json({ error: 'Hiba történt a kérés feldolgozásakor!' });
