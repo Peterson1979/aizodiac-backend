@@ -9,8 +9,13 @@ app.use(express.json());
 
 async function fetchData(url, options) {
   const fetch = (await import('node-fetch')).default;
-  const response = await fetch(url, options);
-  return response;
+  try {
+    const response = await fetch(url, options);
+    return response;
+  } catch (error) {
+    console.error("fetchData error:", error); // Naplózzuk a fetchData hibáit
+    throw error; // Fontos, hogy továbbdobjuk a hibát!
+  }
 }
 
 // 🔁 Nyelvi kód ➝ nyelv neve
