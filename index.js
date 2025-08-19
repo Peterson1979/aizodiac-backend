@@ -13,6 +13,40 @@ async function fetchData(url, options) {
   return response;
 }
 
+// 🔁 Nyelvi kód ➝ nyelv neve
+function getLanguageName(code) {
+  switch (code) {
+    case 'hu': return 'Hungarian';
+    case 'de': return 'German';
+    case 'fr': return 'French';
+    case 'es': return 'Spanish';
+    case 'it': return 'Italian';
+    case 'ru': return 'Russian';
+    case 'zh': return 'Chinese (Simplified)';
+    case 'ja': return 'Japanese';
+    case 'ko': return 'Korean';
+    case 'ar': return 'Arabic';
+    case 'fa': return 'Persian';
+    case 'bn': return 'Bengali';
+    case 'hi': return 'Hindi';
+    case 'id': return 'Indonesian';
+    case 'th': return 'Thai';
+    case 'vi': return 'Vietnamese';
+    case 'ur': return 'Urdu';
+    case 'pl': return 'Polish';
+    case 'tr': return 'Turkish';
+    case 'uk': return 'Ukrainian';
+    case 'ro': return 'Romanian';
+    case 'nl': return 'Dutch';
+    case 'ms': return 'Malay';
+    case 'sw': return 'Swahili';
+    case 'ta': return 'Tamil';
+    case 'te': return 'Telugu';
+    case 'pt': return 'Portuguese';
+    default: return 'English';
+  }
+}
+
 app.get('/', (req, res) => {
   res.send('AIzodiac backend él – használd a /horoscope végpontot!');
 });
@@ -20,8 +54,9 @@ app.get('/', (req, res) => {
 app.get('/horoscope', async (req, res) => {
   const sign = req.query.sign;
   const langCode = req.query.lang?.toLowerCase() || 'en';
-  const date = req.query.date;
+  const languageName = getLanguageName(langCode);
 
+  let date = req.query.date;
   if (!sign) {
     return res.status(400).json({ error: 'Csillagjegy megadása kötelező!' });
   }
@@ -51,7 +86,7 @@ Stars position: [max 2 sentences about Moon/Venus and how it affects the zodiac 
 Daily tip: [a practical, positive advice in 1 sentence to help the user succeed today]
 
 IMPORTANT:
-- The entire response must be written in English.
+- The entire response must be written in ${languageName}.
 - Each section must be on a separate line
 - No intro or outro text
 - No JSON, HTML, or Markdown formatting
