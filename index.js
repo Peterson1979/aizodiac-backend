@@ -72,7 +72,7 @@ app.get('/horoscope', async (req, res) => {
   const prompt = `
 Create a daily horoscope for the user with the ${sign} zodiac sign for ${date}.
 
-The response should be cheerful and positive, and contain exactly the following 10 sections, in this order:
+The response should be cheerful and positive. Contain exactly the following 10 sections, in this order, WITHOUT including the section titles:
 
 Love: [max 2 sentences, simple, easy-to-understand language for relationships and single life]
 Work: [max 2 sentences about career and work tasks]
@@ -125,7 +125,6 @@ IMPORTANT:
           .replace('dailymantra', 'dailyMantra')
           .replace('dailytip', 'dailyTip');
 
-        // Eltávolítjuk a kulcsot a szövegből
         result[normalizedKey] = rest.join(':').trim();
       }
     }
