@@ -105,7 +105,8 @@ IMPORTANT:
 
     const data = await response.json();
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-
+    console.log("Gemini API response:", text);
+	
     if (!text) {
       return res.status(500).json({ error: 'Nem várt Gemini API válasz.' });
     }
