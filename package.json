@@ -19,6 +19,7 @@
   },
   "homepage": "https://github.com/peterson1979/aizodiac-backend#readme",
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
     "dotenv": "^17.2.1",
     "express": "^5.1.0",
     "node-fetch": "^3.3.2"

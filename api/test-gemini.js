@@ -1,4 +1,4 @@
-const { GoogleGenerativeAI } = require("@google/generative-ai");
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 export default async function handler(req, res) {
   try {
@@ -6,16 +6,14 @@ export default async function handler(req, res) {
     if (!apiKey) throw new Error("GEMINI_API_KEY not set");
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-lite" });
 
-    const response = await model.generateText({
-      prompt: "Say hello in a friendly way",
-      maxOutputTokens: 50,
-    });
+    const result = await model.generateContent("Say hello in a friendly way");
+    const output = result.response.text();
 
-    res.status(200).json({ success: true, response: response.candidates[0].output });
+    res.status(200).json({ success: true, output });
   } catch (err) {
-    console.error(err);
+    console.error("Error:", err);
     res.status(500).json({ success: false, error: err.message });
   }
 }
