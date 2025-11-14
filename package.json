@@ -2,6 +2,7 @@
   "name": "aizodiac-backend",
   "version": "1.0.0",
   "dependencies": {
-    "@google/generative-ai": "^0.24.1"
+    "@google/generative-ai": "^0.24.1",
+    "ioredis": "^5.8.2"
   }
 }
