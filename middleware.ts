@@ -1,31 +1,30 @@
-import { NextResponse } from "next/server";
+// app/middleware.ts (Vercel Edge-kompatibilis, rate limit megtartva)
+
 import type { NextRequest } from "next/server";
 
-// Egyszerű memóriában tárolt rate-limit tároló (Vercel edge környezetben működik)
+// Egyszerű memóriában tárolt rate-limit tároló
 const rateLimitMap = new Map<string, { count: number; timestamp: number }>();
 
 // LIMIT: 6 kérés / perc / IP
 const MAX_REQUESTS = 6;
 const WINDOW_MS = 60 * 1000; // 1 perc
 
-export function middleware(req: NextRequest) {
-  const ip =
-    req.headers.get("x-forwarded-for") ||
-    req.ip ||
-    "unknown";
+export const config = {
+  matcher: "/api/:path*", // minden /api végpontra
+};
 
+export default async function middleware(req: NextRequest) {
+  const ip = req.headers.get("x-forwarded-for") || "unknown";
   const now = Date.now();
-
   const entry = rateLimitMap.get(ip);
 
   if (entry) {
-    // Ha 1 percen belül vagyunk
     if (now - entry.timestamp < WINDOW_MS) {
       if (entry.count >= MAX_REQUESTS) {
-        return new NextResponse(
-          JSON.stringify({ error: "Rate limit exceeded. Try again later." }),
-          { status: 429, headers: { "Content-Type": "application/json" } }
-        );
+        return new Response(JSON.stringify({ error: "Rate limit exceeded. Try again later." }), {
+          status: 429,
+          headers: { "Content-Type": "application/json" },
+        });
       } else {
         entry.count++;
       }
@@ -38,10 +37,5 @@ export function middleware(req: NextRequest) {
     rateLimitMap.set(ip, { count: 1, timestamp: now });
   }
 
-  return NextResponse.next();
+  return new Response(null, { status: 200 });
 }
-
-// Middleware alkalmazása minden API végpontra
-export const config = {
-  matcher: "/api/:path*",
-};
