@@ -72,7 +72,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     const body = req.body || {};
-    const { type, data = {}, languageCode = data.language || "en", stream = false } = body;
+    const { type, data = {}, languageCode = data.language || "en", stream = false, debug = false } = body;
 
     // Chinese horoscope faktikus értékek
     if (type === "chinese_horoscope") {
@@ -88,12 +88,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     }
 
-    // Prompt
+    // Prompt lekérése minden típushoz
     const promptTemplate = PROMPTS[type];
     if (!promptTemplate) return res.status(400).json({ error: "unknown_type" });
 
     const filledPrompt = fillTemplate(promptTemplate, { ...data, language: languageCode });
-    console.log("Filled prompt:", filledPrompt);
+    if (debug) console.log("DEBUG: Filled prompt:", filledPrompt);
 
     // Token limit ellenőrzés
     const estimatedTokens = Math.ceil(filledPrompt.length / 4) + 200;
@@ -123,10 +123,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Normál generálás
     const generateResult = await retryWithBackoff(() => model.generateContent(filledPrompt, { timeout: GEMINI_TIMEOUT_MS }));
-    console.log("Generate result raw:", generateResult);
+    if (debug) console.log("DEBUG: Generate result raw:", generateResult);
 
     const text = generateResult?.response?.text?.() || generateResult?.text || null;
-
     if (!text) {
       console.error("Empty response from Gemini API", generateResult);
       return res.status(500).json({ error: "empty_response", message: "No content from AI" });
