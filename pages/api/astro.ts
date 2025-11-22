@@ -1,7 +1,9 @@
+// File: pages/api/astro.ts
 import type { NextApiRequest, NextApiResponse } from "next";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { Redis } from "@upstash/redis";
 import { PROMPTS } from "../../lib/prompts";
+import { getChineseZodiac_FULL } from "../../lib/factualCalculations";
 
 interface RedisInstance {
   get<T>(key: string): Promise<T|null>;
@@ -60,6 +62,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     const body = req.body || {};
     const { type, data = {}, languageCode = data.language || "en", stream = false } = body;
+
+    // Ha kínai horoszkóp, generáljuk a faktikus értékeket
+    if(type === "chinese_horoscope") {
+      if(!data.dateOfBirth) return res.status(400).json({error:"missing_dateOfBirth"});
+      try {
+        const zodiac = getChineseZodiac_FULL(data.dateOfBirth);
+        data.symbol = zodiac.symbol;
+        data.animal = zodiac.animal;
+        data.element = zodiac.element;
+        data.yinYang = zodiac.yinYang;
+      } catch {
+        return res.status(400).json({error:"invalid_date_format"});
+      }
+    }
+
+    // Kinyerjük a promptot
     const promptTemplate = PROMPTS[type];
     if(!promptTemplate) return res.status(400).json({error:"unknown_type"});
 
