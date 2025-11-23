@@ -2,6 +2,7 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { Redis } from "@upstash/redis";
 import { PROMPTS } from "../lib/prompts.js";
+import { calculateLifePathNumber, getChineseZodiac_FULL } from "../lib/factualCalculations.js";
 
 // --- Redis setup ---
 const redis = process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
@@ -46,33 +47,6 @@ async function canUseTokens(tokens) {
   }
 }
 
-// --- Life Path Number (determinisztikus) ---
-function calculateLifePathNumber(dateOfBirth) {
-  const digits = dateOfBirth.replace(/\D/g, '').split('').map(Number);
-  const sumDigits = (arr) => arr.reduce((a, b) => a + b, 0);
-  let total = sumDigits(digits);
-  while (total > 9) total = sumDigits(total.toString().split('').map(Number));
-  return total;
-}
-
-// --- Chinese Zodiac ---
-function getChineseZodiac(year) {
-  const animals = ["Rat","Ox","Tiger","Rabbit","Dragon","Snake","Horse","Goat","Monkey","Rooster","Dog","Pig"];
-  const elements = ["Wood","Fire","Earth","Metal","Water"];
-  const yinYang = ["Yang","Yin"];
-  const animal = animals[(year - 4) % 12];
-  const element = elements[(year - 4) % 10 % 5];
-  const yy = yinYang[(year - 4) % 2];
-  return { animal, element, yinYang: yy, symbol: `${element} ${animal}` };
-}
-
-function getChineseZodiac_FULL(dateStr) {
-  const parts = dateStr.split("/");
-  if (parts.length !== 3) throw new Error("Invalid date");
-  const year = parseInt(parts[2], 10);
-  return getChineseZodiac(year);
-}
-
 // --- Fill Template ---
 function fillTemplate(template, data = {}) {
   let out = template;
@@ -83,22 +57,25 @@ function fillTemplate(template, data = {}) {
   return out.replace(/{{\w+}}/g, "");
 }
 
-// --- Main handler ---
-export default async function handler(request) {
-  if (request.method !== "POST") {
-    return new Response(JSON.stringify({ error: "method_not_allowed" }), { status: 405 });
+// --- Main handler (Serverless Function szintaxis) ---
+export default async function handler(req, res) {
+  if (req.method !== "POST") {
+    return res.status(405).json({ error: "method_not_allowed" });
   }
 
-  const ip = request.headers.get("x-forwarded-for")?.split(",")[0].trim() || "unknown";
+  // IP lekérés Serverless módban
+  const rawIp = req.headers["x-forwarded-for"] || req.socket.remoteAddress || "unknown";
+  const ip = Array.isArray(rawIp) ? rawIp[0] : String(rawIp).split(",")[0].trim();
+
   if (!(await isAllowedRequest(ip))) {
-    return new Response(JSON.stringify({ error: "rate_limit_exceeded" }), { status: 429 });
+    return res.status(429).json({ error: "rate_limit_exceeded" });
   }
 
   try {
-    const body = await request.json();
+    const body = req.body || {};
     const { type, data = {}, languageCode = "en" } = body;
 
-    if (!type) return new Response(JSON.stringify({ error: "missing_type" }), { status: 400 });
+    if (!type) return res.status(400).json({ error: "missing_type" });
 
     // Faktikus számítások
     let finalData = { ...data };
@@ -113,14 +90,11 @@ export default async function handler(request) {
       finalData.YIN_YANG = zodiac.yinYang;
     }
 
-    // Prompt kiválasztás
     const promptTemplate = PROMPTS[type];
-    if (!promptTemplate) return new Response(JSON.stringify({ error: "unknown_type" }), { status: 400 });
+    if (!promptTemplate) return res.status(400).json({ error: "unknown_type" });
 
-    // Language name mapping (egyszerűsítve)
     const languageName = languageCode;
 
-    // Adatok előkészítése a template-be
     const templateData = {
       language: languageName,
       SYMBOL: finalData.SYMBOL || "",
@@ -145,11 +119,11 @@ export default async function handler(request) {
     const estimatedTokens = Math.ceil(filledPrompt.length / 4) + 200;
 
     if (!(await canUseTokens(estimatedTokens))) {
-      return new Response(JSON.stringify({ error: "token_limit_exceeded" }), { status: 429 });
+      return res.status(429).json({ error: "token_limit_exceeded" });
     }
 
     const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) return new Response(JSON.stringify({ error: "server_config_error" }), { status: 500 });
+    if (!apiKey) return res.status(500).json({ error: "server_config_error" });
 
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({ model: DEFAULT_MODEL });
@@ -157,11 +131,10 @@ export default async function handler(request) {
     const result = await model.generateContent(filledPrompt);
     const text = result.response.text();
 
-    return new Response(JSON.stringify({ success: true, content: text.trim() }), {
-      headers: { "Content-Type": "application/json" },
-    });
+    return res.status(200).json({ success: true, content: text.trim() });
+
   } catch (error) {
     console.error("Error in generateAstroContent:", error);
-    return new Response(JSON.stringify({ error: "internal_error", message: error.message || "Unexpected error" }), { status: 500 });
+    return res.status(500).json({ error: "internal_error", message: error.message || "Unexpected error" });
   }
 }
