@@ -13,12 +13,11 @@ const redis = process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_RE
     })
   : null;
 
-// --- Config ---
 const DEFAULT_DAILY_TOKEN_LIMIT = parseInt(process.env.DAILY_TOKEN_LIMIT || "10000000", 10);
 const DEFAULT_MODEL = process.env.GENERATIVE_MODEL || "gemini-2.5-flash-lite";
 const MAX_RETRIES = 3;
 
-// --- Retry with backoff ---
+// --- Retry ---
 async function retryWithBackoff(fn, retries = MAX_RETRIES) {
   let attempt = 0;
   while (attempt < retries) {
@@ -77,6 +76,49 @@ function fillTemplate(template, data = {}) {
   return out.replace(/{{\w+}}/g, "");
 }
 
+// --- Western Zodiac ---
+function getWesternZodiac(dateStr) {
+  const [day, month] = dateStr.split("/").map(Number);
+  if ((month === 3 && day >= 21) || (month === 4 && day <= 19)) return "Aries";
+  if ((month === 4 && day >= 20) || (month === 5 && day <= 20)) return "Taurus";
+  if ((month === 5 && day >= 21) || (month === 6 && day <= 20)) return "Gemini";
+  if ((month === 6 && day >= 21) || (month === 7 && day <= 22)) return "Cancer";
+  if ((month === 7 && day >= 23) || (month === 8 && day <= 22)) return "Leo";
+  if ((month === 8 && day >= 23) || (month === 9 && day <= 22)) return "Virgo";
+  if ((month === 9 && day >= 23) || (month === 10 && day <= 22)) return "Libra";
+  if ((month === 10 && day >= 23) || (month === 11 && day <= 21)) return "Scorpio";
+  if ((month === 11 && day >= 22) || (month === 12 && day <= 21)) return "Sagittarius";
+  if ((month === 12 && day >= 22) || (month === 1 && day <= 19)) return "Capricorn";
+  if ((month === 1 && day >= 20) || (month === 2 && day <= 18)) return "Aquarius";
+  return "Pisces";
+}
+
+// --- Element Balance (egyszerűsített) ---
+function calculateElementBalance(sunSign, moonSign = "Estimated", ascendant = "Generalized") {
+  const fire = ["Aries", "Leo", "Sagittarius"];
+  const earth = ["Taurus", "Virgo", "Capricorn"];
+  const air = ["Gemini", "Libra", "Aquarius"];
+  const water = ["Cancer", "Scorpio", "Pisces"];
+  
+  const signs = [sunSign, moonSign, ascendant].filter(s => s !== "Estimated" && s !== "Generalized");
+  const counts = { fire: 0, earth: 0, air: 0, water: 0 };
+  
+  signs.forEach(sign => {
+    if (fire.includes(sign)) counts.fire++;
+    else if (earth.includes(sign)) counts.earth++;
+    else if (air.includes(sign)) counts.air++;
+    else if (water.includes(sign)) counts.water++;
+  });
+  
+  const total = signs.length || 1;
+  return {
+    fire: Math.round((counts.fire / total) * 100 / 5) * 5,
+    earth: Math.round((counts.earth / total) * 100 / 5) * 5,
+    air: Math.round((counts.air / total) * 100 / 5) * 5,
+    water: Math.round((counts.water / total) * 100 / 5) * 5,
+  };
+}
+
 // --- Main handler ---
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -98,17 +140,32 @@ export default async function handler(req, res) {
 
     let finalData = { ...data };
 
-    // Aszcendens számítása ASCENDANT_CALC és PERSONAL_HOROSCOPE esetén is
-    if (finalData.dateOfBirth && (type === "ascendant_calc" || type === "personal_horoscope")) {
-      const latitude = 47.5; // Budapest közelében
-      try {
-        finalData.risingSign = calculateAscendant(
-          finalData.dateOfBirth,
-          finalData.timeOfBirth || "12:00 PM",
-          latitude
-        );
-      } catch (e) {
-        finalData.risingSign = "Generalized";
+    // Születési dátum kötelező a legtöbb funkcióhoz
+    if (finalData.dateOfBirth) {
+      finalData.sunSign = getWesternZodiac(finalData.dateOfBirth);
+      finalData.moonSign = "Estimated";
+      
+      // Aszcendens számítás
+      if (type === "ascendant_calc" || type === "personal_horoscope") {
+        const latitude = 47.5;
+        try {
+          finalData.risingSign = calculateAscendant(
+            finalData.dateOfBirth,
+            finalData.timeOfBirth || "12:00 PM",
+            latitude
+          );
+        } catch (e) {
+          finalData.risingSign = "Generalized";
+        }
+      }
+      
+      // Element Balance
+      if (type === "personal_horoscope") {
+        const balance = calculateElementBalance(finalData.sunSign, finalData.moonSign, finalData.risingSign);
+        finalData.firePercent = balance.fire;
+        finalData.earthPercent = balance.earth;
+        finalData.airPercent = balance.air;
+        finalData.waterPercent = balance.water;
       }
     }
 
@@ -133,6 +190,13 @@ export default async function handler(req, res) {
 
     const templateData = {
       language: languageName,
+      sunSign: finalData.sunSign || "Unknown",
+      moonSign: finalData.moonSign || "Estimated",
+      risingSign: finalData.risingSign || "Generalized",
+      firePercent: finalData.firePercent || 0,
+      earthPercent: finalData.earthPercent || 0,
+      airPercent: finalData.airPercent || 0,
+      waterPercent: finalData.waterPercent || 0,
       SYMBOL: finalData.SYMBOL || "",
       ANIMAL: finalData.ANIMAL || "",
       ELEMENT: finalData.ELEMENT || "",
@@ -148,8 +212,7 @@ export default async function handler(req, res) {
       period: finalData.period || "daily",
       timeRange: finalData.timeRange || "day",
       focusArea: finalData.focusArea || "general",
-      lifePathNumber: finalData.lifePathNumber || "",
-      risingSign: finalData.risingSign || "Generalized",
+      lifePathNumber: finalData.lifePathNumber || "X",
     };
 
     const filledPrompt = fillTemplate(promptTemplate, templateData);
@@ -169,9 +232,7 @@ export default async function handler(req, res) {
       try {
         return await model.generateContent(filledPrompt);
       } catch (err) {
-        if (err?.status === 503) {
-          throw err;
-        }
+        if (err?.status === 503) throw err;
         throw new Error("Non-retryable error");
       }
     });
