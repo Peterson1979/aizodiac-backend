@@ -204,3 +204,10 @@ export default async function handler(req, res) {
 
     const result = await retryWithBackoff(() => model.generateContent(filledPrompt));
     const text = result.response.text();
+    return res.status(200).json({ success: true, content: text.trim() });
+
+  } catch (error) {
+    console.error("Error in generateAstroContent:", error);
+    return res.status(500).json({ error: "internal_error", message: error.message || "Unexpected error" });
+  }
+}
