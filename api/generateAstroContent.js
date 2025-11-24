@@ -158,7 +158,17 @@ export default async function handler(req, res) {
       finalData.YIN_YANG = zodiac.yinYang;
     }
 
-    const promptTemplate = PROMPTS[type];
+    let promptTemplate = PROMPTS[type];
+
+// Ha az adott horoszkóptípus időperiódus szerint bontott
+if (typeof promptTemplate === "object" && promptTemplate[templateData.period]) {
+  promptTemplate = promptTemplate[templateData.period];
+}
+
+if (!promptTemplate) {
+  return res.status(400).json({ error: "unknown_type_or_period" });
+}
+
     if (!promptTemplate) return res.status(400).json({ error: "unknown_type" });
 
     const templateData = {
