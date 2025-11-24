@@ -5,37 +5,27 @@ import { PROMPTS } from "../lib/prompts.js";
 import { calculateLifePathNumber, getChineseZodiac_FULL } from "../lib/factualCalculations.js";
 import { calculateAscendant } from "../lib/ascendant.js";
 
-// --- Redis setup ---
 const redis = process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
-  ? new Redis({
-      url: process.env.UPSTASH_REDIS_REST_URL,
-      token: process.env.UPSTASH_REDIS_REST_TOKEN,
-    })
+  ? new Redis({ url: process.env.UPSTASH_REDIS_REST_URL, token: process.env.UPSTASH_REDIS_REST_TOKEN })
   : null;
 
 const DEFAULT_DAILY_TOKEN_LIMIT = parseInt(process.env.DAILY_TOKEN_LIMIT || "10000000", 10);
 const DEFAULT_MODEL = process.env.GENERATIVE_MODEL || "gemini-2.5-flash-lite";
 const MAX_RETRIES = 3;
 
-// --- Retry ---
 async function retryWithBackoff(fn, retries = MAX_RETRIES) {
   let attempt = 0;
   while (attempt < retries) {
-    try {
-      return await fn();
-    } catch (err) {
+    try { return await fn(); }
+    catch (err) {
       attempt++;
       if (attempt >= retries) throw err;
-      if (err?.status === 503) {
-        await new Promise(r => setTimeout(r, Math.pow(2, attempt) * 500));
-      } else {
-        throw err;
-      }
+      if (err?.status === 503) await new Promise(r => setTimeout(r, Math.pow(2, attempt) * 500));
+      else throw err;
     }
   }
 }
 
-// --- Rate Limiting ---
 async function isAllowedRequest(ip) {
   if (!redis) return true;
   const key = `ratelimit:${ip}`;
@@ -45,12 +35,9 @@ async function isAllowedRequest(ip) {
     await redis.incr(key);
     await redis.expire(key, 60);
     return true;
-  } catch (e) {
-    return true;
-  }
+  } catch { return true; }
 }
 
-// --- Token Limit ---
 async function canUseTokens(tokens) {
   if (!redis) return true;
   const today = new Date().toISOString().slice(0, 10);
@@ -61,12 +48,9 @@ async function canUseTokens(tokens) {
     await redis.incrby(key, tokens);
     await redis.expire(key, 60 * 60 * 24);
     return true;
-  } catch (e) {
-    return true;
-  }
+  } catch { return true; }
 }
 
-// --- Fill Template ---
 function fillTemplate(template, data = {}) {
   let out = template;
   Object.keys(data).forEach(k => {
@@ -76,7 +60,6 @@ function fillTemplate(template, data = {}) {
   return out.replace(/{{\w+}}/g, "");
 }
 
-// --- Western Zodiac ---
 function getWesternZodiac(dateStr) {
   const [day, month] = dateStr.split("/").map(Number);
   if ((month === 3 && day >= 21) || (month === 4 && day <= 19)) return "Aries";
@@ -93,7 +76,6 @@ function getWesternZodiac(dateStr) {
   return "Pisces";
 }
 
-// --- Element Balance (egyszerűsített) ---
 function calculateElementBalance(sunSign, moonSign = "Estimated", ascendant = "Generalized") {
   const fire = ["Aries", "Leo", "Sagittarius"];
   const earth = ["Taurus", "Virgo", "Capricorn"];
@@ -119,7 +101,6 @@ function calculateElementBalance(sunSign, moonSign = "Estimated", ascendant = "G
   };
 }
 
-// --- Main handler ---
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "method_not_allowed" });
@@ -127,7 +108,6 @@ export default async function handler(req, res) {
 
   const rawIp = req.headers["x-forwarded-for"] || req.socket.remoteAddress || "unknown";
   const ip = Array.isArray(rawIp) ? rawIp[0] : String(rawIp).split(",")[0].trim();
-
   if (!(await isAllowedRequest(ip))) {
     return res.status(429).json({ error: "rate_limit_exceeded" });
   }
@@ -135,17 +115,15 @@ export default async function handler(req, res) {
   try {
     const body = req.body || {};
     const { type, data = {}, languageCode = "en" } = body;
-
     if (!type) return res.status(400).json({ error: "missing_type" });
 
-    let finalData = { ...data };
+    const currentDate = new Date().toISOString().slice(0, 10); // ← MAI DÁTUM
+    let finalData = { ...data, currentDate };
 
-    // Születési dátum kötelező a legtöbb funkcióhoz
     if (finalData.dateOfBirth) {
       finalData.sunSign = getWesternZodiac(finalData.dateOfBirth);
       finalData.moonSign = "Estimated";
       
-      // Aszcendens számítás
       if (type === "ascendant_calc" || type === "personal_horoscope") {
         const latitude = 47.5;
         try {
@@ -154,12 +132,11 @@ export default async function handler(req, res) {
             finalData.timeOfBirth || "12:00 PM",
             latitude
           );
-        } catch (e) {
+        } catch {
           finalData.risingSign = "Generalized";
         }
       }
       
-      // Element Balance
       if (type === "personal_horoscope") {
         const balance = calculateElementBalance(finalData.sunSign, finalData.moonSign, finalData.risingSign);
         finalData.firePercent = balance.fire;
@@ -169,12 +146,10 @@ export default async function handler(req, res) {
       }
     }
 
-    // Numerológia
     if (finalData.dateOfBirth && type === "numerology") {
       finalData.lifePathNumber = calculateLifePathNumber(finalData.dateOfBirth);
     }
 
-    // Kínai horoszkóp
     if (finalData.dateOfBirth && type === "chinese_horoscope") {
       const zodiac = getChineseZodiac_FULL(finalData.dateOfBirth);
       finalData.SYMBOL = zodiac.symbol;
@@ -186,10 +161,9 @@ export default async function handler(req, res) {
     const promptTemplate = PROMPTS[type];
     if (!promptTemplate) return res.status(400).json({ error: "unknown_type" });
 
-    const languageName = languageCode;
-
     const templateData = {
-      language: languageName,
+      language: languageCode,
+      currentDate: currentDate,
       sunSign: finalData.sunSign || "Unknown",
       moonSign: finalData.moonSign || "Estimated",
       risingSign: finalData.risingSign || "Generalized",
@@ -228,20 +202,5 @@ export default async function handler(req, res) {
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({ model: DEFAULT_MODEL });
 
-    const result = await retryWithBackoff(async () => {
-      try {
-        return await model.generateContent(filledPrompt);
-      } catch (err) {
-        if (err?.status === 503) throw err;
-        throw new Error("Non-retryable error");
-      }
-    });
-
+    const result = await retryWithBackoff(() => model.generateContent(filledPrompt));
     const text = result.response.text();
-    return res.status(200).json({ success: true, content: text.trim() });
-
-  } catch (error) {
-    console.error("Error in generateAstroContent:", error);
-    return res.status(500).json({ error: "internal_error", message: error.message || "Unexpected error" });
-  }
-}
