@@ -2,7 +2,8 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { Redis } from "@upstash/redis";
 import { PROMPTS } from "../lib/prompts.js";
-import { calculateLifePathNumber, getChineseZodiac_FULL } from "../lib/factualCalculations.js";
+import { calculateLifePathNumber, calculateNumerology } from "../lib/factualCalculations.js";
+import { getChineseZodiac_FULL } from "../lib/chineseZodiac.js";
 import { calculateAscendant } from "../lib/ascendant.js";
 
 const redis = process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
@@ -76,13 +77,29 @@ function getWesternZodiac(dateStr) {
   return "Pisces";
 }
 
-function calculateElementBalance(sunSign, moonSign = "Estimated", ascendant = "Generalized") {
+// ✅ ÚJ: Holdjegy approximáció a hónap alapján
+function getMoonSignApprox(dateStr) {
+  const parts = dateStr.split("/");
+  if (parts.length !== 3) return "Becsült";
+  const month = parseInt(parts[1], 10);
+  if (isNaN(month) || month < 1 || month > 12) return "Becsült";
+  
+  const signs = [
+    "Capricorn", "Aquarius", "Pisces", "Aries", "Taurus", "Gemini",
+    "Cancer", "Leo", "Virgo", "Libra", "Scorpio", "Sagittarius"
+  ];
+  return signs[month - 1];
+}
+
+function calculateElementBalance(sunSign, moonSign = "Becsült", ascendant = "Általános") {
   const fire = ["Aries", "Leo", "Sagittarius"];
   const earth = ["Taurus", "Virgo", "Capricorn"];
   const air = ["Gemini", "Libra", "Aquarius"];
   const water = ["Cancer", "Scorpio", "Pisces"];
   
-  const signs = [sunSign, moonSign, ascendant].filter(s => s !== "Estimated" && s !== "Generalized");
+  const signs = [sunSign, moonSign, ascendant].filter(s => 
+    s !== "Becsült" && s !== "Általános" && s !== "Estimated" && s !== "Generalized"
+  );
   const counts = { fire: 0, earth: 0, air: 0, water: 0 };
   
   signs.forEach(sign => {
@@ -101,21 +118,63 @@ function calculateElementBalance(sunSign, moonSign = "Estimated", ascendant = "G
   };
 }
 
-// Helper: Get current month name in English
-function getCurrentMonthName(locale = 'en') {
-  return new Date().toLocaleString(locale, { month: 'long' });
+function getMonthName(dateStr, locale = 'en') {
+  const date = new Date(dateStr);
+  return date.toLocaleString(locale, { month: 'long' });
 }
 
-// Helper: Get week range (Monday to Sunday)
-function getWeekRange() {
-  const today = new Date();
-  const dayOfWeek = today.getDay(); // Sunday = 0, Monday = 1, ...
+function getWeekRange(dateStr) {
+  const date = new Date(dateStr);
+  const dayOfWeek = date.getDay();
   const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-  const monday = new Date(today);
-  monday.setDate(today.getDate() + diffToMonday);
+  const monday = new Date(date);
+  monday.setDate(date.getDate() + diffToMonday);
   const sunday = new Date(monday);
   sunday.setDate(monday.getDate() + 6);
   return `${monday.toISOString().slice(0, 10)} to ${sunday.toISOString().slice(0, 10)}`;
+}
+
+// ✅ JAVÍTVA: TimeRange mindig a `finalData.timeRange`-ből jön
+function getTimelineDates(timeRange = 'daily') {
+  const now = new Date();
+  const dates = [];
+
+  // Normalizáljuk a timeRange-et
+  const range = timeRange.toLowerCase().replace('ly', ''); // "daily" → "day", "weekly" → "week"
+
+  if (range === 'month' || range === 'monthly') {
+    const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    const year = nextMonth.getFullYear();
+    const month = nextMonth.getMonth();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const d1 = Math.ceil(daysInMonth / 4);
+    const d2 = Math.ceil(daysInMonth / 2);
+    const d3 = daysInMonth;
+    dates.push(`${year}-${String(month + 1).padStart(2, '0')}-${String(d1).padStart(2, '0')}`);
+    dates.push(`${year}-${String(month + 1).padStart(2, '0')}-${String(d2).padStart(2, '0')}`);
+    dates.push(`${year}-${String(month + 1).padStart(2, '0')}-${String(d3).padStart(2, '0')}`);
+
+  } else if (range === 'week' || range === 'weekly') {
+    const nextMonday = new Date(now);
+    nextMonday.setDate(now.getDate() + (8 - now.getDay()) % 7);
+    for (let i of [0, 2, 4]) {
+      const date = new Date(nextMonday);
+      date.setDate(nextMonday.getDate() + i);
+      dates.push(date.toISOString().slice(0, 10));
+    }
+
+  } else {
+    // daily
+    dates.push(now.toISOString().slice(0, 10));
+    const tomorrow = new Date(now);
+    tomorrow.setDate(now.getDate() + 1);
+    dates.push(tomorrow.toISOString().slice(0, 10));
+    const dayAfter = new Date(now);
+    dayAfter.setDate(now.getDate() + 2);
+    dates.push(dayAfter.toISOString().slice(0, 10));
+  }
+
+  return dates;
 }
 
 export default async function handler(req, res) {
@@ -131,20 +190,23 @@ export default async function handler(req, res) {
 
   try {
     const body = req.body || {};
+    // 👇👇👇 EZ A SOR ÚJ – KIÍRJA A KÉRÉS TÖRZSÉT
+    console.log("➡️ REQUEST BODY:", JSON.stringify(body, null, 2));
+
     const { type, data = {}, languageCode = "en" } = body;
     if (!type) return res.status(400).json({ error: "missing_type" });
 
-    const currentDate = new Date().toISOString().slice(0, 10); // ← MAI DÁTUM
-    let finalData = { ...data, currentDate };
+    const currentDate = data.specificDate || new Date().toISOString().slice(0, 10);
+    const currentYear = new Date(currentDate).getFullYear().toString();
+    const currentMonth = getMonthName(currentDate, languageCode);
+    const weekRange = getWeekRange(currentDate);
 
-    // Kiszámoljuk a szükséges időadatokat
-    const currentYear = new Date().getFullYear().toString();
-    const currentMonth = getCurrentMonthName(languageCode); // lokalizált hónapnév
-    const weekRange = getWeekRange();
+    let finalData = { ...data, currentDate };
 
     if (finalData.dateOfBirth) {
       finalData.sunSign = getWesternZodiac(finalData.dateOfBirth);
-      finalData.moonSign = "Estimated";
+      // ✅ Itt használjuk az approximált Holdjegyet
+      finalData.moonSign = getMoonSignApprox(finalData.dateOfBirth);
       
       if (type === "ascendant_calc" || type === "personal_horoscope") {
         const latitude = 47.5;
@@ -155,7 +217,7 @@ export default async function handler(req, res) {
             latitude
           );
         } catch {
-          finalData.risingSign = "Generalized";
+          finalData.risingSign = "Általános";
         }
       }
       
@@ -168,8 +230,13 @@ export default async function handler(req, res) {
       }
     }
 
-    if (finalData.dateOfBirth && type === "numerology") {
-      finalData.lifePathNumber = calculateLifePathNumber(finalData.dateOfBirth);
+    if (finalData.fullName && finalData.dateOfBirth && type === "numerology") {
+      const num = calculateNumerology(finalData.fullName, finalData.dateOfBirth);
+      finalData.lifePathNumber = num.lifePath;
+      finalData.expressionNumber = num.expression;
+      finalData.soulUrgeNumber = num.soulUrge;
+      finalData.personalityNumber = num.personality;
+      finalData.birthdayNumber = num.birthday;
     }
 
     if (finalData.dateOfBirth && type === "chinese_horoscope") {
@@ -180,14 +247,28 @@ export default async function handler(req, res) {
       finalData.YIN_YANG = zodiac.yinYang;
     }
 
-    // Ellenőrizzük, hogy létezik-e a prompt
+    if (type === "personal_astro_calendar") {
+      // ✅ Itt adjuk át a timeRange-t
+      const timeRange = finalData.timeRange || "daily";
+      const timelineDates = getTimelineDates(timeRange);
+      finalData.timelineDate1 = timelineDates[0];
+      finalData.timelineDate2 = timelineDates[1];
+      finalData.timelineDate3 = timelineDates[2];
+    }
+
     let promptTemplate = PROMPTS[type];
     if (!promptTemplate) {
       return res.status(400).json({ error: "unknown_type" });
     }
 
-    // Period type for personal horoscope
-    const periodType = finalData.period || "Daily";
+    // ✅ JAVÍTVA: A periodType legyen nagy kezdőbetűs, de angolul
+    const periodMap = {
+      'daily': 'Daily',
+      'weekly': 'Weekly',
+      'monthly': 'Monthly',
+      'yearly': 'Yearly'
+    };
+    const periodType = periodMap[finalData.period] || 'Daily';
 
     const templateData = {
       language: languageCode,
@@ -195,9 +276,9 @@ export default async function handler(req, res) {
       currentYear: currentYear,
       month: currentMonth,
       weekRange: weekRange,
-      sunSign: finalData.sunSign || "Unknown",
-      moonSign: finalData.moonSign || "Estimated",
-      risingSign: finalData.risingSign || "Generalized",
+      sunSign: finalData.sunSign || "Ismeretlen",
+      moonSign: finalData.moonSign || "Becsült",
+      risingSign: finalData.risingSign || "Általános",
       firePercent: finalData.firePercent || 0,
       earthPercent: finalData.earthPercent || 0,
       airPercent: finalData.airPercent || 0,
@@ -207,18 +288,24 @@ export default async function handler(req, res) {
       ELEMENT: finalData.ELEMENT || "",
       YIN_YANG: finalData.YIN_YANG || "",
       zodiacSign: finalData.zodiacSign || "",
-      specificDate: finalData.specificDate || finalData.date || "",
+      specificDate: finalData.specificDate || "",
       name: finalData.name || "",
       dateOfBirth: finalData.dateOfBirth || "",
-      timeOfBirth: finalData.timeOfBirth || "12:00 PM",
+      timeOfBirth: finalData.timeOfBirth || "12:00",
       placeOfBirth: finalData.placeOfBirth || "",
-      question: finalData.question || "",
+      question: finalData.question || "Nincs kérdés megadva",
       fullName: finalData.fullName || "",
       period: finalData.period || "daily",
       periodType: periodType,
-      timeRange: finalData.timeRange || "day",
-      focusArea: finalData.focusArea || "general",
+      timeRange: finalData.timeRange || "daily",
       lifePathNumber: finalData.lifePathNumber || "X",
+      expressionNumber: finalData.expressionNumber || "X",
+      soulUrgeNumber: finalData.soulUrgeNumber || "X",
+      personalityNumber: finalData.personalityNumber || "X",
+      birthdayNumber: finalData.birthdayNumber || "X",
+      timelineDate1: finalData.timelineDate1 || "",
+      timelineDate2: finalData.timelineDate2 || "",
+      timelineDate3: finalData.timelineDate3 || "",
     };
 
     const filledPrompt = fillTemplate(promptTemplate, templateData);
@@ -236,6 +323,10 @@ export default async function handler(req, res) {
 
     const result = await retryWithBackoff(() => model.generateContent(filledPrompt));
     const text = result.response.text();
+
+    // 👇👇👇 EZ A SOR ÚJ – KIÍRJA AZ AI VÁLASZÁT
+    console.log("⬅️ AI RESPONSE CONTENT:", text.trim());
+
     return res.status(200).json({ success: true, content: text.trim() });
 
   } catch (error) {
