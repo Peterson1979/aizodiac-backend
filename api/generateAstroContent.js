@@ -1,10 +1,10 @@
 // api/generateAstroContent.js
-const { GoogleGenerativeAI } = require("@google/generative-ai");
-const { Redis } = require("@upstash/redis");
-const { PROMPTS } = require("../lib/prompts.js");
-const { calculateLifePathNumber, calculateNumerology } = require("../lib/factualCalculations.js");
-const { getChineseZodiac_FULL } = require("../lib/chineseZodiac.js");
-const { calculateAscendant } = require("../lib/ascendant.js");
+import { GoogleGenerativeAI } from "@google/generative-ai";
+import { Redis } from "@upstash/redis";
+import { PROMPTS } from "../lib/prompts.js";
+import { calculateLifePathNumber, calculateNumerology } from "../lib/factualCalculations.js";
+import { getChineseZodiac_FULL } from "../lib/chineseZodiac.js";
+import { calculateAscendant } from "../lib/ascendant.js";
 
 const redis = process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
   ? new Redis({ url: process.env.UPSTASH_REDIS_REST_URL, token: process.env.UPSTASH_REDIS_REST_TOKEN })
@@ -172,7 +172,8 @@ function getTimelineDates(timeRange = 'daily') {
   return dates;
 }
 
-module.exports = async function handler(req, res) {
+// ✅ EZ A FÜGGVÉNY VÉGE: CSERÉLD LE A module.exports-T EXPORT DEFAULT-RA
+export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "method_not_allowed" });
   }
@@ -323,4 +324,4 @@ module.exports = async function handler(req, res) {
     console.error("Error in generateAstroContent:", error);
     return res.status(500).json({ error: "internal_error", message: error.message || "Unexpected error" });
   }
-};
+}
