@@ -82,11 +82,7 @@ function getMoonSignApprox(dateStr) {
   if (parts.length !== 3) return "Becsült";
   const month = parseInt(parts[1], 10);
   if (isNaN(month) || month < 1 || month > 12) return "Becsült";
-  
-  const signs = [
-    "Capricorn", "Aquarius", "Pisces", "Aries", "Taurus", "Gemini",
-    "Cancer", "Leo", "Virgo", "Libra", "Scorpio", "Sagittarius"
-  ];
+  const signs = ["Capricorn", "Aquarius", "Pisces", "Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo", "Libra", "Scorpio", "Sagittarius"];
   return signs[month - 1];
 }
 
@@ -95,19 +91,14 @@ function calculateElementBalance(sunSign, moonSign = "Becsült", ascendant = "Á
   const earth = ["Taurus", "Virgo", "Capricorn"];
   const air = ["Gemini", "Libra", "Aquarius"];
   const water = ["Cancer", "Scorpio", "Pisces"];
-  
-  const signs = [sunSign, moonSign, ascendant].filter(s => 
-    s !== "Becsült" && s !== "Általános" && s !== "Estimated" && s !== "Generalized"
-  );
+  const signs = [sunSign, moonSign, ascendant].filter(s => s !== "Becsült" && s !== "Általános" && s !== "Estimated" && s !== "Generalized");
   const counts = { fire: 0, earth: 0, air: 0, water: 0 };
-  
   signs.forEach(sign => {
     if (fire.includes(sign)) counts.fire++;
     else if (earth.includes(sign)) counts.earth++;
     else if (air.includes(sign)) counts.air++;
     else if (water.includes(sign)) counts.water++;
   });
-  
   const total = signs.length || 1;
   return {
     fire: Math.round((counts.fire / total) * 100 / 5) * 5,
@@ -137,7 +128,6 @@ function getTimelineDates(timeRange = 'daily') {
   const now = new Date();
   const dates = [];
   const range = timeRange.toLowerCase().replace('ly', '');
-
   if (range === 'month' || range === 'monthly') {
     const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
     const year = nextMonth.getFullYear();
@@ -149,7 +139,6 @@ function getTimelineDates(timeRange = 'daily') {
     dates.push(`${year}-${String(month + 1).padStart(2, '0')}-${String(d1).padStart(2, '0')}`);
     dates.push(`${year}-${String(month + 1).padStart(2, '0')}-${String(d2).padStart(2, '0')}`);
     dates.push(`${year}-${String(month + 1).padStart(2, '0')}-${String(d3).padStart(2, '0')}`);
-
   } else if (range === 'week' || range === 'weekly') {
     const nextMonday = new Date(now);
     nextMonday.setDate(now.getDate() + (8 - now.getDay()) % 7);
@@ -158,7 +147,6 @@ function getTimelineDates(timeRange = 'daily') {
       date.setDate(nextMonday.getDate() + i);
       dates.push(date.toISOString().slice(0, 10));
     }
-
   } else {
     dates.push(now.toISOString().slice(0, 10));
     const tomorrow = new Date(now);
@@ -168,11 +156,9 @@ function getTimelineDates(timeRange = 'daily') {
     dayAfter.setDate(now.getDate() + 2);
     dates.push(dayAfter.toISOString().slice(0, 10));
   }
-
   return dates;
 }
 
-// ✅ EZ A FÜGGVÉNY VÉGE: CSERÉLD LE A module.exports-T EXPORT DEFAULT-RA
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "method_not_allowed" });
@@ -201,20 +187,14 @@ export default async function handler(req, res) {
     if (finalData.dateOfBirth) {
       finalData.sunSign = getWesternZodiac(finalData.dateOfBirth);
       finalData.moonSign = getMoonSignApprox(finalData.dateOfBirth);
-      
       if (type === "ascendant_calc" || type === "personal_horoscope") {
         const latitude = 47.5;
         try {
-          finalData.risingSign = calculateAscendant(
-            finalData.dateOfBirth,
-            finalData.timeOfBirth || "12:00 PM",
-            latitude
-          );
+          finalData.risingSign = calculateAscendant(finalData.dateOfBirth, finalData.timeOfBirth || "12:00 PM", latitude);
         } catch {
           finalData.risingSign = "Általános";
         }
       }
-      
       if (type === "personal_horoscope") {
         const balance = calculateElementBalance(finalData.sunSign, finalData.moonSign, finalData.risingSign);
         finalData.firePercent = balance.fire;
@@ -250,16 +230,9 @@ export default async function handler(req, res) {
     }
 
     let promptTemplate = PROMPTS[type];
-    if (!promptTemplate) {
-      return res.status(400).json({ error: "unknown_type" });
-    }
+    if (!promptTemplate) return res.status(400).json({ error: "unknown_type" });
 
-    const periodMap = {
-      'daily': 'Daily',
-      'weekly': 'Weekly',
-      'monthly': 'Monthly',
-      'yearly': 'Yearly'
-    };
+    const periodMap = { 'daily': 'Daily', 'weekly': 'Weekly', 'monthly': 'Monthly', 'yearly': 'Yearly' };
     const periodType = periodMap[finalData.period] || 'Daily';
 
     const templateData = {
