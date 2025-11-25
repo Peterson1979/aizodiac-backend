@@ -101,6 +101,23 @@ function calculateElementBalance(sunSign, moonSign = "Estimated", ascendant = "G
   };
 }
 
+// Helper: Get current month name in English
+function getCurrentMonthName(locale = 'en') {
+  return new Date().toLocaleString(locale, { month: 'long' });
+}
+
+// Helper: Get week range (Monday to Sunday)
+function getWeekRange() {
+  const today = new Date();
+  const dayOfWeek = today.getDay(); // Sunday = 0, Monday = 1, ...
+  const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+  const monday = new Date(today);
+  monday.setDate(today.getDate() + diffToMonday);
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  return `${monday.toISOString().slice(0, 10)} to ${sunday.toISOString().slice(0, 10)}`;
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "method_not_allowed" });
@@ -119,6 +136,11 @@ export default async function handler(req, res) {
 
     const currentDate = new Date().toISOString().slice(0, 10); // ← MAI DÁTUM
     let finalData = { ...data, currentDate };
+
+    // Kiszámoljuk a szükséges időadatokat
+    const currentYear = new Date().getFullYear().toString();
+    const currentMonth = getCurrentMonthName(languageCode); // lokalizált hónapnév
+    const weekRange = getWeekRange();
 
     if (finalData.dateOfBirth) {
       finalData.sunSign = getWesternZodiac(finalData.dateOfBirth);
@@ -158,22 +180,21 @@ export default async function handler(req, res) {
       finalData.YIN_YANG = zodiac.yinYang;
     }
 
+    // Ellenőrizzük, hogy létezik-e a prompt
     let promptTemplate = PROMPTS[type];
+    if (!promptTemplate) {
+      return res.status(400).json({ error: "unknown_type" });
+    }
 
-// Ha az adott horoszkóptípus időperiódus szerint bontott
-if (typeof promptTemplate === "object" && promptTemplate[templateData.period]) {
-  promptTemplate = promptTemplate[templateData.period];
-}
-
-if (!promptTemplate) {
-  return res.status(400).json({ error: "unknown_type_or_period" });
-}
-
-    if (!promptTemplate) return res.status(400).json({ error: "unknown_type" });
+    // Period type for personal horoscope
+    const periodType = finalData.period || "Daily";
 
     const templateData = {
       language: languageCode,
       currentDate: currentDate,
+      currentYear: currentYear,
+      month: currentMonth,
+      weekRange: weekRange,
       sunSign: finalData.sunSign || "Unknown",
       moonSign: finalData.moonSign || "Estimated",
       risingSign: finalData.risingSign || "Generalized",
@@ -194,6 +215,7 @@ if (!promptTemplate) {
       question: finalData.question || "",
       fullName: finalData.fullName || "",
       period: finalData.period || "daily",
+      periodType: periodType,
       timeRange: finalData.timeRange || "day",
       focusArea: finalData.focusArea || "general",
       lifePathNumber: finalData.lifePathNumber || "X",
