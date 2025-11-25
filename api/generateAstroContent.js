@@ -1,10 +1,10 @@
 // api/generateAstroContent.js
-import { GoogleGenerativeAI } from "@google/generative-ai";
-import { Redis } from "@upstash/redis";
-import { PROMPTS } from "../lib/prompts.js";
-import { calculateLifePathNumber, calculateNumerology } from "../lib/factualCalculations.js";
-import { getChineseZodiac_FULL } from "../lib/chineseZodiac.js";
-import { calculateAscendant } from "../lib/ascendant.js";
+const { GoogleGenerativeAI } = require("@google/generative-ai");
+const { Redis } = require("@upstash/redis");
+const { PROMPTS } = require("../lib/prompts.js");
+const { calculateLifePathNumber, calculateNumerology } = require("../lib/factualCalculations.js");
+const { getChineseZodiac_FULL } = require("../lib/chineseZodiac.js");
+const { calculateAscendant } = require("../lib/ascendant.js");
 
 const redis = process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
   ? new Redis({ url: process.env.UPSTASH_REDIS_REST_URL, token: process.env.UPSTASH_REDIS_REST_TOKEN })
@@ -77,7 +77,6 @@ function getWesternZodiac(dateStr) {
   return "Pisces";
 }
 
-// ✅ ÚJ: Holdjegy approximáció a hónap alapján
 function getMoonSignApprox(dateStr) {
   const parts = dateStr.split("/");
   if (parts.length !== 3) return "Becsült";
@@ -134,13 +133,10 @@ function getWeekRange(dateStr) {
   return `${monday.toISOString().slice(0, 10)} to ${sunday.toISOString().slice(0, 10)}`;
 }
 
-// ✅ JAVÍTVA: TimeRange mindig a `finalData.timeRange`-ből jön
 function getTimelineDates(timeRange = 'daily') {
   const now = new Date();
   const dates = [];
-
-  // Normalizáljuk a timeRange-et
-  const range = timeRange.toLowerCase().replace('ly', ''); // "daily" → "day", "weekly" → "week"
+  const range = timeRange.toLowerCase().replace('ly', '');
 
   if (range === 'month' || range === 'monthly') {
     const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
@@ -164,7 +160,6 @@ function getTimelineDates(timeRange = 'daily') {
     }
 
   } else {
-    // daily
     dates.push(now.toISOString().slice(0, 10));
     const tomorrow = new Date(now);
     tomorrow.setDate(now.getDate() + 1);
@@ -177,7 +172,7 @@ function getTimelineDates(timeRange = 'daily') {
   return dates;
 }
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "method_not_allowed" });
   }
@@ -190,7 +185,6 @@ export default async function handler(req, res) {
 
   try {
     const body = req.body || {};
-    // 👇👇👇 EZ A SOR ÚJ – KIÍRJA A KÉRÉS TÖRZSÉT
     console.log("➡️ REQUEST BODY:", JSON.stringify(body, null, 2));
 
     const { type, data = {}, languageCode = "en" } = body;
@@ -205,7 +199,6 @@ export default async function handler(req, res) {
 
     if (finalData.dateOfBirth) {
       finalData.sunSign = getWesternZodiac(finalData.dateOfBirth);
-      // ✅ Itt használjuk az approximált Holdjegyet
       finalData.moonSign = getMoonSignApprox(finalData.dateOfBirth);
       
       if (type === "ascendant_calc" || type === "personal_horoscope") {
@@ -248,7 +241,6 @@ export default async function handler(req, res) {
     }
 
     if (type === "personal_astro_calendar") {
-      // ✅ Itt adjuk át a timeRange-t
       const timeRange = finalData.timeRange || "daily";
       const timelineDates = getTimelineDates(timeRange);
       finalData.timelineDate1 = timelineDates[0];
@@ -261,7 +253,6 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "unknown_type" });
     }
 
-    // ✅ JAVÍTVA: A periodType legyen nagy kezdőbetűs, de angolul
     const periodMap = {
       'daily': 'Daily',
       'weekly': 'Weekly',
@@ -324,7 +315,6 @@ export default async function handler(req, res) {
     const result = await retryWithBackoff(() => model.generateContent(filledPrompt));
     const text = result.response.text();
 
-    // 👇👇👇 EZ A SOR ÚJ – KIÍRJA AZ AI VÁLASZÁT
     console.log("⬅️ AI RESPONSE CONTENT:", text.trim());
 
     return res.status(200).json({ success: true, content: text.trim() });
@@ -333,4 +323,4 @@ export default async function handler(req, res) {
     console.error("Error in generateAstroContent:", error);
     return res.status(500).json({ error: "internal_error", message: error.message || "Unexpected error" });
   }
-}
+};
