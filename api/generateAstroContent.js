@@ -206,13 +206,14 @@ export default async function handler(req, res) {
     }
 
     if (finalData.fullName && finalData.dateOfBirth && type === "numerology") {
-      const num = calculateNumerology(finalData.fullName, finalData.dateOfBirth);
-      finalData.lifePathNumber = num.lifePath;
-      finalData.expressionNumber = num.expression;
-      finalData.soulUrgeNumber = num.soulUrge;
-      finalData.personalityNumber = num.personality;
-      finalData.birthdayNumber = num.birthday;
-    }
+  const num = calculateNumerology(finalData.fullName, finalData.dateOfBirth);
+    console.log("🔍 Numerology output - birthday:", num.birthday); // ← EZ ÚJ
+  finalData.lifePathNumber = num.lifePath;
+  finalData.expressionNumber = num.expression;
+  finalData.soulUrgeNumber = num.soulUrge;
+  finalData.personalityNumber = num.personality;
+  finalData.birthdayNumber = num.birthday; // ← EZ LESZ A 11!
+}
 
     if (finalData.dateOfBirth && type === "chinese_horoscope") {
       const zodiac = getChineseZodiac_FULL(finalData.dateOfBirth);
