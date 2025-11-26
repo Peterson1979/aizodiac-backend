@@ -127,35 +127,36 @@ function getWeekRange(dateStr) {
 function getTimelineDates(timeRange = 'daily') {
   const now = new Date();
   const dates = [];
-  const range = timeRange.toLowerCase().replace('ly', '');
-  if (range === 'month' || range === 'monthly') {
+
+  if (timeRange === 'monthly') {
+    // Következő hónap
     const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
     const year = nextMonth.getFullYear();
-    const month = nextMonth.getMonth();
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-    const d1 = Math.ceil(daysInMonth / 4);
-    const d2 = Math.ceil(daysInMonth / 2);
-    const d3 = daysInMonth;
-    dates.push(`${year}-${String(month + 1).padStart(2, '0')}-${String(d1).padStart(2, '0')}`);
-    dates.push(`${year}-${String(month + 1).padStart(2, '0')}-${String(d2).padStart(2, '0')}`);
-    dates.push(`${year}-${String(month + 1).padStart(2, '0')}-${String(d3).padStart(2, '0')}`);
-  } else if (range === 'week' || range === 'weekly') {
+    const month = nextMonth.getMonth() + 1; // getMonth() 0-tól számol
+    dates.push(`${year}-${String(month).padStart(2, '0')}-08`);
+    dates.push(`${year}-${String(month).padStart(2, '0')}-16`);
+    dates.push(`${year}-${String(month).padStart(2, '0')}-24`);
+
+  } else if (timeRange === 'weekly') {
+    // Következő hét hétfője
     const nextMonday = new Date(now);
     nextMonday.setDate(now.getDate() + (8 - now.getDay()) % 7);
+    // Hétfő, Szerda, Péntek
     for (let i of [0, 2, 4]) {
       const date = new Date(nextMonday);
       date.setDate(nextMonday.getDate() + i);
       dates.push(date.toISOString().slice(0, 10));
     }
+
   } else {
-    dates.push(now.toISOString().slice(0, 10));
-    const tomorrow = new Date(now);
-    tomorrow.setDate(now.getDate() + 1);
-    dates.push(tomorrow.toISOString().slice(0, 10));
-    const dayAfter = new Date(now);
-    dayAfter.setDate(now.getDate() + 2);
-    dates.push(dayAfter.toISOString().slice(0, 10));
+    // Napi: ma, holnap, holnapután
+    for (let i = 0; i < 3; i++) {
+      const date = new Date(now);
+      date.setDate(now.getDate() + i);
+      dates.push(date.toISOString().slice(0, 10));
+    }
   }
+
   return dates;
 }
 
