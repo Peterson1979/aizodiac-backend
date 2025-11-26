@@ -205,16 +205,19 @@ export default async function handler(req, res) {
       }
     }
 
-    if (finalData.fullName && type === "numerology") {
-  const birthday = parseInt(finalData.birthDay, 10) || 1; // ← KÖZVETLENÜL A NAP!
-  const num = calculateNumerology(finalData.fullName, finalData.dateOfBirth);
-  finalData.birthdayNumber = birthday; // ← NEM A FÜGGVÉNYTŐL
-    console.log("🔍 Numerology output - birthday:", num.birthday); // ← EZ ÚJ
+// Helyes kulcs: "birthDate", nem "dateOfBirth"
+if (finalData.fullName && finalData.birthDate && type === "numerology") {
+  // Kinyerjük a napot közvetlenül
+  const birthday = parseInt(finalData.birthDay, 10) || 1;
+
+  // A többi számot kiszámoljuk
+  const num = calculateNumerology(finalData.fullName, finalData.birthDate);
+console.log("🔍 Numerology output - birthday:", num.birthday); // ← EZ ÚJ
   finalData.lifePathNumber = num.lifePath;
   finalData.expressionNumber = num.expression;
   finalData.soulUrgeNumber = num.soulUrge;
   finalData.personalityNumber = num.personality;
-  
+  finalData.birthdayNumber = birthday; // ← EZ A 11!
 }
 
     if (finalData.dateOfBirth && type === "chinese_horoscope") {
