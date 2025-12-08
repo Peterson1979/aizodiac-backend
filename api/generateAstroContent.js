@@ -287,6 +287,7 @@ console.log("🔍 Numerology output - birthday:", num.birthday); // ← EZ ÚJ
     };
 
     const filledPrompt = fillTemplate(promptTemplate, templateData);
+	console.log("📝 Filled prompt for chinese_horoscope:\n", filledPrompt);
     const estimatedTokens = Math.ceil(filledPrompt.length / 4) + 200;
 
     if (!(await canUseTokens(estimatedTokens))) {
