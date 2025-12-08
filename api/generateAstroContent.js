@@ -278,6 +278,10 @@ console.log("🔍 Numerology output - birthday:", num.birthday); // ← EZ ÚJ
       timelineDate1: finalData.timelineDate1 || "",
       timelineDate2: finalData.timelineDate2 || "",
       timelineDate3: finalData.timelineDate3 || "",
+      // --- FIX: Add lowercase keys for Chinese horoscope prompt ---
+      animal: finalData.ANIMAL || "",
+      element: finalData.ELEMENT || "",
+      yinYang: finalData.YIN_YANG || "",
     };
 
     const filledPrompt = fillTemplate(promptTemplate, templateData);
