@@ -221,12 +221,14 @@ console.log("🔍 Numerology output - birthday:", num.birthday); // ← EZ ÚJ
 }
 
     if (finalData.dateOfBirth && type === "chinese_horoscope") {
-      const zodiac = getChineseZodiac_FULL(finalData.dateOfBirth);
-      finalData.SYMBOL = zodiac.symbol;
-      finalData.ANIMAL = zodiac.animal;
-      finalData.ELEMENT = zodiac.element;
-      finalData.YIN_YANG = zodiac.yinYang;
-    }
+  console.log("🔍 Chinese Zodiac input date:", finalData.dateOfBirth);
+  const zodiac = getChineseZodiac_FULL(finalData.dateOfBirth);
+  console.log("✅ Chinese Zodiac result:", zodiac);
+  finalData.SYMBOL = zodiac.symbol;
+  finalData.ANIMAL = zodiac.animal;
+  finalData.ELEMENT = zodiac.element;
+  finalData.YIN_YANG = zodiac.yinYang;
+}
 
     if (type === "personal_astro_calendar") {
       const timeRange = finalData.timeRange || "daily";
