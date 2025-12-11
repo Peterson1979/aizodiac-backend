@@ -205,30 +205,30 @@ export default async function handler(req, res) {
       }
     }
 
-// Helyes kulcs: "birthDate", nem "dateOfBirth"
-if (finalData.fullName && finalData.birthDate && type === "numerology") {
-  // Kinyerjük a napot közvetlenül
-  const birthday = parseInt(finalData.birthDay, 10) || 1;
+    // Helyes kulcs: "birthDate", nem "dateOfBirth"
+    if (finalData.fullName && finalData.birthDate && type === "numerology") {
+      // Kinyerjük a napot közvetlenül
+      const birthday = parseInt(finalData.birthDay, 10) || 1;
 
-  // A többi számot kiszámoljuk
-  const num = calculateNumerology(finalData.fullName, finalData.birthDate);
-console.log("🔍 Numerology output - birthday:", num.birthday); // ← EZ ÚJ
-  finalData.lifePathNumber = num.lifePath;
-  finalData.expressionNumber = num.expression;
-  finalData.soulUrgeNumber = num.soulUrge;
-  finalData.personalityNumber = num.personality;
-  finalData.birthdayNumber = birthday; // ← EZ A 11!
-}
+      // A többi számot kiszámoljuk
+      const num = calculateNumerology(finalData.fullName, finalData.birthDate);
+      console.log("🔍 Numerology output - birthday:", num.birthday);
+      finalData.lifePathNumber = num.lifePath;
+      finalData.expressionNumber = num.expression;
+      finalData.soulUrgeNumber = num.soulUrge;
+      finalData.personalityNumber = num.personality;
+      finalData.birthdayNumber = birthday;
+    }
 
     if (finalData.dateOfBirth && type === "chinese_horoscope") {
-  console.log("🔍 Chinese Zodiac input date:", finalData.dateOfBirth);
-  const zodiac = getChineseZodiac_FULL(finalData.dateOfBirth);
-  console.log("✅ Chinese Zodiac result:", zodiac);
-  finalData.SYMBOL = zodiac.symbol;
-  finalData.ANIMAL = zodiac.animal;
-  finalData.ELEMENT = zodiac.element;
-  finalData.YIN_YANG = zodiac.yinYang;
-}
+      console.log("🔍 Chinese Zodiac input date:", finalData.dateOfBirth);
+      const zodiac = getChineseZodiac_FULL(finalData.dateOfBirth);
+      console.log("✅ Chinese Zodiac result:", zodiac);
+      finalData.SYMBOL = zodiac.symbol;
+      finalData.ANIMAL = zodiac.animal;
+      finalData.ELEMENT = zodiac.element;
+      finalData.YIN_YANG = zodiac.yinYang;
+    }
 
     if (type === "personal_astro_calendar") {
       const timeRange = finalData.timeRange || "daily";
@@ -244,50 +244,60 @@ console.log("🔍 Numerology output - birthday:", num.birthday); // ← EZ ÚJ
     const periodMap = { 'daily': 'Daily', 'weekly': 'Weekly', 'monthly': 'Monthly', 'yearly': 'Yearly' };
     const periodType = periodMap[finalData.period] || 'Daily';
 
+    // ✅ CSAK A SZÜKSÉGES ADATOK KITÖLTÉSE A TÍPUSNAK MEGFELELŐEN
     const templateData = {
       language: languageCode,
       currentDate: currentDate,
       currentYear: currentYear,
       month: currentMonth,
       weekRange: weekRange,
-      sunSign: finalData.sunSign || "Ismeretlen",
-      moonSign: finalData.moonSign || "Becsült",
-      risingSign: finalData.risingSign || "Általános",
-      firePercent: finalData.firePercent || 0,
-      earthPercent: finalData.earthPercent || 0,
-      airPercent: finalData.airPercent || 0,
-      waterPercent: finalData.waterPercent || 0,
-      SYMBOL: finalData.SYMBOL || "",
-      ANIMAL: finalData.ANIMAL || "",
-      ELEMENT: finalData.ELEMENT || "",
-      YIN_YANG: finalData.YIN_YANG || "",
-      zodiacSign: finalData.zodiacSign || "",
-      specificDate: finalData.specificDate || "",
-      name: finalData.name || "",
-      dateOfBirth: finalData.dateOfBirth || "",
-      timeOfBirth: finalData.timeOfBirth || "12:00",
-      placeOfBirth: finalData.placeOfBirth || "",
-      question: finalData.question || "Nincs kérdés megadva",
-      fullName: finalData.fullName || "",
-      period: finalData.period || "daily",
-      periodType: periodType,
-      timeRange: finalData.timeRange || "daily",
-      lifePathNumber: finalData.lifePathNumber || "X",
-      expressionNumber: finalData.expressionNumber || "X",
-      soulUrgeNumber: finalData.soulUrgeNumber || "X",
-      personalityNumber: finalData.personalityNumber || "X",
-      birthdayNumber: finalData.birthdayNumber || "X",
-      timelineDate1: finalData.timelineDate1 || "",
-      timelineDate2: finalData.timelineDate2 || "",
-      timelineDate3: finalData.timelineDate3 || "",
-      // --- FIX: Add lowercase keys for Chinese horoscope prompt ---
-      animal: finalData.ANIMAL || "",
-      element: finalData.ELEMENT || "",
-      yinYang: finalData.YIN_YANG || "",
     };
 
+    // Típus-specifikus adatok
+    if (type === "home_daily_horoscope" || type.startsWith("ai_horoscope_")) {
+      templateData.zodiacSign = finalData.zodiacSign || "Ismeretlen";
+      templateData.periodType = periodType;
+    }
+    
+    if (type === "chinese_horoscope") {
+      templateData.animal = finalData.ANIMAL || "";
+      templateData.element = finalData.ELEMENT || "";
+      templateData.yinYang = finalData.YIN_YANG || "";
+    }
+    
+    if (type === "personal_horoscope") {
+      templateData.sunSign = finalData.sunSign || "Ismeretlen";
+      templateData.moonSign = finalData.moonSign || "Becsült";
+      templateData.risingSign = finalData.risingSign || "Általános";
+      templateData.firePercent = finalData.firePercent || 0;
+      templateData.earthPercent = finalData.earthPercent || 0;
+      templateData.airPercent = finalData.airPercent || 0;
+      templateData.waterPercent = finalData.waterPercent || 0;
+      templateData.periodType = periodType;
+    }
+    
+    if (type === "numerology") {
+      templateData.lifePathNumber = finalData.lifePathNumber || "X";
+      templateData.expressionNumber = finalData.expressionNumber || "X";
+      templateData.soulUrgeNumber = finalData.soulUrgeNumber || "X";
+      templateData.personalityNumber = finalData.personalityNumber || "X";
+      templateData.birthdayNumber = finalData.birthdayNumber || "X";
+    }
+    
+    if (type === "personal_astro_calendar") {
+      templateData.timelineDate1 = finalData.timelineDate1 || "";
+      templateData.timelineDate2 = finalData.timelineDate2 || "";
+      templateData.timelineDate3 = finalData.timelineDate3 || "";
+      templateData.timeRange = finalData.timeRange || "daily";
+    }
+    
+    if (type === "ask_the_stars") {
+      templateData.question = finalData.question || "Nincs kérdés megadva";
+    }
+
     const filledPrompt = fillTemplate(promptTemplate, templateData);
-	console.log("📝 Filled prompt for chinese_horoscope:\n", filledPrompt);
+    console.log(`📝 Filled prompt for ${type}:\n`, filledPrompt); // ✅ DINAMIKUS LOG
+
     const estimatedTokens = Math.ceil(filledPrompt.length / 4) + 200;
 
     if (!(await canUseTokens(estimatedTokens))) {
