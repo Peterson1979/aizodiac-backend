@@ -160,32 +160,6 @@ function getTimelineDates(timeRange = 'daily') {
   return dates;
 }
 
-// ✅ JAVÍTÁS: Koordináták lekérése a felhasználó által megadott hely alapján
-async function getCoordinatesFromPlace(place) {
-  if (!place || place.trim() === "") {
-    console.warn("⚠️ Nincs hely megadva, alapértelmezett koordináták (Budapest)");
-    return { latitude: 47.4979, longitude: 19.0402 };
-  }
-  
-  try {
-    // Ingyenes geokódoló szolgáltatás
-    const response = await fetch(`https://geocode.maps.co/search?q=${encodeURIComponent(place.trim())}`);
-    const data = await response.json();
-    
-    if (data.length > 0) {
-      return {
-        latitude: parseFloat(data[0].lat),
-        longitude: parseFloat(data[0].lon)
-      };
-    }
-  } catch (error) {
-    console.error("⚠️ Geokódolási hiba:", error);
-  }
-  
-  console.warn("⚠️ Hely nem található, alapértelmezett koordináták (Budapest)");
-  return { latitude: 47.4979, longitude: 19.0402 };
-}
-
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "method_not_allowed" });
@@ -211,7 +185,6 @@ export default async function handler(req, res) {
 
     let finalData = { ...data, currentDate };
 
-    // ✅ JAVÍTÁS: A HELY ADATOK KIOLVASÁSA A KÉRÉSBŐL
     const placeOfBirth = finalData.placeOfBirth || "";
     
     if (finalData.dateOfBirth) {
@@ -224,22 +197,16 @@ export default async function handler(req, res) {
           console.log("   Idő:", finalData.timeOfBirth || "12:00 PM");
           console.log("   Hely:", placeOfBirth || "Nincs hely megadva");
           
-          // ✅ JAVÍTÁS: KOORDINÁTÁK LEKÉRÉSE A FELHASZNÁLÓ HELYE ALAPJÁN
-          const coordinates = await getCoordinatesFromPlace(placeOfBirth);
-          console.log("📍 Kapott koordináták:", coordinates);
-          
-          // ✅ JAVÍTÁS: CSAK A FELHASZNÁLÓ ÁLTAL MEGADOTT ADATOK KÜLDÉSE
+          // ✅ JAVÍTÁS: EGYSZERŰ IDŐ ALAPÚ SZÁMÍTÁS (NINCS GEOKÓDOLÁS)
           finalData.risingSign = calculateAscendant(
             finalData.dateOfBirth,
-            finalData.timeOfBirth || "12:00 PM",
-            coordinates.latitude // CSAK A HELYES SZÉLESSÉGI KÖR
+            finalData.timeOfBirth || "12:00 PM"
           );
           
           console.log("✅ Számított aszcendens:", finalData.risingSign);
         } catch (error) {
           console.error("⚠️ Aszcendens számítás hiba:", error);
-          // ❌ NEM HASZNÁLUNK SAJÁT ADATAKAT, CSAK HIBAKEZELÉS
-          finalData.risingSign = "Libra"; // Általános biztonsági érték hiba esetén
+          finalData.risingSign = "Virgo"; // Biztonsági érték
         }
       }
       if (type === "personal_horoscope") {
@@ -299,11 +266,11 @@ export default async function handler(req, res) {
       weekRange: weekRange,
     };
 
-    // ✅ JAVÍTÁS: Aszcendens adatok hozzáadása a templateData-hoz a FELHASZNÁLÓ VALÓS ADATAIVAL
+    // ✅ JAVÍTÁS: Aszcendens adatok hozzáadása a templateData-hoz
     if (type === "ascendant_calc") {
-      templateData.risingSign = finalData.risingSign || "Libra";
+      templateData.risingSign = finalData.risingSign || "Virgo";
       templateData.birthTime = finalData.timeOfBirth || "12:00 PM";
-      templateData.birthPlace = placeOfBirth || "Nincs hely megadva"; // ✅ FELHASZNÁLÓ HELYE
+      templateData.birthPlace = placeOfBirth || "Nincs hely megadva";
     }
 
     // Típus-specifikus adatok
@@ -321,7 +288,7 @@ export default async function handler(req, res) {
     if (type === "personal_horoscope") {
       templateData.sunSign = finalData.sunSign || "Ismeretlen";
       templateData.moonSign = finalData.moonSign || "Becsült";
-      templateData.risingSign = finalData.risingSign || "Libra"; // ✅ NEM BUDAPEST, HANEM FELHASZNÁLÓ ADATAI
+      templateData.risingSign = finalData.risingSign || "Virgo";
       templateData.firePercent = finalData.firePercent || 0;
       templateData.earthPercent = finalData.earthPercent || 0;
       templateData.airPercent = finalData.airPercent || 0;
