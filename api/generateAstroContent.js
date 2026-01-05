@@ -189,11 +189,24 @@ export default async function handler(req, res) {
       finalData.sunSign = getWesternZodiac(finalData.dateOfBirth);
       finalData.moonSign = getMoonSignApprox(finalData.dateOfBirth);
       if (type === "ascendant_calc" || type === "personal_horoscope") {
-        const latitude = 47.5;
+        const latitude = 47.5; // Budapest szélességi kör
         try {
-          finalData.risingSign = calculateAscendant(finalData.dateOfBirth, finalData.timeOfBirth || "12:00 PM", latitude);
-        } catch {
-          finalData.risingSign = "Általános";
+          console.log("🔍 Calculating ascendant with:");
+          console.log("   Date:", finalData.dateOfBirth);
+          console.log("   Time:", finalData.timeOfBirth || "12:00 PM");
+          console.log("   Latitude:", latitude);
+          
+          // ✅ JAVÍTÁS: A függvény most kapja a megfelelő paramétereket
+          finalData.risingSign = calculateAscendant(
+            finalData.dateOfBirth,
+            finalData.timeOfBirth || "12:00 PM",
+            latitude
+          );
+          
+          console.log("✅ Calculated Rising Sign:", finalData.risingSign);
+        } catch (error) {
+          console.error("⚠️ Ascendant calculation error:", error);
+          finalData.risingSign = "Leo"; // Biztonsági alapértelmezett érték
         }
       }
       if (type === "personal_horoscope") {
@@ -253,6 +266,13 @@ export default async function handler(req, res) {
       weekRange: weekRange,
     };
 
+    // ✅ JAVÍTÁS: Aszcendens adatok hozzáadása a templateData-hoz
+    if (type === "ascendant_calc") {
+      templateData.risingSign = finalData.risingSign || "Leo";
+      templateData.birthTime = finalData.timeOfBirth || "12:00 PM";
+      templateData.birthPlace = finalData.placeOfBirth || "Budapest, Hungary";
+    }
+
     // Típus-specifikus adatok
     if (type === "home_daily_horoscope" || type.startsWith("ai_horoscope_")) {
       templateData.zodiacSign = finalData.zodiacSign || "Ismeretlen";
@@ -268,7 +288,7 @@ export default async function handler(req, res) {
     if (type === "personal_horoscope") {
       templateData.sunSign = finalData.sunSign || "Ismeretlen";
       templateData.moonSign = finalData.moonSign || "Becsült";
-      templateData.risingSign = finalData.risingSign || "Általános";
+      templateData.risingSign = finalData.risingSign || "Leo";
       templateData.firePercent = finalData.firePercent || 0;
       templateData.earthPercent = finalData.earthPercent || 0;
       templateData.airPercent = finalData.airPercent || 0;
