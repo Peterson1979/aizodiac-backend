@@ -5,7 +5,6 @@ import { PROMPTS } from "../lib/prompts.js";
 import { calculateLifePathNumber, calculateNumerology } from "../lib/factualCalculations.js";
 import { getChineseZodiac_FULL } from "../lib/chineseZodiac.js";
 import { calculateAscendant, getCoordinatesFromLocation } from "../lib/ascendant.js";
-import { getUtcOffsetByCountry } from "../lib/timezoneMap.js"; // ✅ Új import
 
 const redis = process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
   ? new Redis({ url: process.env.UPSTASH_REDIS_REST_URL, token: process.env.UPSTASH_REDIS_REST_TOKEN })
@@ -189,22 +188,16 @@ export default async function handler(req, res) {
 
         if (place) {
           try {
-            // 1. Koordináták lekérése
+            // ✅ Koordináták lekérése
             const coords = await getCoordinatesFromLocation(place);
             console.log("🌍 Lekért koordináták:", coords);
 
-            // 2. Ország meghatározása a helyből (utolsó rész vessző után)
-            const countryPart = place.split(",").pop()?.trim() || "";
-            const timezoneOffset = getUtcOffsetByCountry(countryPart);
-            console.log("🕒 Időzóna offset:", timezoneOffset, "az ország alapján:", countryPart);
-
-            // 3. Aszcendens számítása
+            // ✅ Aszcendens számítás - az ascendant.js belül kezeli az időzónát!
             risingSign = calculateAscendant(
               finalData.dateOfBirth,           // DD/MM/YYYY
               finalData.timeOfBirth || "12:00 PM",
               coords.latitude,
-              coords.longitude,
-              timezoneOffset
+              coords.longitude
             );
             console.log("✅ Számított aszcendens:", risingSign);
           } catch (err) {
