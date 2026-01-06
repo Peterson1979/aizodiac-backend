@@ -4,7 +4,8 @@ import { Redis } from "@upstash/redis";
 import { PROMPTS } from "../lib/prompts.js";
 import { calculateLifePathNumber, calculateNumerology } from "../lib/factualCalculations.js";
 import { getChineseZodiac_FULL } from "../lib/chineseZodiac.js";
-import { calculateAscendant } from "../lib/ascendant.js";
+import { calculateAscendant, getCoordinatesFromLocation } from "../lib/ascendant.js";
+import { getUtcOffsetByCountry } from "../lib/timezoneMap.js"; // ✅ Új import
 
 const redis = process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
   ? new Redis({ url: process.env.UPSTASH_REDIS_REST_URL, token: process.env.UPSTASH_REDIS_REST_TOKEN })
@@ -129,34 +130,27 @@ function getTimelineDates(timeRange = 'daily') {
   const dates = [];
 
   if (timeRange === 'monthly') {
-    // Következő hónap
     const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
     const year = nextMonth.getFullYear();
-    const month = nextMonth.getMonth() + 1; // getMonth() 0-tól számol
+    const month = nextMonth.getMonth() + 1;
     dates.push(`${year}-${String(month).padStart(2, '0')}-08`);
     dates.push(`${year}-${String(month).padStart(2, '0')}-16`);
     dates.push(`${year}-${String(month).padStart(2, '0')}-24`);
-
   } else if (timeRange === 'weekly') {
-    // Következő hét hétfője
     const nextMonday = new Date(now);
     nextMonday.setDate(now.getDate() + (8 - now.getDay()) % 7);
-    // Hétfő, Szerda, Péntek
     for (let i of [0, 2, 4]) {
       const date = new Date(nextMonday);
       date.setDate(nextMonday.getDate() + i);
       dates.push(date.toISOString().slice(0, 10));
     }
-
   } else {
-    // Napi: ma, holnap, holnapután
     for (let i = 0; i < 3; i++) {
       const date = new Date(now);
       date.setDate(now.getDate() + i);
       dates.push(date.toISOString().slice(0, 10));
     }
   }
-
   return dates;
 }
 
@@ -185,30 +179,45 @@ export default async function handler(req, res) {
 
     let finalData = { ...data, currentDate };
 
-    const placeOfBirth = finalData.placeOfBirth || "";
-    
     if (finalData.dateOfBirth) {
       finalData.sunSign = getWesternZodiac(finalData.dateOfBirth);
       finalData.moonSign = getMoonSignApprox(finalData.dateOfBirth);
+
       if (type === "ascendant_calc" || type === "personal_horoscope") {
-        try {
-          console.log("🔍 Aszcendens számítás a felhasználó adatai alapján:");
-          console.log("   Dátum:", finalData.dateOfBirth);
-          console.log("   Idő:", finalData.timeOfBirth || "12:00 PM");
-          console.log("   Hely:", placeOfBirth || "Nincs hely megadva");
-          
-          // ✅ JAVÍTÁS: EGYSZERŰ IDŐ ALAPÚ SZÁMÍTÁS (NINCS GEOKÓDOLÁS)
-          finalData.risingSign = calculateAscendant(
-            finalData.dateOfBirth,
-            finalData.timeOfBirth || "12:00 PM"
-          );
-          
-          console.log("✅ Számított aszcendens:", finalData.risingSign);
-        } catch (error) {
-          console.error("⚠️ Aszcendens számítás hiba:", error);
-          finalData.risingSign = "Virgo"; // Biztonsági érték
+        let risingSign = "Generalized";
+        const place = finalData.placeOfBirth?.trim() || "";
+
+        if (place) {
+          try {
+            // 1. Koordináták lekérése
+            const coords = await getCoordinatesFromLocation(place);
+            console.log("🌍 Lekért koordináták:", coords);
+
+            // 2. Ország meghatározása a helyből (utolsó rész vessző után)
+            const countryPart = place.split(",").pop()?.trim() || "";
+            const timezoneOffset = getUtcOffsetByCountry(countryPart);
+            console.log("🕒 Időzóna offset:", timezoneOffset, "az ország alapján:", countryPart);
+
+            // 3. Aszcendens számítása
+            risingSign = calculateAscendant(
+              finalData.dateOfBirth,           // DD/MM/YYYY
+              finalData.timeOfBirth || "12:00 PM",
+              coords.latitude,
+              coords.longitude,
+              timezoneOffset
+            );
+            console.log("✅ Számított aszcendens:", risingSign);
+          } catch (err) {
+            console.warn("⚠️ Aszcendens számítás sikertelen, fallback:", err.message);
+            risingSign = "Generalized";
+          }
+        } else {
+          console.warn("⚠️ Nincs születési hely megadva – nem lehet aszcendenst számolni.");
         }
+
+        finalData.risingSign = risingSign;
       }
+
       if (type === "personal_horoscope") {
         const balance = calculateElementBalance(finalData.sunSign, finalData.moonSign, finalData.risingSign);
         finalData.firePercent = balance.fire;
@@ -218,12 +227,9 @@ export default async function handler(req, res) {
       }
     }
 
-    // Helyes kulcs: "birthDate", nem "dateOfBirth"
+    // Numerology
     if (finalData.fullName && finalData.birthDate && type === "numerology") {
-      // Kinyerjük a napot közvetlenül
       const birthday = parseInt(finalData.birthDay, 10) || 1;
-
-      // A többi számot kiszámoljuk
       const num = calculateNumerology(finalData.fullName, finalData.birthDate);
       console.log("🔍 Numerology output - birthday:", num.birthday);
       finalData.lifePathNumber = num.lifePath;
@@ -233,6 +239,7 @@ export default async function handler(req, res) {
       finalData.birthdayNumber = birthday;
     }
 
+    // Chinese Zodiac
     if (finalData.dateOfBirth && type === "chinese_horoscope") {
       console.log("🔍 Chinese Zodiac input date:", finalData.dateOfBirth);
       const zodiac = getChineseZodiac_FULL(finalData.dateOfBirth);
@@ -243,6 +250,7 @@ export default async function handler(req, res) {
       finalData.YIN_YANG = zodiac.yinYang;
     }
 
+    // Calendar
     if (type === "personal_astro_calendar") {
       const timeRange = finalData.timeRange || "daily";
       const timelineDates = getTimelineDates(timeRange);
@@ -257,7 +265,6 @@ export default async function handler(req, res) {
     const periodMap = { 'daily': 'Daily', 'weekly': 'Weekly', 'monthly': 'Monthly', 'yearly': 'Yearly' };
     const periodType = periodMap[finalData.period] || 'Daily';
 
-    // ✅ CSAK A SZÜKSÉGES ADATOK KITÖLTÉSE A TÍPUSNAK MEGFELELŐEN
     const templateData = {
       language: languageCode,
       currentDate: currentDate,
@@ -266,36 +273,35 @@ export default async function handler(req, res) {
       weekRange: weekRange,
     };
 
-    // ✅ JAVÍTÁS: Aszcendens adatok hozzáadása a templateData-hoz
+    // Típus-specifikus adatok
     if (type === "ascendant_calc") {
-      templateData.risingSign = finalData.risingSign || "Virgo";
+      templateData.risingSign = finalData.risingSign || "Generalized";
       templateData.birthTime = finalData.timeOfBirth || "12:00 PM";
-      templateData.birthPlace = placeOfBirth || "Nincs hely megadva";
+      templateData.birthPlace = finalData.placeOfBirth || "Nincs megadva";
     }
 
-    // Típus-specifikus adatok
     if (type === "home_daily_horoscope" || type.startsWith("ai_horoscope_")) {
       templateData.zodiacSign = finalData.zodiacSign || "Ismeretlen";
       templateData.periodType = periodType;
     }
-    
+
     if (type === "chinese_horoscope") {
       templateData.animal = finalData.ANIMAL || "";
       templateData.element = finalData.ELEMENT || "";
       templateData.yinYang = finalData.YIN_YANG || "";
     }
-    
+
     if (type === "personal_horoscope") {
       templateData.sunSign = finalData.sunSign || "Ismeretlen";
       templateData.moonSign = finalData.moonSign || "Becsült";
-      templateData.risingSign = finalData.risingSign || "Virgo";
+      templateData.risingSign = finalData.risingSign || "Generalized";
       templateData.firePercent = finalData.firePercent || 0;
       templateData.earthPercent = finalData.earthPercent || 0;
       templateData.airPercent = finalData.airPercent || 0;
       templateData.waterPercent = finalData.waterPercent || 0;
       templateData.periodType = periodType;
     }
-    
+
     if (type === "numerology") {
       templateData.lifePathNumber = finalData.lifePathNumber || "X";
       templateData.expressionNumber = finalData.expressionNumber || "X";
@@ -303,23 +309,22 @@ export default async function handler(req, res) {
       templateData.personalityNumber = finalData.personalityNumber || "X";
       templateData.birthdayNumber = finalData.birthdayNumber || "X";
     }
-    
+
     if (type === "personal_astro_calendar") {
       templateData.timelineDate1 = finalData.timelineDate1 || "";
       templateData.timelineDate2 = finalData.timelineDate2 || "";
       templateData.timelineDate3 = finalData.timelineDate3 || "";
       templateData.timeRange = finalData.timeRange || "daily";
     }
-    
+
     if (type === "ask_the_stars") {
       templateData.question = finalData.question || "Nincs kérdés megadva";
     }
 
     const filledPrompt = fillTemplate(promptTemplate, templateData);
-    console.log(`📝 Filled prompt for ${type}:\n`, filledPrompt); // ✅ DINAMIKUS LOG
+    console.log(`📝 Filled prompt for ${type}:\n`, filledPrompt);
 
     const estimatedTokens = Math.ceil(filledPrompt.length / 4) + 200;
-
     if (!(await canUseTokens(estimatedTokens))) {
       return res.status(429).json({ error: "token_limit_exceeded" });
     }
@@ -334,7 +339,6 @@ export default async function handler(req, res) {
     const text = result.response.text();
 
     console.log("⬅️ AI RESPONSE CONTENT:", text.trim());
-
     return res.status(200).json({ success: true, content: text.trim() });
 
   } catch (error) {
