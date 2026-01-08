@@ -79,19 +79,19 @@ function getWesternZodiac(dateStr) {
 
 function getMoonSignApprox(dateStr) {
   const parts = dateStr.split("/");
-  if (parts.length !== 3) return "Becsült";
+  if (parts.length !== 3) return "Estimated";
   const month = parseInt(parts[1], 10);
-  if (isNaN(month) || month < 1 || month > 12) return "Becsült";
+  if (isNaN(month) || month < 1 || month > 12) return "Estimated";
   const signs = ["Capricorn", "Aquarius", "Pisces", "Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo", "Libra", "Scorpio", "Sagittarius"];
   return signs[month - 1];
 }
 
-function calculateElementBalance(sunSign, moonSign = "Becsült", ascendant = "Általános") {
+function calculateElementBalance(sunSign, moonSign = "Estimated", ascendant = "Generalized") {
   const fire = ["Aries", "Leo", "Sagittarius"];
   const earth = ["Taurus", "Virgo", "Capricorn"];
   const air = ["Gemini", "Libra", "Aquarius"];
   const water = ["Cancer", "Scorpio", "Pisces"];
-  const signs = [sunSign, moonSign, ascendant].filter(s => s !== "Becsült" && s !== "Általános" && s !== "Estimated" && s !== "Generalized");
+  const signs = [sunSign, moonSign, ascendant].filter(s => s !== "Estimated" && s !== "Generalized");
   const counts = { fire: 0, earth: 0, air: 0, water: 0 };
   signs.forEach(sign => {
     if (fire.includes(sign)) counts.fire++;
@@ -178,23 +178,24 @@ export default async function handler(req, res) {
 
     let finalData = { ...data, currentDate };
 
+    let sunSign = "Unknown";
+    let moonSign = "Estimated";
+    let risingSign = "Generalized";
+
     if (finalData.dateOfBirth) {
-      finalData.sunSign = getWesternZodiac(finalData.dateOfBirth);
-      finalData.moonSign = getMoonSignApprox(finalData.dateOfBirth);
+      sunSign = getWesternZodiac(finalData.dateOfBirth);
+      moonSign = getMoonSignApprox(finalData.dateOfBirth);
 
       if (type === "ascendant_calc" || type === "personal_horoscope") {
-        let risingSign = "Generalized";
         const place = finalData.placeOfBirth?.trim() || "";
 
         if (place) {
           try {
-            // ✅ Koordináták lekérése
             const coords = await getCoordinatesFromLocation(place);
             console.log("🌍 Lekért koordináták:", coords);
 
-            // ✅ Aszcendens számítás - az ascendant.js belül kezeli az időzónát!
             risingSign = calculateAscendant(
-              finalData.dateOfBirth,           // DD/MM/YYYY
+              finalData.dateOfBirth,
               finalData.timeOfBirth || "12:00 PM",
               coords.latitude,
               coords.longitude
@@ -207,12 +208,10 @@ export default async function handler(req, res) {
         } else {
           console.warn("⚠️ Nincs születési hely megadva – nem lehet aszcendenst számolni.");
         }
-
-        finalData.risingSign = risingSign;
       }
 
       if (type === "personal_horoscope") {
-        const balance = calculateElementBalance(finalData.sunSign, finalData.moonSign, finalData.risingSign);
+        const balance = calculateElementBalance(sunSign, moonSign, risingSign);
         finalData.firePercent = balance.fire;
         finalData.earthPercent = balance.earth;
         finalData.airPercent = balance.air;
@@ -220,11 +219,9 @@ export default async function handler(req, res) {
       }
     }
 
-    // Numerology
     if (finalData.fullName && finalData.birthDate && type === "numerology") {
       const birthday = parseInt(finalData.birthDay, 10) || 1;
       const num = calculateNumerology(finalData.fullName, finalData.birthDate);
-      console.log("🔍 Numerology output - birthday:", num.birthday);
       finalData.lifePathNumber = num.lifePath;
       finalData.expressionNumber = num.expression;
       finalData.soulUrgeNumber = num.soulUrge;
@@ -232,7 +229,6 @@ export default async function handler(req, res) {
       finalData.birthdayNumber = birthday;
     }
 
-    // Chinese Zodiac
     if (finalData.dateOfBirth && type === "chinese_horoscope") {
       console.log("🔍 Chinese Zodiac input date:", finalData.dateOfBirth);
       const zodiac = getChineseZodiac_FULL(finalData.dateOfBirth);
@@ -243,7 +239,6 @@ export default async function handler(req, res) {
       finalData.YIN_YANG = zodiac.yinYang;
     }
 
-    // Calendar
     if (type === "personal_astro_calendar") {
       const timeRange = finalData.timeRange || "daily";
       const timelineDates = getTimelineDates(timeRange);
@@ -251,6 +246,11 @@ export default async function handler(req, res) {
       finalData.timelineDate2 = timelineDates[1];
       finalData.timelineDate3 = timelineDates[2];
     }
+
+    // 🔧 Ezeket adjuk át a templatenek – az angol nevek maradnak!
+    finalData.sunSign = sunSign;
+    finalData.moonSign = moonSign;
+    finalData.risingSign = risingSign;
 
     let promptTemplate = PROMPTS[type];
     if (!promptTemplate) return res.status(400).json({ error: "unknown_type" });
@@ -266,9 +266,8 @@ export default async function handler(req, res) {
       weekRange: weekRange,
     };
 
-    // Típus-specifikus adatok
     if (type === "ascendant_calc") {
-      templateData.risingSign = finalData.risingSign || "Generalized";
+      templateData.risingSign = risingSign;
       templateData.birthTime = finalData.timeOfBirth || "12:00 PM";
       templateData.birthPlace = finalData.placeOfBirth || "Nincs megadva";
     }
@@ -285,9 +284,9 @@ export default async function handler(req, res) {
     }
 
     if (type === "personal_horoscope") {
-      templateData.sunSign = finalData.sunSign || "Ismeretlen";
-      templateData.moonSign = finalData.moonSign || "Becsült";
-      templateData.risingSign = finalData.risingSign || "Generalized";
+      templateData.sunSign = sunSign;
+      templateData.moonSign = moonSign;
+      templateData.risingSign = risingSign;
       templateData.firePercent = finalData.firePercent || 0;
       templateData.earthPercent = finalData.earthPercent || 0;
       templateData.airPercent = finalData.airPercent || 0;
