@@ -12,7 +12,7 @@ const redis = process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_RE
 
 const DEFAULT_DAILY_TOKEN_LIMIT = parseInt(process.env.DAILY_TOKEN_LIMIT || "10000000", 10);
 const DEFAULT_MODEL = process.env.GENERATIVE_MODEL || "gemini-2.5-flash-lite";
-const MAX_RETRIES = 3;
+const MAX_RETRIES = 5;
 
 async function retryWithBackoff(fn, retries = MAX_RETRIES) {
   let attempt = 0;
@@ -21,7 +21,7 @@ async function retryWithBackoff(fn, retries = MAX_RETRIES) {
     catch (err) {
       attempt++;
       if (attempt >= retries) throw err;
-      if (err?.status === 503) await new Promise(r => setTimeout(r, Math.pow(2, attempt) * 500));
+      if (err?.status === 503) await new Promise(r => setTimeout(r, Math.pow(2, attempt) * 1000));
       else throw err;
     }
   }
