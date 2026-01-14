@@ -219,14 +219,24 @@ export default async function handler(req, res) {
       }
     }
 
-    if (finalData.fullName && finalData.birthDate && type === "numerology") {
-      const birthday = parseInt(finalData.birthDay, 10) || 1;
-      const num = calculateNumerology(finalData.fullName, finalData.birthDate);
+    // ✅ JAVÍTVA: Numerológia – pontosan használjuk a calculateNumerology függvényt
+    if (type === "numerology") {
+      if (!finalData.fullName || !finalData.dateOfBirth) {
+        return res.status(400).json({ error: "missing_fullName_or_dateOfBirth_for_numerology" });
+      }
+
+      // Birthday Number kinyerése a dátumból
+      const birthdayNumber = extractBirthdayFromDdMmYyyy(finalData.dateOfBirth);
+
+      // Pontos számítás
+      const num = calculateNumerology(finalData.fullName, finalData.dateOfBirth);
+
+      // Ezeket használjuk a templatenél
       finalData.lifePathNumber = num.lifePath;
       finalData.expressionNumber = num.expression;
       finalData.soulUrgeNumber = num.soulUrge;
       finalData.personalityNumber = num.personality;
-      finalData.birthdayNumber = birthday;
+      finalData.birthdayNumber = birthdayNumber;
     }
 
     if (finalData.dateOfBirth && type === "chinese_horoscope") {
@@ -337,4 +347,16 @@ export default async function handler(req, res) {
     console.error("Error in generateAstroContent:", error);
     return res.status(500).json({ error: "internal_error", message: error.message || "Unexpected error" });
   }
+}
+
+// ✅ Segédfüggvény: Birthday Number kinyerése DD/MM/YYYY formátumból
+function extractBirthdayFromDdMmYyyy(dateStr) {
+  const parts = dateStr.split('/');
+  if (parts.length >= 1) {
+    const day = parseInt(parts[0], 10);
+    if (!isNaN(day) && day >= 1 && day <= 31) {
+      return day;
+    }
+  }
+  return 1;
 }
