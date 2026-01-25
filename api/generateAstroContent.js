@@ -61,6 +61,12 @@ function fillTemplate(template, data = {}) {
   return out.replace(/{{\w+}}/g, "");
 }
 
+// ✅ ÚJ FÜGGVÉNY: ISO dátum (YYYY-MM-DD) → DD/MM/YYYY
+function isoToDdMmYyyy(isoDate) {
+  const [year, month, day] = isoDate.split('-');
+  return `${day}/${month}/${year}`;
+}
+
 function getWesternZodiac(dateStr) {
   const [day, month] = dateStr.split("/").map(Number);
   if ((month === 3 && day >= 21) || (month === 4 && day <= 19)) return "Aries";
@@ -183,8 +189,11 @@ export default async function handler(req, res) {
     let risingSign = "Generalized";
 
     if (finalData.dateOfBirth) {
-      sunSign = getWesternZodiac(finalData.dateOfBirth);
-      moonSign = getMoonSignApprox(finalData.dateOfBirth);
+      // ✅ KONVERTÁLJUK AZ ISO DÁTUMOT A NAP- ÉS HOLDJEGY SZÁMÍTÁSHOZ
+      const ddMmYyyy = isoToDdMmYyyy(finalData.dateOfBirth);
+
+      sunSign = getWesternZodiac(ddMmYyyy);       // ✅ Most már helyes
+      moonSign = getMoonSignApprox(ddMmYyyy);     // ✅ Most már helyes
 
       if (type === "ascendant_calc" || type === "personal_horoscope") {
         const place = finalData.placeOfBirth?.trim() || "";
@@ -195,7 +204,7 @@ export default async function handler(req, res) {
             console.log("🌍 Lekért koordináták:", coords);
 
             risingSign = calculateAscendant(
-              finalData.dateOfBirth,
+              finalData.dateOfBirth,                 // ← EZ MÁR HELYES FORMÁTUMBAN VAN
               finalData.timeOfBirth || "12:00 PM",
               coords.latitude,
               coords.longitude
@@ -282,9 +291,14 @@ export default async function handler(req, res) {
       templateData.birthPlace = finalData.placeOfBirth || "Nincs megadva";
     }
 
-    if (type === "home_daily_horoscope" || type.startsWith("ai_horoscope_")) {
+    // ✅ JAVÍTVA: love_compatibility most már kapja a zodiacSign-et
+    if (type === "home_daily_horoscope" || 
+        type.startsWith("ai_horoscope_") || 
+        type === "love_compatibility") {
       templateData.zodiacSign = finalData.zodiacSign || "Ismeretlen";
-      templateData.periodType = periodType;
+      if (type !== "love_compatibility") {
+        templateData.periodType = periodType;
+      }
     }
 
     if (type === "chinese_horoscope") {
