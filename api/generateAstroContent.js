@@ -1,7 +1,7 @@
 // api/generateAstroContent.js
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { Redis } from "@upstash/redis";
-import { PROMPTS } from "../lib/prompts.js";
+import { PROMPTS } from "../lib/prompts.js"; // ← JAVÍTVA: "PROMPTS" helyesen
 import { calculateLifePathNumber, calculateNumerology } from "../lib/factualCalculations.js";
 import { getChineseZodiac_FULL } from "../lib/chineseZodiac.js";
 import { calculateAscendant, getCoordinatesFromLocation } from "../lib/ascendant.js";
@@ -189,11 +189,18 @@ export default async function handler(req, res) {
     let risingSign = "Generalized";
 
     if (finalData.dateOfBirth) {
-      // ✅ KONVERTÁLJUK AZ ISO DÁTUMOT A NAP- ÉS HOLDJEGY SZÁMÍTÁSHOZ
-      const ddMmYyyy = isoToDdMmYyyy(finalData.dateOfBirth);
+      // ✅ BIZTONSÁGI ELLENŐRZÉS: ISO vagy DD/MM/YYYY?
+      let ddMmYyyy;
+      if (/^\d{4}-\d{2}-\d{2}$/.test(finalData.dateOfBirth)) {
+        // ISO formátum → konvertáljuk
+        ddMmYyyy = isoToDdMmYyyy(finalData.dateOfBirth);
+      } else {
+        // DD/MM/YYYY → használjuk közvetlenül
+        ddMmYyyy = finalData.dateOfBirth;
+      }
 
-      sunSign = getWesternZodiac(ddMmYyyy);       // ✅ Most már helyes
-      moonSign = getMoonSignApprox(ddMmYyyy);     // ✅ Most már helyes
+      sunSign = getWesternZodiac(ddMmYyyy);       // ✅ Most már mindig helyes
+      moonSign = getMoonSignApprox(ddMmYyyy);     // ✅ Most már mindig helyes
 
       if (type === "ascendant_calc" || type === "personal_horoscope") {
         const place = finalData.placeOfBirth?.trim() || "";
@@ -271,7 +278,7 @@ export default async function handler(req, res) {
     finalData.moonSign = moonSign;
     finalData.risingSign = risingSign;
 
-    let promptTemplate = PROMPTS[type];
+    let promptTemplate = PROMPTS[type]; // ← JAVÍTVA: "PROMPTS"
     if (!promptTemplate) return res.status(400).json({ error: "unknown_type" });
 
     const periodMap = { 'daily': 'Daily', 'weekly': 'Weekly', 'monthly': 'Monthly', 'yearly': 'Yearly' };
