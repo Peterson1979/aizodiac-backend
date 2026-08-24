@@ -185,7 +185,7 @@ export default async function handler(req, res) {
     const currentMonth = getMonthName(currentDate, languageCode);
     const weekRange = getWeekRange(currentDate);
 
-    let finalData = { ...data, currentDate };
+    let finalData = { ...data, currentDate, currentYear, currentMonth, month: currentMonth, weekRange };
 
     let sunSign = "Unknown";
     let moonSign = "Estimated";
