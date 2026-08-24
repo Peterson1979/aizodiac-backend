@@ -8,6 +8,7 @@ import { calculateAscendant, getCoordinatesFromLocation } from "../lib/ascendant
 import { getSharedCacheKey, TTL_SECONDS } from "../lib/cacheHelper.js";
 import { extractUsageMetadata, recordUsageTelemetry } from "../lib/telemetryHelper.js";
 import { getInternalAiSchema, mergeDeterministicFields, validateResponseObject, getResponseSchema, getMaxOutputTokens } from "../lib/responseSchemas.js";
+import { generateAiContent, DEFAULT_PROVIDER, DEFAULT_GEMINI_MODEL, DEFAULT_GROQ_MODEL, AI_PROVIDERS } from "../lib/aiProvider.js";
 
 const redis = process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
   ? new Redis({ url: process.env.UPSTASH_REDIS_REST_URL, token: process.env.UPSTASH_REDIS_REST_TOKEN })
@@ -352,8 +353,13 @@ export default async function handler(req, res) {
 
     const estimatedTokens = Math.ceil(filledPrompt.length / 4) + 200;
 
+    const provider = process.env.AI_PROVIDER || DEFAULT_PROVIDER;
+    const model = provider === AI_PROVIDERS.GROQ
+      ? (process.env.GROQ_MODEL || DEFAULT_GROQ_MODEL)
+      : (process.env.GENERATIVE_MODEL || DEFAULT_GEMINI_MODEL);
+
     // --- REDIS SHARED CACHE CHECK ---
-    const cacheKey = getSharedCacheKey(type, templateData, DEFAULT_MODEL);
+    const cacheKey = getSharedCacheKey(type, templateData, model, provider);
 
     if (cacheKey && redis) {
       try {
@@ -373,44 +379,31 @@ export default async function handler(req, res) {
       res.setHeader("X-AIZ-Cache", "BYPASS");
     }
 
-    // --- GEMINI AI GENERATION (CACHE MISS OR BYPASS) ---
+    // --- AI GENERATION (CACHE MISS OR BYPASS) ---
     if (!(await canUseTokens(estimatedTokens))) {
       return res.status(429).json({ error: "token_limit_exceeded" });
     }
 
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) return res.status(500).json({ error: "server_config_error" });
-
-    const ai = new GoogleGenAI({ apiKey });
-
     const aiSchema = getInternalAiSchema(type);
     const maxTokens = getMaxOutputTokens(type);
 
-    const generateConfig = {};
-    if (aiSchema) {
-      generateConfig.responseMimeType = "application/json";
-      generateConfig.responseJsonSchema = aiSchema;
-    }
-    if (maxTokens) {
-      generateConfig.maxOutputTokens = maxTokens;
-    }
+    const aiResult = await generateAiContent({
+      provider,
+      model,
+      prompt: filledPrompt,
+      responseSchema: aiSchema,
+      maxOutputTokens: maxTokens,
+      retryFn: retryWithBackoff,
+    });
 
-    const result = await retryWithBackoff(() =>
-      ai.models.generateContent({
-        model: DEFAULT_MODEL,
-        contents: filledPrompt,
-        ...(Object.keys(generateConfig).length > 0 ? { config: generateConfig } : {}),
-      })
-    );
-
-    const text = result?.text || "";
+    const text = aiResult?.text || "";
     const trimmedText = text.trim();
 
     let rawAiObj;
     try {
       rawAiObj = JSON.parse(trimmedText);
     } catch (jsonErr) {
-      console.error(`❌ Structured output JSON parse failed for ${type}:`, jsonErr.message, "\nRaw text:", trimmedText);
+      console.error(`❌ Structured output JSON parse failed for ${type} [${provider}]:`, jsonErr.message, "\nRaw text:", trimmedText);
       return res.status(500).json({ error: "invalid_ai_response", message: "Failed to parse structured JSON from AI" });
     }
 
@@ -426,9 +419,9 @@ export default async function handler(req, res) {
     const finalJsonString = JSON.stringify(finalObj);
 
     // Record exact provider token usage telemetry
-    const usage = extractUsageMetadata(result);
-    await recordUsageTelemetry(redis, type, usage);
-    console.log(`📊 Token Telemetry for ${type}: Prompt=${usage.promptTokens}, Candidates=${usage.candidateTokens}, Total=${usage.totalTokens}`);
+    const usage = aiResult.usage;
+    await recordUsageTelemetry(redis, type, usage, new Date(), provider, model);
+    console.log(`📊 Token Telemetry for ${type} [${provider}/${model}]: Prompt=${usage.promptTokens}, Candidates=${usage.candidateTokens}, Total=${usage.totalTokens}`);
 
     // Store in cache if request was eligible for shared cache
     if (cacheKey && redis && finalJsonString.length > 0) {

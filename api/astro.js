@@ -1,5 +1,4 @@
 // api/astro.js
-import { GoogleGenAI } from "@google/genai";
 import { Redis } from "@upstash/redis";
 import { PROMPTS } from "../lib/prompts.js";
 import { getChineseZodiac_FULL } from "../lib/factualCalculations.js";
@@ -10,6 +9,13 @@ import {
   getResponseSchema,
   getMaxOutputTokens
 } from "../lib/responseSchemas.js";
+import {
+  generateAiContent,
+  DEFAULT_PROVIDER,
+  DEFAULT_GEMINI_MODEL,
+  DEFAULT_GROQ_MODEL,
+  AI_PROVIDERS
+} from "../lib/aiProvider.js";
 
 // --- Redis setup ---
 const redis = process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
@@ -21,8 +27,6 @@ const redis = process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_RE
 
 // --- Config ---
 const DEFAULT_DAILY_TOKEN_LIMIT = parseInt(process.env.DAILY_TOKEN_LIMIT || "10000000", 10);
-const DEFAULT_MODEL = process.env.GENERATIVE_MODEL || "gemini-2.5-flash-lite";
-const GEMINI_TIMEOUT_MS = 25000;
 const MAX_RETRIES = 3;
 
 // --- Token limit ---
@@ -41,7 +45,7 @@ async function canUseTokens(tokens) {
   }
 }
 
-// --- Retry ---
+// --- Retry for legacy astro endpoint ---
 async function retryWithBackoff(fn, retries = MAX_RETRIES) {
   let attempt = 0;
   while (attempt < retries) {
@@ -100,44 +104,35 @@ export default async function handler(request) {
       return new Response(JSON.stringify({ error: "token_limit_exceeded" }), { status: 429 });
     }
 
-    const apiKey = process.env.GEMINI_API_KEY || process.env.GENERATIVE_API_KEY;
-    if (!apiKey) return new Response(JSON.stringify({ error: "server_config_error" }), { status: 500 });
-
-    const ai = new GoogleGenAI({ apiKey });
-
     if (stream) {
       const headers = new Headers();
       headers.set("Content-Type", "text/event-stream");
       headers.set("Cache-Control", "no-cache");
       headers.set("Connection", "keep-alive");
       const streamResponse = new Response(null, { status: 200, headers });
-      // Stream nem támogatott ebben a környezetben – kihagyva
       return streamResponse;
     }
+
+    const provider = process.env.AI_PROVIDER || DEFAULT_PROVIDER;
+    const model = provider === AI_PROVIDERS.GROQ
+      ? (process.env.GROQ_MODEL || DEFAULT_GROQ_MODEL)
+      : (process.env.GENERATIVE_MODEL || DEFAULT_GEMINI_MODEL);
 
     const aiSchema = getInternalAiSchema(type);
     const maxTokens = getMaxOutputTokens(type);
 
-    const generateConfig = {};
-    if (aiSchema) {
-      generateConfig.responseMimeType = "application/json";
-      generateConfig.responseJsonSchema = aiSchema;
-    }
-    if (maxTokens) {
-      generateConfig.maxOutputTokens = maxTokens;
-    }
-
-    const generateResult = await retryWithBackoff(() =>
-      ai.models.generateContent({
-        model: DEFAULT_MODEL,
-        contents: filledPrompt,
-        ...(Object.keys(generateConfig).length > 0 ? { config: generateConfig } : {}),
-      })
-    );
+    const generateResult = await generateAiContent({
+      provider,
+      model,
+      prompt: filledPrompt,
+      responseSchema: aiSchema,
+      maxOutputTokens: maxTokens,
+      retryFn: retryWithBackoff,
+    });
 
     const text = generateResult?.text || null;
     if (!text) {
-      console.error("Empty response from Gemini API", generateResult);
+      console.error("Empty response from AI", generateResult);
       return new Response(JSON.stringify({ error: "empty_response", message: "No content from AI" }), { status: 500 });
     }
 
