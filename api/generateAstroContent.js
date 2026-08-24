@@ -5,6 +5,7 @@ import { PROMPTS } from "../lib/prompts.js"; // ← JAVÍTVA: "PROMPTS" helyesen
 import { calculateLifePathNumber, calculateNumerology } from "../lib/factualCalculations.js";
 import { getChineseZodiac_FULL } from "../lib/chineseZodiac.js";
 import { calculateAscendant, getCoordinatesFromLocation } from "../lib/ascendant.js";
+import { getSharedCacheKey, TTL_SECONDS } from "../lib/cacheHelper.js";
 
 const redis = process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
   ? new Redis({ url: process.env.UPSTASH_REDIS_REST_URL, token: process.env.UPSTASH_REDIS_REST_TOKEN })
@@ -348,6 +349,29 @@ export default async function handler(req, res) {
     console.log(`📝 Filled prompt for ${type}:\n`, filledPrompt);
 
     const estimatedTokens = Math.ceil(filledPrompt.length / 4) + 200;
+
+    // --- REDIS SHARED CACHE CHECK ---
+    const cacheKey = getSharedCacheKey(type, templateData, DEFAULT_MODEL);
+
+    if (cacheKey && redis) {
+      try {
+        const cached = await redis.get(cacheKey);
+        if (cached !== null && cached !== undefined) {
+          const cachedText = typeof cached === "string" ? cached.trim() : JSON.stringify(cached);
+          if (cachedText.length > 0) {
+            res.setHeader("X-AIZ-Cache", "HIT");
+            console.log(`⚡ CACHE HIT for ${type}: ${cacheKey}`);
+            return res.status(200).json({ success: true, content: cachedText });
+          }
+        }
+      } catch (cacheGetErr) {
+        console.warn("⚠️ Redis cache GET error (failing open):", cacheGetErr.message);
+      }
+    } else {
+      res.setHeader("X-AIZ-Cache", "BYPASS");
+    }
+
+    // --- GEMINI AI GENERATION (CACHE MISS OR BYPASS) ---
     if (!(await canUseTokens(estimatedTokens))) {
       return res.status(429).json({ error: "token_limit_exceeded" });
     }
@@ -359,10 +383,22 @@ export default async function handler(req, res) {
     const model = genAI.getGenerativeModel({ model: DEFAULT_MODEL });
 
     const result = await retryWithBackoff(() => model.generateContent(filledPrompt));
-    const text = result.response.text();
+    const text = result?.response?.text?.() || "";
+    const trimmedText = text.trim();
 
-    console.log("⬅️ AI RESPONSE CONTENT:", text.trim());
-    return res.status(200).json({ success: true, content: text.trim() });
+    // Store in cache if request was eligible for shared cache
+    if (cacheKey && redis && trimmedText.length > 0) {
+      const ttl = TTL_SECONDS[type] || 36 * 3600;
+      try {
+        await redis.set(cacheKey, trimmedText, { ex: ttl });
+      } catch (cacheSetErr) {
+        console.warn("⚠️ Redis cache SET error (failing open):", cacheSetErr.message);
+      }
+      res.setHeader("X-AIZ-Cache", "MISS");
+    }
+
+    console.log("⬅️ AI RESPONSE CONTENT:", trimmedText);
+    return res.status(200).json({ success: true, content: trimmedText });
 
   } catch (error) {
     console.error("Error in generateAstroContent:", error);
