@@ -1,5 +1,5 @@
 // api/astro.js
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenAI } from "@google/genai";
 import { Redis } from "@upstash/redis";
 import { PROMPTS } from "../lib/prompts.js";
 import { getChineseZodiac_FULL } from "../lib/factualCalculations.js";
@@ -96,8 +96,7 @@ export default async function handler(request) {
     const apiKey = process.env.GEMINI_API_KEY || process.env.GENERATIVE_API_KEY;
     if (!apiKey) return new Response(JSON.stringify({ error: "server_config_error" }), { status: 500 });
 
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: DEFAULT_MODEL });
+    const ai = new GoogleGenAI({ apiKey });
 
     if (stream) {
       const headers = new Headers();
@@ -110,10 +109,13 @@ export default async function handler(request) {
     }
 
     const generateResult = await retryWithBackoff(() =>
-      model.generateContent(filledPrompt, { timeout: GEMINI_TIMEOUT_MS })
+      ai.models.generateContent({
+        model: DEFAULT_MODEL,
+        contents: filledPrompt,
+      })
     );
 
-    const text = generateResult?.response?.text?.() || generateResult?.text || null;
+    const text = generateResult?.text || null;
     if (!text) {
       console.error("Empty response from Gemini API", generateResult);
       return new Response(JSON.stringify({ error: "empty_response", message: "No content from AI" }), { status: 500 });

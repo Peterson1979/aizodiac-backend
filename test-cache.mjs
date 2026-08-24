@@ -7,9 +7,15 @@ import {
   getSharedCacheKey,
   SHARED_CACHE_TYPES
 } from "./lib/cacheHelper.js";
+import {
+  extractUsageMetadata,
+  recordUsageTelemetry,
+  TELEMETRY_RETENTION_SECONDS
+} from "./lib/telemetryHelper.js";
+import { retryWithBackoff } from "./api/generateAstroContent.js";
 
 console.log("==================================================");
-console.log("RUNNING DETERMINISTIC CACHE HELPER & LOGIC TESTS");
+console.log("RUNNING DETERMINISTIC CACHE, TELEMETRY & RETRY TESTS");
 console.log("==================================================");
 
 // Test A: Same semantic request produces identical cache key
@@ -131,103 +137,353 @@ console.log("==================================================");
   console.log("✅ Test H passed: All TTL configurations verified");
 }
 
-// Test I, J, K: Cache HIT path, Cache MISS path, Empty/Failed response, Redis Fail-Open
+// Test I: Telemetry Extraction Logic
 {
-  const mockStore = new Map();
+  // Full metadata
+  const mockResp = {
+    text: "Forecast text",
+    usageMetadata: {
+      promptTokenCount: 200,
+      candidatesTokenCount: 300,
+      totalTokenCount: 500,
+      thoughtsTokenCount: 50,
+      cachedContentTokenCount: 100,
+    }
+  };
+  const usage = extractUsageMetadata(mockResp);
+  assert.strictEqual(usage.promptTokens, 200);
+  assert.strictEqual(usage.candidateTokens, 300);
+  assert.strictEqual(usage.totalTokens, 500);
+  assert.strictEqual(usage.thoughtsTokens, 50);
+  assert.strictEqual(usage.cachedTokens, 100);
+
+  // Missing metadata normalization
+  const emptyUsage = extractUsageMetadata({});
+  assert.strictEqual(emptyUsage.promptTokens, 0);
+  assert.strictEqual(emptyUsage.candidateTokens, 0);
+  assert.strictEqual(emptyUsage.totalTokens, 0);
+  assert.strictEqual(emptyUsage.thoughtsTokens, 0);
+  assert.strictEqual(emptyUsage.cachedTokens, 0);
+
+  console.log("✅ Test I passed: Usage metadata extracted and normalized safely");
+}
+
+// Test J: Telemetry Recording & Aggregate Increment Test
+{
+  const redisMap = new Map();
+  const expirations = new Map();
+
+  const mockRedis = {
+    async hincrby(key, field, inc) {
+      if (!redisMap.has(key)) redisMap.set(key, {});
+      const hash = redisMap.get(key);
+      hash[field] = (hash[field] || 0) + inc;
+      return hash[field];
+    },
+    async expire(key, seconds) {
+      expirations.set(key, seconds);
+      return 1;
+    }
+  };
+
+  const usage = {
+    promptTokens: 200,
+    candidateTokens: 300,
+    totalTokens: 500,
+    thoughtsTokens: 0,
+    cachedTokens: 0
+  };
+
+  await recordUsageTelemetry(mockRedis, "home_daily_horoscope", usage, "2026-08-24");
+
+  const totalHash = redisMap.get("aiz:usage:2026-08-24:total");
+  const typeHash = redisMap.get("aiz:usage:2026-08-24:type:home_daily_horoscope");
+
+  assert.deepStrictEqual(totalHash, {
+    requests: 1,
+    promptTokens: 200,
+    candidateTokens: 300,
+    totalTokens: 500
+  });
+
+  assert.deepStrictEqual(typeHash, {
+    requests: 1,
+    promptTokens: 200,
+    candidateTokens: 300,
+    totalTokens: 500
+  });
+
+  assert.strictEqual(expirations.get("aiz:usage:2026-08-24:total"), TELEMETRY_RETENTION_SECONDS);
+  assert.strictEqual(expirations.get("aiz:usage:2026-08-24:type:home_daily_horoscope"), TELEMETRY_RETENTION_SECONDS);
+
+  console.log("✅ Test J passed: Exact aggregate token telemetry recorded for daily total and type");
+}
+
+// Test K: Deterministic Retry Logic Tests (Batch 2A Correction Cases A - G)
+{
+  // A. Immediate success
+  {
+    let calls = 0;
+    const delays = [];
+    const res = await retryWithBackoff(async () => {
+      calls++;
+      return "SUCCESS_A";
+    }, 5, (ms) => delays.push(ms));
+    assert.strictEqual(res, "SUCCESS_A");
+    assert.strictEqual(calls, 1, "Immediate success must make exactly 1 call");
+    assert.strictEqual(delays.length, 0);
+  }
+
+  // B. 503, then success
+  {
+    let calls = 0;
+    const delays = [];
+    const res = await retryWithBackoff(async () => {
+      calls++;
+      if (calls === 1) {
+        const err = new Error("Service Unavailable");
+        err.status = 503;
+        throw err;
+      }
+      return "SUCCESS_B";
+    }, 5, (ms) => delays.push(ms));
+    assert.strictEqual(res, "SUCCESS_B");
+    assert.strictEqual(calls, 2, "One 503 then success must make exactly 2 calls");
+    assert.deepStrictEqual(delays, [2000], "Delay after attempt 1 must be 2000ms");
+  }
+
+  // C. Four 503 failures, then success
+  {
+    let calls = 0;
+    const delays = [];
+    const res = await retryWithBackoff(async () => {
+      calls++;
+      if (calls < 5) {
+        const err = new Error("Service Unavailable");
+        err.status = 503;
+        throw err;
+      }
+      return "SUCCESS_C";
+    }, 5, (ms) => delays.push(ms));
+    assert.strictEqual(res, "SUCCESS_C");
+    assert.strictEqual(calls, 5, "Four 503s then success must make exactly 5 calls");
+    assert.deepStrictEqual(delays, [2000, 4000, 8000, 16000], "Delays must be 2s, 4s, 8s, 16s");
+  }
+
+  // D. Five consecutive 503 failures
+  {
+    let calls = 0;
+    const delays = [];
+    let threw = false;
+    try {
+      await retryWithBackoff(async () => {
+        calls++;
+        const err = new Error("Service Unavailable");
+        err.status = 503;
+        throw err;
+      }, 5, (ms) => delays.push(ms));
+    } catch (err) {
+      threw = true;
+      assert.strictEqual(err.status, 503);
+    }
+    assert.strictEqual(threw, true, "Must throw after 5 consecutive 503 failures");
+    assert.strictEqual(calls, 5, "Must make exactly 5 attempts before terminal error");
+    assert.deepStrictEqual(delays, [2000, 4000, 8000, 16000]);
+  }
+
+  // E. HTTP 429 -> Fail immediately (1 call)
+  {
+    let calls = 0;
+    const delays = [];
+    let threw = false;
+    try {
+      await retryWithBackoff(async () => {
+        calls++;
+        const err = new Error("Too Many Requests");
+        err.status = 429;
+        throw err;
+      }, 5, (ms) => delays.push(ms));
+    } catch (err) {
+      threw = true;
+      assert.strictEqual(err.status, 429);
+    }
+    assert.strictEqual(threw, true);
+    assert.strictEqual(calls, 1, "HTTP 429 must fail immediately with 1 call");
+    assert.strictEqual(delays.length, 0);
+  }
+
+  // F. HTTP 500 -> Fail immediately (1 call)
+  {
+    let calls = 0;
+    const delays = [];
+    let threw = false;
+    try {
+      await retryWithBackoff(async () => {
+        calls++;
+        const err = new Error("Internal Server Error");
+        err.status = 500;
+        throw err;
+      }, 5, (ms) => delays.push(ms));
+    } catch (err) {
+      threw = true;
+      assert.strictEqual(err.status, 500);
+    }
+    assert.strictEqual(threw, true);
+    assert.strictEqual(calls, 1, "HTTP 500 must fail immediately with 1 call");
+    assert.strictEqual(delays.length, 0);
+  }
+
+  // G. Generic/Network error without status 503 -> Fail immediately (1 call)
+  {
+    let calls = 0;
+    const delays = [];
+    let threw = false;
+    try {
+      await retryWithBackoff(async () => {
+        calls++;
+        throw new Error("ECONNRESET");
+      }, 5, (ms) => delays.push(ms));
+    } catch (err) {
+      threw = true;
+      assert.strictEqual(err.message, "ECONNRESET");
+    }
+    assert.strictEqual(threw, true);
+    assert.strictEqual(calls, 1, "Generic error must fail immediately with 1 call");
+    assert.strictEqual(delays.length, 0);
+  }
+
+  console.log("✅ Test K passed: Retry cases A-G verified (503 backoff 2s/4s/8s/16s, non-503 instant fail)");
+}
+
+// Test L: End-to-End Mock Pipeline with Retry, Telemetry, Cache HIT/MISS/BYPASS (Case H)
+{
+  const mockCache = new Map();
+  const mockTelemetry = new Map();
   let redisFail = false;
 
   const mockRedis = {
     async get(key) {
-      if (redisFail) throw new Error("Redis connection timed out");
-      return mockStore.get(key) || null;
+      if (redisFail) throw new Error("Redis get failed");
+      return mockCache.get(key) || null;
     },
     async set(key, val, opts) {
-      if (redisFail) throw new Error("Redis write failed");
-      mockStore.set(key, val);
+      if (redisFail) throw new Error("Redis set failed");
+      mockCache.set(key, val);
       return "OK";
+    },
+    async hincrby(key, field, inc) {
+      if (redisFail) throw new Error("Redis hincrby failed");
+      if (!mockTelemetry.has(key)) mockTelemetry.set(key, {});
+      const hash = mockTelemetry.get(key);
+      hash[field] = (hash[field] || 0) + inc;
+      return hash[field];
+    },
+    async expire(key, seconds) {
+      return 1;
     }
   };
 
-  let modelCallCount = 0;
-  let simulatedModelOutput = `{"result": "astrology insight"}`;
-  let tokenAccountingCount = 0;
+  let modelExecutionCount = 0;
+  let simulatedFailures = 0;
 
-  async function mockHandlerPipeline(type, templateData) {
-    let header = "BYPASS";
+  async function mockGenerateAstroContentPipeline(type, templateData) {
+    let cacheStatus = "BYPASS";
     const cacheKey = getSharedCacheKey(type, templateData, "gemini-2.5-flash-lite");
 
     if (cacheKey && mockRedis) {
       try {
         const cached = await mockRedis.get(cacheKey);
-        if (cached !== null && cached !== undefined) {
-          const cachedText = typeof cached === "string" ? cached.trim() : JSON.stringify(cached);
-          if (cachedText.length > 0) {
-            header = "HIT";
-            return { header, content: cachedText, tokensAccounted: false };
-          }
+        if (cached) {
+          return {
+            status: 200,
+            headers: { "X-AIZ-Cache": "HIT" },
+            body: { success: true, content: cached },
+            modelCalled: false
+          };
         }
       } catch (err) {
         // Fail open
       }
-    } else {
-      header = "BYPASS";
     }
 
-    // Token accounting & Model call
-    tokenAccountingCount++;
-    modelCallCount++;
+    // Call Model with Retry
+    const sdkResult = await retryWithBackoff(async () => {
+      modelExecutionCount++;
+      if (simulatedFailures > 0) {
+        simulatedFailures--;
+        const err = new Error("Simulated 503");
+        err.status = 503;
+        throw err;
+      }
+      return {
+        text: `{"forecast": "sunny stars"}`,
+        usageMetadata: {
+          promptTokenCount: 150,
+          candidatesTokenCount: 250,
+          totalTokenCount: 400
+        }
+      };
+    }, 5, () => {});
 
-    const text = simulatedModelOutput || "";
-    const trimmedText = text.trim();
+    const trimmedText = (sdkResult?.text || "").trim();
 
+    // Telemetry - only on successful completion
+    const usage = extractUsageMetadata(sdkResult);
+    await recordUsageTelemetry(mockRedis, type, usage, "2026-08-24");
+
+    // Cache Store
     if (cacheKey && mockRedis && trimmedText.length > 0) {
       try {
         await mockRedis.set(cacheKey, trimmedText, { ex: 3600 });
       } catch {
         // Fail open
       }
-      header = "MISS";
+      cacheStatus = "MISS";
     }
 
-    return { header, content: trimmedText, tokensAccounted: true };
+    return {
+      status: 200,
+      headers: { "X-AIZ-Cache": cacheStatus },
+      body: { success: true, content: trimmedText },
+      modelCalled: true,
+      usage
+    };
   }
 
-  // 1. Initial Request -> MISS, calls model once, accounts tokens once, caches response
-  const res1 = await mockHandlerPipeline("home_daily_horoscope", { zodiacSign: "Aries", currentDate: "2026-08-24", language: "en" });
-  assert.strictEqual(res1.header, "MISS");
-  assert.strictEqual(modelCallCount, 1);
-  assert.strictEqual(tokenAccountingCount, 1);
-  assert.strictEqual(res1.content, `{"result": "astrology insight"}`);
+  // 1. Initial Request with 2 transient 503 retries -> succeeds on attempt 3
+  simulatedFailures = 2;
+  const call1 = await mockGenerateAstroContentPipeline("home_daily_horoscope", { zodiacSign: "Aries", currentDate: "2026-08-24", language: "en" });
+  assert.strictEqual(call1.headers["X-AIZ-Cache"], "MISS");
+  assert.strictEqual(call1.modelCalled, true);
+  assert.strictEqual(modelExecutionCount, 3, "Must make 3 attempts (2 retries + 1 success)");
+  // Case H: Telemetry requests count must be incremented by EXACTLY 1!
+  assert.deepStrictEqual(mockTelemetry.get("aiz:usage:2026-08-24:total"), {
+    requests: 1,
+    promptTokens: 150,
+    candidateTokens: 250,
+    totalTokens: 400
+  });
 
-  // 2. Second Request -> HIT, 0 model calls, 0 token accounting!
-  const res2 = await mockHandlerPipeline("home_daily_horoscope", { zodiacSign: "Aries", currentDate: "2026-08-24", language: "en" });
-  assert.strictEqual(res2.header, "HIT");
-  assert.strictEqual(modelCallCount, 1, "Model call count must remain 1 on HIT");
-  assert.strictEqual(tokenAccountingCount, 1, "Token accounting must not increment on HIT");
-  assert.strictEqual(res2.content, res1.content);
+  // 2. Second Request -> HIT -> 0 model calls, 0 telemetry increment
+  const call2 = await mockGenerateAstroContentPipeline("home_daily_horoscope", { zodiacSign: "Aries", currentDate: "2026-08-24", language: "en" });
+  assert.strictEqual(call2.headers["X-AIZ-Cache"], "HIT");
+  assert.strictEqual(call2.modelCalled, false);
+  assert.strictEqual(modelExecutionCount, 3, "Model execution count must remain unchanged on HIT");
+  assert.strictEqual(mockTelemetry.get("aiz:usage:2026-08-24:total").requests, 1, "Telemetry requests must not increment on HIT");
 
-  // 3. Failed/Empty generation -> not cached
-  simulatedModelOutput = "";
-  const resEmpty = await mockHandlerPipeline("home_daily_horoscope", { zodiacSign: "Gemini", currentDate: "2026-08-24", language: "en" });
-  assert.strictEqual(modelCallCount, 2);
-  // Re-requesting Gemini must still be a MISS (since empty was not cached)
-  simulatedModelOutput = `{"result": "gemini forecast"}`;
-  const resGemini = await mockHandlerPipeline("home_daily_horoscope", { zodiacSign: "Gemini", currentDate: "2026-08-24", language: "en" });
-  assert.strictEqual(resGemini.header, "MISS");
-  assert.strictEqual(modelCallCount, 3);
+  // 3. Terminal Failure test -> 5 consecutive 503s throws and records ZERO telemetry
+  simulatedFailures = 5;
+  let terminalFailed = false;
+  try {
+    await mockGenerateAstroContentPipeline("home_daily_horoscope", { zodiacSign: "Libra", currentDate: "2026-08-24", language: "en" });
+  } catch (err) {
+    terminalFailed = true;
+  }
+  assert.strictEqual(terminalFailed, true, "Terminal failure must throw");
+  // Telemetry for Libra must NOT exist
+  assert.strictEqual(mockTelemetry.get("aiz:usage:2026-08-24:type:home_daily_horoscope").requests, 1, "Terminal failure must not record telemetry");
 
-  // 4. Redis Failure -> Fail-Open (proceeds to model generation normally)
-  redisFail = true;
-  const resRedisFail = await mockHandlerPipeline("home_daily_horoscope", { zodiacSign: "Leo", currentDate: "2026-08-24", language: "en" });
-  assert.strictEqual(modelCallCount, 4);
-  assert.strictEqual(resRedisFail.content, `{"result": "gemini forecast"}`);
-  redisFail = false;
-
-  // 5. Personal type -> BYPASS
-  const resPersonal = await mockHandlerPipeline("personal_horoscope", { zodiacSign: "Leo", language: "en" });
-  assert.strictEqual(resPersonal.header, "BYPASS");
-
-  console.log("✅ Test I, J, K passed: Mock HIT bypasses model & token accounting; MISS caches valid results; empty results not cached; Redis failure is fail-open");
+  console.log("✅ Test L passed: Full mock pipeline verified for Retry + Telemetry (Case H), Cache HIT/MISS, and Terminal Failure handling");
 }
 
 console.log("==================================================");

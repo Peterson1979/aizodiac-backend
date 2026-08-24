@@ -1,11 +1,12 @@
 // api/generateAstroContent.js
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenAI } from "@google/genai";
 import { Redis } from "@upstash/redis";
 import { PROMPTS } from "../lib/prompts.js"; // ← JAVÍTVA: "PROMPTS" helyesen
 import { calculateLifePathNumber, calculateNumerology } from "../lib/factualCalculations.js";
 import { getChineseZodiac_FULL } from "../lib/chineseZodiac.js";
 import { calculateAscendant, getCoordinatesFromLocation } from "../lib/ascendant.js";
 import { getSharedCacheKey, TTL_SECONDS } from "../lib/cacheHelper.js";
+import { extractUsageMetadata, recordUsageTelemetry } from "../lib/telemetryHelper.js";
 
 const redis = process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
   ? new Redis({ url: process.env.UPSTASH_REDIS_REST_URL, token: process.env.UPSTASH_REDIS_REST_TOKEN })
@@ -15,14 +16,14 @@ const DEFAULT_DAILY_TOKEN_LIMIT = parseInt(process.env.DAILY_TOKEN_LIMIT || "100
 const DEFAULT_MODEL = process.env.GENERATIVE_MODEL || "gemini-2.5-flash-lite";
 const MAX_RETRIES = 5;
 
-async function retryWithBackoff(fn, retries = MAX_RETRIES) {
+export async function retryWithBackoff(fn, retries = MAX_RETRIES, sleepFn = (ms) => new Promise(r => setTimeout(r, ms))) {
   let attempt = 0;
   while (attempt < retries) {
     try { return await fn(); }
     catch (err) {
       attempt++;
       if (attempt >= retries) throw err;
-      if (err?.status === 503) await new Promise(r => setTimeout(r, Math.pow(2, attempt) * 1000));
+      if (err?.status === 503) await sleepFn(Math.pow(2, attempt) * 1000);
       else throw err;
     }
   }
@@ -379,12 +380,22 @@ export default async function handler(req, res) {
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) return res.status(500).json({ error: "server_config_error" });
 
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: DEFAULT_MODEL });
+    const ai = new GoogleGenAI({ apiKey });
 
-    const result = await retryWithBackoff(() => model.generateContent(filledPrompt));
-    const text = result?.response?.text?.() || "";
+    const result = await retryWithBackoff(() =>
+      ai.models.generateContent({
+        model: DEFAULT_MODEL,
+        contents: filledPrompt,
+      })
+    );
+
+    const text = result?.text || "";
     const trimmedText = text.trim();
+
+    // Record exact provider token usage telemetry
+    const usage = extractUsageMetadata(result);
+    await recordUsageTelemetry(redis, type, usage);
+    console.log(`📊 Token Telemetry for ${type}: Prompt=${usage.promptTokens}, Candidates=${usage.candidateTokens}, Total=${usage.totalTokens}`);
 
     // Store in cache if request was eligible for shared cache
     if (cacheKey && redis && trimmedText.length > 0) {
