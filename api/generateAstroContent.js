@@ -1,21 +1,36 @@
 // api/generateAstroContent.js
 import { GoogleGenAI } from "@google/genai";
 import { Redis } from "@upstash/redis";
-import { PROMPTS } from "../lib/prompts.js"; // ← JAVÍTVA: "PROMPTS" helyesen
+import { PROMPTS } from "../lib/prompts.js";
 import { calculateLifePathNumber, calculateNumerology } from "../lib/factualCalculations.js";
 import { getChineseZodiac_FULL } from "../lib/chineseZodiac.js";
 import { calculateAscendant, getCoordinatesFromLocation } from "../lib/ascendant.js";
 import { getSharedCacheKey, TTL_SECONDS } from "../lib/cacheHelper.js";
 import { extractUsageMetadata, recordUsageTelemetry } from "../lib/telemetryHelper.js";
-import { getInternalAiSchema, mergeDeterministicFields, validateResponseObject, getResponseSchema, getMaxOutputTokens } from "../lib/responseSchemas.js";
-import { generateAiContent, DEFAULT_PROVIDER, DEFAULT_GEMINI_MODEL, DEFAULT_GROQ_MODEL, AI_PROVIDERS } from "../lib/aiProvider.js";
+import {
+  getInternalAiSchema,
+  mergeDeterministicFields,
+  validateResponseObject,
+  getResponseSchema,
+  getMaxOutputTokens
+} from "../lib/responseSchemas.js";
+import {
+  executeProviderRouting,
+  DEFAULT_PROVIDER,
+  DEFAULT_GEMINI_MODEL,
+  DEFAULT_GROQ_MODEL,
+  AI_PROVIDERS
+} from "../lib/aiProvider.js";
+import {
+  checkAbuseRateLimit,
+  DEFAULT_PRIMARY_PROVIDER,
+  DEFAULT_FALLBACK_PROVIDER
+} from "../lib/budgetHelper.js";
 
 const redis = process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
   ? new Redis({ url: process.env.UPSTASH_REDIS_REST_URL, token: process.env.UPSTASH_REDIS_REST_TOKEN })
   : null;
 
-const DEFAULT_DAILY_TOKEN_LIMIT = parseInt(process.env.DAILY_TOKEN_LIMIT || "10000000", 10);
-const DEFAULT_MODEL = process.env.GENERATIVE_MODEL || "gemini-2.5-flash-lite";
 const MAX_RETRIES = 5;
 
 export async function retryWithBackoff(fn, retries = MAX_RETRIES, sleepFn = (ms) => new Promise(r => setTimeout(r, ms))) {
@@ -31,31 +46,6 @@ export async function retryWithBackoff(fn, retries = MAX_RETRIES, sleepFn = (ms)
   }
 }
 
-async function isAllowedRequest(ip) {
-  if (!redis) return true;
-  const key = `ratelimit:${ip}`;
-  try {
-    const current = (await redis.get(key)) || 0;
-    if (current >= 20) return false;
-    await redis.incr(key);
-    await redis.expire(key, 60);
-    return true;
-  } catch { return true; }
-}
-
-async function canUseTokens(tokens) {
-  if (!redis) return true;
-  const today = new Date().toISOString().slice(0, 10);
-  const key = `daily_tokens:${today}`;
-  try {
-    const used = (await redis.get(key)) || 0;
-    if (used + tokens > DEFAULT_DAILY_TOKEN_LIMIT) return false;
-    await redis.incrby(key, tokens);
-    await redis.expire(key, 60 * 60 * 24);
-    return true;
-  } catch { return true; }
-}
-
 function fillTemplate(template, data = {}) {
   let out = template;
   Object.keys(data).forEach(k => {
@@ -65,7 +55,7 @@ function fillTemplate(template, data = {}) {
   return out.replace(/{{\w+}}/g, "");
 }
 
-// ✅ ÚJ FÜGGVÉNY: ISO dátum (YYYY-MM-DD) → DD/MM/YYYY
+// ISO dátum (YYYY-MM-DD) → DD/MM/YYYY
 function isoToDdMmYyyy(isoDate) {
   const [year, month, day] = isoDate.split('-');
   return `${day}/${month}/${year}`;
@@ -170,9 +160,6 @@ export default async function handler(req, res) {
 
   const rawIp = req.headers["x-forwarded-for"] || req.socket.remoteAddress || "unknown";
   const ip = Array.isArray(rawIp) ? rawIp[0] : String(rawIp).split(",")[0].trim();
-  if (!(await isAllowedRequest(ip))) {
-    return res.status(429).json({ error: "rate_limit_exceeded" });
-  }
 
   try {
     const body = req.body || {};
@@ -193,18 +180,15 @@ export default async function handler(req, res) {
     let risingSign = "Generalized";
 
     if (finalData.dateOfBirth) {
-      // ✅ BIZTONSÁGI ELLENŐRZÉS: ISO vagy DD/MM/YYYY?
       let ddMmYyyy;
       if (/^\d{4}-\d{2}-\d{2}$/.test(finalData.dateOfBirth)) {
-        // ISO formátum → konvertáljuk
         ddMmYyyy = isoToDdMmYyyy(finalData.dateOfBirth);
       } else {
-        // DD/MM/YYYY → használjuk közvetlenül
         ddMmYyyy = finalData.dateOfBirth;
       }
 
-      sunSign = getWesternZodiac(ddMmYyyy);       // ✅ Most már mindig helyes
-      moonSign = getMoonSignApprox(ddMmYyyy);     // ✅ Most már mindig helyes
+      sunSign = getWesternZodiac(ddMmYyyy);
+      moonSign = getMoonSignApprox(ddMmYyyy);
 
       if (type === "ascendant_calc" || type === "personal_horoscope") {
         const place = finalData.placeOfBirth?.trim() || "";
@@ -215,7 +199,7 @@ export default async function handler(req, res) {
             console.log("🌍 Lekért koordináták:", coords);
 
             risingSign = calculateAscendant(
-              finalData.dateOfBirth,                 // ← EZ MÁR HELYES FORMÁTUMBAN VAN
+              finalData.dateOfBirth,
               finalData.timeOfBirth || "12:00 PM",
               coords.latitude,
               coords.longitude
@@ -239,19 +223,14 @@ export default async function handler(req, res) {
       }
     }
 
-    // ✅ JAVÍTVA: Numerológia – pontosan használjuk a calculateNumerology függvényt
     if (type === "numerology") {
       if (!finalData.fullName || !finalData.dateOfBirth) {
         return res.status(400).json({ error: "missing_fullName_or_dateOfBirth_for_numerology" });
       }
 
-      // Birthday Number kinyerése a dátumból
       const birthdayNumber = extractBirthdayFromDdMmYyyy(finalData.dateOfBirth);
-
-      // Pontos számítás
       const num = calculateNumerology(finalData.fullName, finalData.dateOfBirth);
 
-      // Ezeket használjuk a templatenél
       finalData.lifePathNumber = num.lifePath;
       finalData.expressionNumber = num.expression;
       finalData.soulUrgeNumber = num.soulUrge;
@@ -277,12 +256,11 @@ export default async function handler(req, res) {
       finalData.timelineDate3 = timelineDates[2];
     }
 
-    // 🔧 Ezeket adjuk át a templatenek – az angol nevek maradnak!
     finalData.sunSign = sunSign;
     finalData.moonSign = moonSign;
     finalData.risingSign = risingSign;
 
-    let promptTemplate = PROMPTS[type]; // ← JAVÍTVA: "PROMPTS"
+    let promptTemplate = PROMPTS[type];
     if (!promptTemplate) return res.status(400).json({ error: "unknown_type" });
 
     const periodMap = { 'daily': 'Daily', 'weekly': 'Weekly', 'monthly': 'Monthly', 'yearly': 'Yearly' };
@@ -302,7 +280,6 @@ export default async function handler(req, res) {
       templateData.birthPlace = finalData.placeOfBirth || "Nincs megadva";
     }
 
-    // ✅ JAVÍTVA: love_compatibility most már kapja a zodiacSign-et
     if (type === "home_daily_horoscope" || 
         type.startsWith("ai_horoscope_") || 
         type === "love_compatibility") {
@@ -351,50 +328,93 @@ export default async function handler(req, res) {
     const filledPrompt = fillTemplate(promptTemplate, templateData);
     console.log(`📝 Filled prompt for ${type}:\n`, filledPrompt);
 
-    const estimatedTokens = Math.ceil(filledPrompt.length / 4) + 200;
+    const primaryProvider = process.env.AI_PRIMARY_PROVIDER || DEFAULT_PRIMARY_PROVIDER;
+    const fallbackProvider = process.env.AI_FALLBACK_PROVIDER || DEFAULT_FALLBACK_PROVIDER;
 
-    const provider = process.env.AI_PROVIDER || DEFAULT_PROVIDER;
-    const model = provider === AI_PROVIDERS.GROQ
+    const primaryModel = primaryProvider === AI_PROVIDERS.GROQ
       ? (process.env.GROQ_MODEL || DEFAULT_GROQ_MODEL)
       : (process.env.GENERATIVE_MODEL || DEFAULT_GEMINI_MODEL);
 
-    // --- REDIS SHARED CACHE CHECK ---
-    const cacheKey = getSharedCacheKey(type, templateData, model, provider);
+    const fallbackModel = fallbackProvider === AI_PROVIDERS.GEMINI
+      ? (process.env.GENERATIVE_MODEL || DEFAULT_GEMINI_MODEL)
+      : (process.env.GROQ_MODEL || DEFAULT_GROQ_MODEL);
 
-    if (cacheKey && redis) {
+    // =========================================================================
+    // 1. CACHE FIRST — ALWAYS (Check primary provider cache, then fallback cache)
+    // =========================================================================
+    const primaryCacheKey = getSharedCacheKey(type, templateData, primaryModel, primaryProvider);
+    const fallbackCacheKey = getSharedCacheKey(type, templateData, fallbackModel, fallbackProvider);
+
+    if (redis) {
       try {
-        const cached = await redis.get(cacheKey);
-        if (cached !== null && cached !== undefined) {
-          const cachedText = typeof cached === "string" ? cached.trim() : JSON.stringify(cached);
-          if (cachedText.length > 0) {
-            res.setHeader("X-AIZ-Cache", "HIT");
-            console.log(`⚡ CACHE HIT for ${type}: ${cacheKey}`);
-            return res.status(200).json({ success: true, content: cachedText });
+        if (primaryCacheKey) {
+          const cached = await redis.get(primaryCacheKey);
+          if (cached !== null && cached !== undefined) {
+            const cachedText = typeof cached === "string" ? cached.trim() : JSON.stringify(cached);
+            if (cachedText.length > 0) {
+              res.setHeader("X-AIZ-Cache", "HIT");
+              console.log(`⚡ CACHE HIT for ${type} [Primary]: ${primaryCacheKey}`);
+              return res.status(200).json({ success: true, content: cachedText });
+            }
+          }
+        }
+
+        if (fallbackCacheKey && fallbackCacheKey !== primaryCacheKey) {
+          const cachedFallback = await redis.get(fallbackCacheKey);
+          if (cachedFallback !== null && cachedFallback !== undefined) {
+            const cachedText = typeof cachedFallback === "string" ? cachedFallback.trim() : JSON.stringify(cachedFallback);
+            if (cachedText.length > 0) {
+              res.setHeader("X-AIZ-Cache", "HIT");
+              console.log(`⚡ CACHE HIT for ${type} [Fallback]: ${fallbackCacheKey}`);
+              return res.status(200).json({ success: true, content: cachedText });
+            }
           }
         }
       } catch (cacheGetErr) {
         console.warn("⚠️ Redis cache GET error (failing open):", cacheGetErr.message);
       }
-    } else {
-      res.setHeader("X-AIZ-Cache", "BYPASS");
     }
 
-    // --- AI GENERATION (CACHE MISS OR BYPASS) ---
-    if (!(await canUseTokens(estimatedTokens))) {
-      return res.status(429).json({ error: "token_limit_exceeded" });
+    res.setHeader("X-AIZ-Cache", primaryCacheKey ? "BYPASS" : "NONE");
+
+    // =========================================================================
+    // 2. ABUSE RATE LIMIT (Applied ONLY on cache MISS / generation requests)
+    // =========================================================================
+    const abuseCheck = await checkAbuseRateLimit(redis, ip, type);
+    if (!abuseCheck.allowed) {
+      console.warn(`🛑 Abuse rate limit exceeded for ${type} [IP hash]:`, abuseCheck);
+      return res.status(429).json({
+        error: "token_limit_exceeded",
+        reason: "AI_RATE_LIMITED"
+      });
     }
 
+    // =========================================================================
+    // 3. ATOMIC BUDGET ADMISSION & ROUTED GENERATION
+    // =========================================================================
     const aiSchema = getInternalAiSchema(type);
     const maxTokens = getMaxOutputTokens(type);
 
-    const aiResult = await generateAiContent({
-      provider,
-      model,
-      prompt: filledPrompt,
-      responseSchema: aiSchema,
-      maxOutputTokens: maxTokens,
-      retryFn: retryWithBackoff,
-    });
+    let aiResult;
+    try {
+      aiResult = await executeProviderRouting({
+        type,
+        prompt: filledPrompt,
+        responseSchema: aiSchema,
+        maxOutputTokens: maxTokens,
+        redis,
+        geminiRetryFn: retryWithBackoff,
+      });
+    } catch (routeErr) {
+      if (routeErr.status === 429) {
+        console.warn(`🛑 Cost protection budget rejected for ${type}:`, routeErr.reason || routeErr.message);
+        return res.status(429).json({
+          error: "token_limit_exceeded",
+          reason: routeErr.reason || "BUDGET_EXHAUSTED"
+        });
+      }
+      throw routeErr;
+    }
 
     const text = aiResult?.text || "";
     const trimmedText = text.trim();
@@ -403,7 +423,7 @@ export default async function handler(req, res) {
     try {
       rawAiObj = JSON.parse(trimmedText);
     } catch (jsonErr) {
-      console.error(`❌ Structured output JSON parse failed for ${type} [${provider}]:`, jsonErr.message, "\nRaw text:", trimmedText);
+      console.error(`❌ Structured output JSON parse failed for ${type} [${aiResult?.provider}]:`, jsonErr.message, "\nRaw text:", trimmedText);
       return res.status(500).json({ error: "invalid_ai_response", message: "Failed to parse structured JSON from AI" });
     }
 
@@ -420,14 +440,17 @@ export default async function handler(req, res) {
 
     // Record exact provider token usage telemetry
     const usage = aiResult.usage;
-    await recordUsageTelemetry(redis, type, usage, new Date(), provider, model);
-    console.log(`📊 Token Telemetry for ${type} [${provider}/${model}]: Prompt=${usage.promptTokens}, Candidates=${usage.candidateTokens}, Total=${usage.totalTokens}`);
+    await recordUsageTelemetry(redis, type, usage, new Date(), aiResult.provider, aiResult.model);
+    console.log(`📊 Token Telemetry for ${type} [${aiResult.provider}/${aiResult.model}]: Prompt=${usage.promptTokens}, Candidates=${usage.candidateTokens}, Total=${usage.totalTokens}`);
 
-    // Store in cache if request was eligible for shared cache
-    if (cacheKey && redis && finalJsonString.length > 0) {
+    // =========================================================================
+    // 4. CACHE SET (Saved under the ACTUALLY winning provider's identity)
+    // =========================================================================
+    const winningCacheKey = getSharedCacheKey(type, templateData, aiResult.model, aiResult.provider);
+    if (winningCacheKey && redis && finalJsonString.length > 0) {
       const ttl = TTL_SECONDS[type] || 36 * 3600;
       try {
-        await redis.set(cacheKey, finalJsonString, { ex: ttl });
+        await redis.set(winningCacheKey, finalJsonString, { ex: ttl });
       } catch (cacheSetErr) {
         console.warn("⚠️ Redis cache SET error (failing open):", cacheSetErr.message);
       }
@@ -443,7 +466,7 @@ export default async function handler(req, res) {
   }
 }
 
-// ✅ Segédfüggvény: Birthday Number kinyerése DD/MM/YYYY formátumból
+// Segédfüggvény: Birthday Number kinyerése DD/MM/YYYY formátumból
 function extractBirthdayFromDdMmYyyy(dateStr) {
   const parts = dateStr.split('/');
   if (parts.length >= 1) {
