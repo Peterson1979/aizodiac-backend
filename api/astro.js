@@ -3,6 +3,7 @@ import { GoogleGenAI } from "@google/genai";
 import { Redis } from "@upstash/redis";
 import { PROMPTS } from "../lib/prompts.js";
 import { getChineseZodiac_FULL } from "../lib/factualCalculations.js";
+import { getResponseSchema, getMaxOutputTokens } from "../lib/responseSchemas.js";
 
 // --- Redis setup ---
 const redis = process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
@@ -108,10 +109,23 @@ export default async function handler(request) {
       return streamResponse;
     }
 
+    const schema = getResponseSchema(type);
+    const maxTokens = getMaxOutputTokens(type);
+
+    const generateConfig = {};
+    if (schema) {
+      generateConfig.responseMimeType = "application/json";
+      generateConfig.responseJsonSchema = schema;
+    }
+    if (maxTokens) {
+      generateConfig.maxOutputTokens = maxTokens;
+    }
+
     const generateResult = await retryWithBackoff(() =>
       ai.models.generateContent({
         model: DEFAULT_MODEL,
         contents: filledPrompt,
+        ...(Object.keys(generateConfig).length > 0 ? { config: generateConfig } : {}),
       })
     );
 
@@ -121,7 +135,17 @@ export default async function handler(request) {
       return new Response(JSON.stringify({ error: "empty_response", message: "No content from AI" }), { status: 500 });
     }
 
-    return new Response(JSON.stringify({ success: true, type, estimatedTokens, content: text.trim() }), {
+    const trimmedText = text.trim();
+    if (schema) {
+      try {
+        JSON.parse(trimmedText);
+      } catch (jsonErr) {
+        console.error(`❌ Structured output JSON parse failed for ${type}:`, jsonErr.message, "\nRaw text:", trimmedText);
+        return new Response(JSON.stringify({ error: "invalid_ai_response", message: "Failed to parse structured JSON from AI" }), { status: 500 });
+      }
+    }
+
+    return new Response(JSON.stringify({ success: true, type, estimatedTokens, content: trimmedText }), {
       headers: { "Content-Type": "application/json" },
     });
 

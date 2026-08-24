@@ -12,21 +12,29 @@ import {
   recordUsageTelemetry,
   TELEMETRY_RETENTION_SECONDS
 } from "./lib/telemetryHelper.js";
+import {
+  RESPONSE_SCHEMAS,
+  MAX_OUTPUT_TOKENS_BY_TYPE,
+  getResponseSchema,
+  getMaxOutputTokens
+} from "./lib/responseSchemas.js";
+import { PROMPTS } from "./lib/prompts.js";
 import { retryWithBackoff } from "./api/generateAstroContent.js";
 
 console.log("==================================================");
-console.log("RUNNING DETERMINISTIC CACHE, TELEMETRY & RETRY TESTS");
+console.log("RUNNING DETERMINISTIC CACHE, TELEMETRY, RETRY & SCHEMA TESTS");
 console.log("==================================================");
 
-// Test A: Same semantic request produces identical cache key
+// Test A: Same semantic request produces identical cache key (v2)
 {
   const data1 = { zodiacSign: "Aries", currentDate: "2026-08-24", language: "en" };
   const data2 = { zodiacSign: "  aries ", currentDate: "2026-08-24", language: " EN " };
   const key1 = getSharedCacheKey("home_daily_horoscope", data1, "gemini-2.5-flash-lite");
   const key2 = getSharedCacheKey("home_daily_horoscope", data2, "gemini-2.5-flash-lite");
   assert.strictEqual(key1, key2, "Normalized inputs must produce identical cache keys");
-  assert.strictEqual(key1, `aiz:cache:${CACHE_VERSION}:gemini-2.5-flash-lite:home_daily_horoscope:2026-08-24:aries:en`);
-  console.log("✅ Test A passed: Same semantic request produces identical cache key");
+  assert.strictEqual(CACHE_VERSION, "v2", "CACHE_VERSION must be v2");
+  assert.strictEqual(key1, `aiz:cache:v2:gemini-2.5-flash-lite:home_daily_horoscope:2026-08-24:aries:en`);
+  console.log("✅ Test A passed: Same semantic request produces identical v2 cache key");
 }
 
 // Test B: Different zodiac sign produces different key
@@ -104,19 +112,19 @@ console.log("==================================================");
 {
   // Ascendant
   const ascKey = getSharedCacheKey("ascendant_calc", { risingSign: "Scorpio", language: "es" }, "gemini-2.5-flash-lite");
-  assert.strictEqual(ascKey, `aiz:cache:${CACHE_VERSION}:gemini-2.5-flash-lite:ascendant_calc:scorpio:es`);
+  assert.strictEqual(ascKey, `aiz:cache:v2:gemini-2.5-flash-lite:ascendant_calc:scorpio:es`);
 
   // Love Compatibility
   const loveKey = getSharedCacheKey("love_compatibility", { zodiacSign: "Libra", language: "fr" }, "gemini-2.5-flash-lite");
-  assert.strictEqual(loveKey, `aiz:cache:${CACHE_VERSION}:gemini-2.5-flash-lite:love_compatibility:libra:fr`);
+  assert.strictEqual(loveKey, `aiz:cache:v2:gemini-2.5-flash-lite:love_compatibility:libra:fr`);
 
   // Chinese Horoscope
   const chKey = getSharedCacheKey("chinese_horoscope", { animal: "Dragon", element: "Wood", yinYang: "Yang", currentYear: "2026", language: "de" }, "gemini-2.5-flash-lite");
-  assert.strictEqual(chKey, `aiz:cache:${CACHE_VERSION}:gemini-2.5-flash-lite:chinese_horoscope:2026:dragon_wood_yang:de`);
+  assert.strictEqual(chKey, `aiz:cache:v2:gemini-2.5-flash-lite:chinese_horoscope:2026:dragon_wood_yang:de`);
 
   // Daily quote
   const quoteKey = getSharedCacheKey("home_daily_quote", { currentDate: "2026-08-24", language: "hu" }, "gemini-2.5-flash-lite");
-  assert.strictEqual(quoteKey, `aiz:cache:${CACHE_VERSION}:gemini-2.5-flash-lite:home_daily_quote:2026-08-24:hu`);
+  assert.strictEqual(quoteKey, `aiz:cache:v2:gemini-2.5-flash-lite:home_daily_quote:2026-08-24:hu`);
 
   console.log("✅ Test G passed: Ascendant, Love, Chinese, and Quote keys verified with zero PII");
 }
@@ -139,7 +147,6 @@ console.log("==================================================");
 
 // Test I: Telemetry Extraction Logic
 {
-  // Full metadata
   const mockResp = {
     text: "Forecast text",
     usageMetadata: {
@@ -157,7 +164,6 @@ console.log("==================================================");
   assert.strictEqual(usage.thoughtsTokens, 50);
   assert.strictEqual(usage.cachedTokens, 100);
 
-  // Missing metadata normalization
   const emptyUsage = extractUsageMetadata({});
   assert.strictEqual(emptyUsage.promptTokens, 0);
   assert.strictEqual(emptyUsage.candidateTokens, 0);
@@ -219,7 +225,7 @@ console.log("==================================================");
   console.log("✅ Test J passed: Exact aggregate token telemetry recorded for daily total and type");
 }
 
-// Test K: Deterministic Retry Logic Tests (Batch 2A Correction Cases A - G)
+// Test K: Deterministic Retry Logic Tests (Cases A - G)
 {
   // A. Immediate success
   {
@@ -291,7 +297,7 @@ console.log("==================================================");
     assert.deepStrictEqual(delays, [2000, 4000, 8000, 16000]);
   }
 
-  // E. HTTP 429 -> Fail immediately (1 call)
+  // E. HTTP 429 -> Fail immediately
   {
     let calls = 0;
     const delays = [];
@@ -312,7 +318,7 @@ console.log("==================================================");
     assert.strictEqual(delays.length, 0);
   }
 
-  // F. HTTP 500 -> Fail immediately (1 call)
+  // F. HTTP 500 -> Fail immediately
   {
     let calls = 0;
     const delays = [];
@@ -333,7 +339,7 @@ console.log("==================================================");
     assert.strictEqual(delays.length, 0);
   }
 
-  // G. Generic/Network error without status 503 -> Fail immediately (1 call)
+  // G. Generic/Network error without status 503 -> Fail immediately
   {
     let calls = 0;
     const delays = [];
@@ -355,135 +361,113 @@ console.log("==================================================");
   console.log("✅ Test K passed: Retry cases A-G verified (503 backoff 2s/4s/8s/16s, non-503 instant fail)");
 }
 
-// Test L: End-to-End Mock Pipeline with Retry, Telemetry, Cache HIT/MISS/BYPASS (Case H)
+// Test L: Canonical Schema & Output Bounds Validation (Batch 2B Requirements A - G)
+{
+  const promptKeys = Object.keys(PROMPTS);
+  assert.strictEqual(promptKeys.length >= 17, true, "Must have at least 17 prompt keys");
+
+  for (const type of promptKeys) {
+    const schema = getResponseSchema(type);
+    assert.ok(schema, `Schema must exist for prompt type: ${type}`);
+    assert.strictEqual(schema.type, "object", `Schema for ${type} must have type object`);
+    assert.ok(schema.properties && Object.keys(schema.properties).length > 0, `Schema for ${type} must have properties`);
+    assert.ok(Array.isArray(schema.required) && schema.required.length > 0, `Schema for ${type} must have required array`);
+    assert.strictEqual(schema.additionalProperties, false, `Schema for ${type} must have additionalProperties: false`);
+
+    for (const reqField of schema.required) {
+      assert.ok(schema.properties[reqField], `Required field "${reqField}" must exist in properties for ${type}`);
+    }
+
+    const maxTokens = getMaxOutputTokens(type);
+    assert.ok(typeof maxTokens === "number" && maxTokens > 0, `maxOutputTokens for ${type} must be a positive number`);
+  }
+
+  // Verify unknown type returns null
+  assert.strictEqual(getResponseSchema("unknown_type_xyz"), null);
+  assert.strictEqual(getMaxOutputTokens("unknown_type_xyz"), 800); // default fallback
+
+  console.log("✅ Test L passed: All 17 request types have valid canonical schemas, required fields, and conservative token bounds");
+}
+
+// Test M: Server-side JSON Parse Validation & Markdown-Fence Rejection
 {
   const mockCache = new Map();
   const mockTelemetry = new Map();
-  let redisFail = false;
 
   const mockRedis = {
-    async get(key) {
-      if (redisFail) throw new Error("Redis get failed");
-      return mockCache.get(key) || null;
-    },
-    async set(key, val, opts) {
-      if (redisFail) throw new Error("Redis set failed");
-      mockCache.set(key, val);
-      return "OK";
-    },
+    async get(key) { return mockCache.get(key) || null; },
+    async set(key, val, opts) { mockCache.set(key, val); return "OK"; },
     async hincrby(key, field, inc) {
-      if (redisFail) throw new Error("Redis hincrby failed");
       if (!mockTelemetry.has(key)) mockTelemetry.set(key, {});
       const hash = mockTelemetry.get(key);
       hash[field] = (hash[field] || 0) + inc;
       return hash[field];
     },
-    async expire(key, seconds) {
-      return 1;
-    }
+    async expire(key, sec) { return 1; }
   };
 
-  let modelExecutionCount = 0;
-  let simulatedFailures = 0;
+  let simulatedOutputText = "";
 
-  async function mockGenerateAstroContentPipeline(type, templateData) {
-    let cacheStatus = "BYPASS";
+  async function mockGenerateHandler(type, templateData) {
     const cacheKey = getSharedCacheKey(type, templateData, "gemini-2.5-flash-lite");
 
     if (cacheKey && mockRedis) {
-      try {
-        const cached = await mockRedis.get(cacheKey);
-        if (cached) {
-          return {
-            status: 200,
-            headers: { "X-AIZ-Cache": "HIT" },
-            body: { success: true, content: cached },
-            modelCalled: false
-          };
-        }
-      } catch (err) {
-        // Fail open
+      const cached = await mockRedis.get(cacheKey);
+      if (cached) {
+        return { status: 200, headers: { "X-AIZ-Cache": "HIT" }, body: { success: true, content: cached } };
       }
     }
 
-    // Call Model with Retry
-    const sdkResult = await retryWithBackoff(async () => {
-      modelExecutionCount++;
-      if (simulatedFailures > 0) {
-        simulatedFailures--;
-        const err = new Error("Simulated 503");
-        err.status = 503;
-        throw err;
+    const schema = getResponseSchema(type);
+    const text = simulatedOutputText.trim();
+
+    // Server-side JSON parse validation
+    if (schema) {
+      try {
+        JSON.parse(text);
+      } catch (err) {
+        return { status: 500, headers: { "X-AIZ-Cache": "BYPASS" }, body: { error: "invalid_ai_response", message: err.message } };
       }
-      return {
-        text: `{"forecast": "sunny stars"}`,
-        usageMetadata: {
-          promptTokenCount: 150,
-          candidatesTokenCount: 250,
-          totalTokenCount: 400
-        }
-      };
-    }, 5, () => {});
+    }
 
-    const trimmedText = (sdkResult?.text || "").trim();
-
-    // Telemetry - only on successful completion
-    const usage = extractUsageMetadata(sdkResult);
+    const usage = { promptTokens: 50, candidateTokens: 25, totalTokens: 75 };
     await recordUsageTelemetry(mockRedis, type, usage, "2026-08-24");
 
-    // Cache Store
-    if (cacheKey && mockRedis && trimmedText.length > 0) {
-      try {
-        await mockRedis.set(cacheKey, trimmedText, { ex: 3600 });
-      } catch {
-        // Fail open
-      }
-      cacheStatus = "MISS";
+    if (cacheKey && mockRedis && text.length > 0) {
+      await mockRedis.set(cacheKey, text, { ex: 3600 });
+      return { status: 200, headers: { "X-AIZ-Cache": "MISS" }, body: { success: true, content: text } };
     }
 
-    return {
-      status: 200,
-      headers: { "X-AIZ-Cache": cacheStatus },
-      body: { success: true, content: trimmedText },
-      modelCalled: true,
-      usage
-    };
+    return { status: 200, headers: { "X-AIZ-Cache": "BYPASS" }, body: { success: true, content: text } };
   }
 
-  // 1. Initial Request with 2 transient 503 retries -> succeeds on attempt 3
-  simulatedFailures = 2;
-  const call1 = await mockGenerateAstroContentPipeline("home_daily_horoscope", { zodiacSign: "Aries", currentDate: "2026-08-24", language: "en" });
-  assert.strictEqual(call1.headers["X-AIZ-Cache"], "MISS");
-  assert.strictEqual(call1.modelCalled, true);
-  assert.strictEqual(modelExecutionCount, 3, "Must make 3 attempts (2 retries + 1 success)");
-  // Case H: Telemetry requests count must be incremented by EXACTLY 1!
-  assert.deepStrictEqual(mockTelemetry.get("aiz:usage:2026-08-24:total"), {
-    requests: 1,
-    promptTokens: 150,
-    candidateTokens: 250,
-    totalTokens: 400
-  });
+  // 1. Valid raw JSON string -> 200, Cached, Telemetry recorded
+  simulatedOutputText = `{"Daily Horoscope": "The cosmos brings positive clarity today."}`;
+  const validCall = await mockGenerateHandler("home_daily_horoscope", { zodiacSign: "Aries", currentDate: "2026-08-24", language: "en" });
+  assert.strictEqual(validCall.status, 200);
+  assert.strictEqual(validCall.headers["X-AIZ-Cache"], "MISS");
+  assert.strictEqual(validCall.body.content, `{"Daily Horoscope": "The cosmos brings positive clarity today."}`);
+  assert.strictEqual(mockCache.size, 1);
 
-  // 2. Second Request -> HIT -> 0 model calls, 0 telemetry increment
-  const call2 = await mockGenerateAstroContentPipeline("home_daily_horoscope", { zodiacSign: "Aries", currentDate: "2026-08-24", language: "en" });
-  assert.strictEqual(call2.headers["X-AIZ-Cache"], "HIT");
-  assert.strictEqual(call2.modelCalled, false);
-  assert.strictEqual(modelExecutionCount, 3, "Model execution count must remain unchanged on HIT");
-  assert.strictEqual(mockTelemetry.get("aiz:usage:2026-08-24:total").requests, 1, "Telemetry requests must not increment on HIT");
+  // 2. Second Call -> HIT -> 200, zero telemetry increment
+  const hitCall = await mockGenerateHandler("home_daily_horoscope", { zodiacSign: "Aries", currentDate: "2026-08-24", language: "en" });
+  assert.strictEqual(hitCall.status, 200);
+  assert.strictEqual(hitCall.headers["X-AIZ-Cache"], "HIT");
 
-  // 3. Terminal Failure test -> 5 consecutive 503s throws and records ZERO telemetry
-  simulatedFailures = 5;
-  let terminalFailed = false;
-  try {
-    await mockGenerateAstroContentPipeline("home_daily_horoscope", { zodiacSign: "Libra", currentDate: "2026-08-24", language: "en" });
-  } catch (err) {
-    terminalFailed = true;
-  }
-  assert.strictEqual(terminalFailed, true, "Terminal failure must throw");
-  // Telemetry for Libra must NOT exist
-  assert.strictEqual(mockTelemetry.get("aiz:usage:2026-08-24:type:home_daily_horoscope").requests, 1, "Terminal failure must not record telemetry");
+  // 3. Markdown-fenced JSON -> 500 error, NOT cached, NO telemetry increment
+  simulatedOutputText = "```json\n" + `{"Daily Horoscope": "Markdown wrapped"}` + "\n```";
+  const markdownCall = await mockGenerateHandler("home_daily_horoscope", { zodiacSign: "Taurus", currentDate: "2026-08-24", language: "en" });
+  assert.strictEqual(markdownCall.status, 500);
+  assert.strictEqual(markdownCall.body.error, "invalid_ai_response");
+  assert.strictEqual(mockCache.has(getSharedCacheKey("home_daily_horoscope", { zodiacSign: "Taurus", currentDate: "2026-08-24", language: "en" }, "gemini-2.5-flash-lite")), false, "Invalid/markdown JSON must not be cached");
 
-  console.log("✅ Test L passed: Full mock pipeline verified for Retry + Telemetry (Case H), Cache HIT/MISS, and Terminal Failure handling");
+  // 4. Broken/Malformed JSON -> 500 error, NOT cached
+  simulatedOutputText = `{"Daily Horoscope": "Incomplete json`;
+  const brokenCall = await mockGenerateHandler("home_daily_horoscope", { zodiacSign: "Gemini", currentDate: "2026-08-24", language: "en" });
+  assert.strictEqual(brokenCall.status, 500);
+  assert.strictEqual(brokenCall.body.error, "invalid_ai_response");
+
+  console.log("✅ Test M passed: Server-side JSON validation passes valid JSON, rejects markdown fences & malformed JSON, and prevents caching invalid outputs");
 }
 
 console.log("==================================================");

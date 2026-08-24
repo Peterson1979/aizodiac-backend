@@ -7,6 +7,7 @@ import { getChineseZodiac_FULL } from "../lib/chineseZodiac.js";
 import { calculateAscendant, getCoordinatesFromLocation } from "../lib/ascendant.js";
 import { getSharedCacheKey, TTL_SECONDS } from "../lib/cacheHelper.js";
 import { extractUsageMetadata, recordUsageTelemetry } from "../lib/telemetryHelper.js";
+import { getResponseSchema, getMaxOutputTokens } from "../lib/responseSchemas.js";
 
 const redis = process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
   ? new Redis({ url: process.env.UPSTASH_REDIS_REST_URL, token: process.env.UPSTASH_REDIS_REST_TOKEN })
@@ -382,15 +383,38 @@ export default async function handler(req, res) {
 
     const ai = new GoogleGenAI({ apiKey });
 
+    const schema = getResponseSchema(type);
+    const maxTokens = getMaxOutputTokens(type);
+
+    const generateConfig = {};
+    if (schema) {
+      generateConfig.responseMimeType = "application/json";
+      generateConfig.responseJsonSchema = schema;
+    }
+    if (maxTokens) {
+      generateConfig.maxOutputTokens = maxTokens;
+    }
+
     const result = await retryWithBackoff(() =>
       ai.models.generateContent({
         model: DEFAULT_MODEL,
         contents: filledPrompt,
+        ...(Object.keys(generateConfig).length > 0 ? { config: generateConfig } : {}),
       })
     );
 
     const text = result?.text || "";
     const trimmedText = text.trim();
+
+    // Server-side JSON parse validation
+    if (schema) {
+      try {
+        JSON.parse(trimmedText);
+      } catch (jsonErr) {
+        console.error(`❌ Structured output JSON parse failed for ${type}:`, jsonErr.message, "\nRaw text:", trimmedText);
+        return res.status(500).json({ error: "invalid_ai_response", message: "Failed to parse structured JSON from AI" });
+      }
+    }
 
     // Record exact provider token usage telemetry
     const usage = extractUsageMetadata(result);
