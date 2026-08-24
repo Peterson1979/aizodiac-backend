@@ -7,7 +7,7 @@ import { getChineseZodiac_FULL } from "../lib/chineseZodiac.js";
 import { calculateAscendant, getCoordinatesFromLocation } from "../lib/ascendant.js";
 import { getSharedCacheKey, TTL_SECONDS } from "../lib/cacheHelper.js";
 import { extractUsageMetadata, recordUsageTelemetry } from "../lib/telemetryHelper.js";
-import { getResponseSchema, getMaxOutputTokens } from "../lib/responseSchemas.js";
+import { getInternalAiSchema, mergeDeterministicFields, validateResponseObject, getResponseSchema, getMaxOutputTokens } from "../lib/responseSchemas.js";
 
 const redis = process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
   ? new Redis({ url: process.env.UPSTASH_REDIS_REST_URL, token: process.env.UPSTASH_REDIS_REST_TOKEN })
@@ -383,13 +383,13 @@ export default async function handler(req, res) {
 
     const ai = new GoogleGenAI({ apiKey });
 
-    const schema = getResponseSchema(type);
+    const aiSchema = getInternalAiSchema(type);
     const maxTokens = getMaxOutputTokens(type);
 
     const generateConfig = {};
-    if (schema) {
+    if (aiSchema) {
       generateConfig.responseMimeType = "application/json";
-      generateConfig.responseJsonSchema = schema;
+      generateConfig.responseJsonSchema = aiSchema;
     }
     if (maxTokens) {
       generateConfig.maxOutputTokens = maxTokens;
@@ -406,15 +406,24 @@ export default async function handler(req, res) {
     const text = result?.text || "";
     const trimmedText = text.trim();
 
-    // Server-side JSON parse validation
-    if (schema) {
-      try {
-        JSON.parse(trimmedText);
-      } catch (jsonErr) {
-        console.error(`❌ Structured output JSON parse failed for ${type}:`, jsonErr.message, "\nRaw text:", trimmedText);
-        return res.status(500).json({ error: "invalid_ai_response", message: "Failed to parse structured JSON from AI" });
-      }
+    let rawAiObj;
+    try {
+      rawAiObj = JSON.parse(trimmedText);
+    } catch (jsonErr) {
+      console.error(`❌ Structured output JSON parse failed for ${type}:`, jsonErr.message, "\nRaw text:", trimmedText);
+      return res.status(500).json({ error: "invalid_ai_response", message: "Failed to parse structured JSON from AI" });
     }
+
+    // Merge server-side deterministic fields into the final response object
+    const finalObj = mergeDeterministicFields(type, rawAiObj, finalData, languageCode);
+
+    // Validate final merged object against canonical full response schema
+    if (!validateResponseObject(type, finalObj)) {
+      console.error(`❌ Final response object validation failed for ${type}. Missing required fields.`, finalObj);
+      return res.status(500).json({ error: "invalid_ai_response", message: "Missing required response fields after merge" });
+    }
+
+    const finalJsonString = JSON.stringify(finalObj);
 
     // Record exact provider token usage telemetry
     const usage = extractUsageMetadata(result);
@@ -422,18 +431,18 @@ export default async function handler(req, res) {
     console.log(`📊 Token Telemetry for ${type}: Prompt=${usage.promptTokens}, Candidates=${usage.candidateTokens}, Total=${usage.totalTokens}`);
 
     // Store in cache if request was eligible for shared cache
-    if (cacheKey && redis && trimmedText.length > 0) {
+    if (cacheKey && redis && finalJsonString.length > 0) {
       const ttl = TTL_SECONDS[type] || 36 * 3600;
       try {
-        await redis.set(cacheKey, trimmedText, { ex: ttl });
+        await redis.set(cacheKey, finalJsonString, { ex: ttl });
       } catch (cacheSetErr) {
         console.warn("⚠️ Redis cache SET error (failing open):", cacheSetErr.message);
       }
       res.setHeader("X-AIZ-Cache", "MISS");
     }
 
-    console.log("⬅️ AI RESPONSE CONTENT:", trimmedText);
-    return res.status(200).json({ success: true, content: trimmedText });
+    console.log("⬅️ AI RESPONSE CONTENT:", finalJsonString);
+    return res.status(200).json({ success: true, content: finalJsonString });
 
   } catch (error) {
     console.error("Error in generateAstroContent:", error);

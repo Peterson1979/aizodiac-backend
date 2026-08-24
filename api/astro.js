@@ -3,7 +3,13 @@ import { GoogleGenAI } from "@google/genai";
 import { Redis } from "@upstash/redis";
 import { PROMPTS } from "../lib/prompts.js";
 import { getChineseZodiac_FULL } from "../lib/factualCalculations.js";
-import { getResponseSchema, getMaxOutputTokens } from "../lib/responseSchemas.js";
+import {
+  getInternalAiSchema,
+  mergeDeterministicFields,
+  validateResponseObject,
+  getResponseSchema,
+  getMaxOutputTokens
+} from "../lib/responseSchemas.js";
 
 // --- Redis setup ---
 const redis = process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
@@ -109,13 +115,13 @@ export default async function handler(request) {
       return streamResponse;
     }
 
-    const schema = getResponseSchema(type);
+    const aiSchema = getInternalAiSchema(type);
     const maxTokens = getMaxOutputTokens(type);
 
     const generateConfig = {};
-    if (schema) {
+    if (aiSchema) {
       generateConfig.responseMimeType = "application/json";
-      generateConfig.responseJsonSchema = schema;
+      generateConfig.responseJsonSchema = aiSchema;
     }
     if (maxTokens) {
       generateConfig.maxOutputTokens = maxTokens;
@@ -136,16 +142,23 @@ export default async function handler(request) {
     }
 
     const trimmedText = text.trim();
-    if (schema) {
-      try {
-        JSON.parse(trimmedText);
-      } catch (jsonErr) {
-        console.error(`❌ Structured output JSON parse failed for ${type}:`, jsonErr.message, "\nRaw text:", trimmedText);
-        return new Response(JSON.stringify({ error: "invalid_ai_response", message: "Failed to parse structured JSON from AI" }), { status: 500 });
-      }
+    let rawAiObj;
+    try {
+      rawAiObj = JSON.parse(trimmedText);
+    } catch (jsonErr) {
+      console.error(`❌ Structured output JSON parse failed for ${type}:`, jsonErr.message, "\nRaw text:", trimmedText);
+      return new Response(JSON.stringify({ error: "invalid_ai_response", message: "Failed to parse structured JSON from AI" }), { status: 500 });
     }
 
-    return new Response(JSON.stringify({ success: true, type, estimatedTokens, content: trimmedText }), {
+    const finalObj = mergeDeterministicFields(type, rawAiObj, data, languageCode);
+    if (!validateResponseObject(type, finalObj)) {
+      console.error(`❌ Final response validation failed for ${type}`, finalObj);
+      return new Response(JSON.stringify({ error: "invalid_ai_response", message: "Missing required response fields" }), { status: 500 });
+    }
+
+    const finalJsonString = JSON.stringify(finalObj);
+
+    return new Response(JSON.stringify({ success: true, type, estimatedTokens, content: finalJsonString }), {
       headers: { "Content-Type": "application/json" },
     });
 

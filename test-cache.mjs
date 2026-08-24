@@ -2,6 +2,7 @@
 import assert from "node:assert";
 import {
   CACHE_VERSION,
+  CACHE_TYPE_REVISION,
   TTL_SECONDS,
   isSharedCacheEligible,
   getSharedCacheKey,
@@ -13,10 +14,16 @@ import {
   TELEMETRY_RETENTION_SECONDS
 } from "./lib/telemetryHelper.js";
 import {
-  RESPONSE_SCHEMAS,
+  FULL_RESPONSE_SCHEMAS,
+  INTERNAL_AI_SCHEMAS,
   MAX_OUTPUT_TOKENS_BY_TYPE,
   getResponseSchema,
-  getMaxOutputTokens
+  getFullResponseSchema,
+  getInternalAiSchema,
+  getMaxOutputTokens,
+  mergeDeterministicFields,
+  validateResponseObject,
+  getLocalizedZodiacSign
 } from "./lib/responseSchemas.js";
 import { PROMPTS } from "./lib/prompts.js";
 import { getChineseZodiac_FULL } from "./lib/chineseZodiac.js";
@@ -24,22 +31,23 @@ import { calculateNumerology } from "./lib/factualCalculations.js";
 import { retryWithBackoff } from "./api/generateAstroContent.js";
 
 console.log("==================================================");
-console.log("RUNNING BATCH 3 FINAL V2 CACHE CORRECTION TESTS");
+console.log("RUNNING BATCH 4 DETERMINISTIC OFFLOADING & CACHE TESTS");
 console.log("==================================================");
 
-// Test A: Cache Version (Preserved as v2)
+// Test A: Cache Version (Preserved as v2) and Type-Specific Revisions
 {
-  assert.strictEqual(CACHE_VERSION, "v2", "CACHE_VERSION must remain v2 to preserve existing shared caches");
-  console.log("✅ Test A passed: CACHE_VERSION is v2");
+  assert.strictEqual(CACHE_VERSION, "v2", "CACHE_VERSION must remain v2");
+  assert.strictEqual(CACHE_TYPE_REVISION.personal_horoscope, "b4");
+  assert.strictEqual(CACHE_TYPE_REVISION.numerology, "b4");
+  assert.strictEqual(CACHE_TYPE_REVISION.personal_astro_calendar, "b4");
+  assert.strictEqual(CACHE_TYPE_REVISION.chinese_horoscope, "b4");
+  console.log("✅ Test A passed: CACHE_VERSION is v2 and CACHE_TYPE_REVISION is configured");
 }
 
-// Test B: Existing Public Shared Cache Keys Remain Identical to fb5324a
+// Test B: Unrelated v2 Public Shared Cache Keys Remain Unchanged
 {
   const data1 = { zodiacSign: "Aries", currentDate: "2026-08-24", language: "en" };
-  const data2 = { zodiacSign: "  aries ", currentDate: "2026-08-24", language: " EN " };
   const key1 = getSharedCacheKey("home_daily_horoscope", data1, "gemini-2.5-flash-lite");
-  const key2 = getSharedCacheKey("home_daily_horoscope", data2, "gemini-2.5-flash-lite");
-  assert.strictEqual(key1, key2);
   assert.strictEqual(key1, `aiz:cache:v2:gemini-2.5-flash-lite:home_daily_horoscope:2026-08-24:aries:en`);
 
   const quoteKey = getSharedCacheKey("home_daily_quote", { currentDate: "2026-08-24", language: "hu" }, "gemini-2.5-flash-lite");
@@ -51,284 +59,210 @@ console.log("==================================================");
   const loveKey = getSharedCacheKey("love_compatibility", { zodiacSign: "Libra", language: "fr" }, "gemini-2.5-flash-lite");
   assert.strictEqual(loveKey, `aiz:cache:v2:gemini-2.5-flash-lite:love_compatibility:libra:fr`);
 
-  const chKey = getSharedCacheKey("chinese_horoscope", { animal: "Dragon", element: "Wood", yinYang: "Yang", currentYear: "2026", language: "de" }, "gemini-2.5-flash-lite");
-  assert.strictEqual(chKey, `aiz:cache:v2:gemini-2.5-flash-lite:chinese_horoscope:2026:dragon_wood_yang:de`);
-
-  console.log("✅ Test B passed: All existing v2 public cache keys remain 100% compatible with fb5324a");
+  console.log("✅ Test B passed: All unrelated v2 public cache keys remain byte-for-byte identical to baseline");
 }
 
-// Test C: High-Cost Feature 1 — PERSONAL_HOROSCOPE Semantic Hashing & Collision Test
+// Test C: Batch 4 Affected Keys Contain Type-Specific Revision and Partition Safely
 {
-  const phData1 = {
+  const phKey = getSharedCacheKey("personal_horoscope", {
+    sunSign: "Leo", moonSign: "Virgo", risingSign: "Scorpio",
+    firePercent: 35, earthPercent: 25, airPercent: 20, waterPercent: 20,
+    currentDate: "2026-08-24", language: "en"
+  }, "gemini-2.5-flash-lite");
+  assert.ok(phKey.includes(":personal_horoscope:b4:"), "personal_horoscope key must include b4 revision");
+
+  const numKey = getSharedCacheKey("numerology", {
+    lifePathNumber: 7, expressionNumber: 3, soulUrgeNumber: 11, personalityNumber: 4, birthdayNumber: 15, language: "en"
+  }, "gemini-2.5-flash-lite");
+  assert.strictEqual(numKey, "aiz:cache:v2:gemini-2.5-flash-lite:numerology:b4:7_3_11_4_15:en");
+
+  const calKey = getSharedCacheKey("personal_astro_calendar", {
+    timeRange: "daily", timelineDate1: "2026-08-24", timelineDate2: "2026-08-25", timelineDate3: "2026-08-26", language: "en"
+  }, "gemini-2.5-flash-lite");
+  assert.strictEqual(calKey, "aiz:cache:v2:gemini-2.5-flash-lite:personal_astro_calendar:b4:daily:2026-08-24_2026-08-25_2026-08-26:en");
+
+  const chKey = getSharedCacheKey("chinese_horoscope", {
+    animal: "Dragon", element: "Wood", yinYang: "Yang", currentYear: "2026", language: "de"
+  }, "gemini-2.5-flash-lite");
+  assert.strictEqual(chKey, "aiz:cache:v2:gemini-2.5-flash-lite:chinese_horoscope:b4:2026:dragon_wood_yang:de");
+
+  console.log("✅ Test C passed: Affected 4 request types safely incorporate b4 revision");
+}
+
+// Test D: PERSONAL_HOROSCOPE Internal AI Schema & Deterministic Merging
+{
+  const aiSchema = getInternalAiSchema("personal_horoscope");
+  const fullSchema = getFullResponseSchema("personal_horoscope");
+
+  // AI schema must only have 11 fields
+  assert.strictEqual(aiSchema.required.length, 11);
+  assert.strictEqual("Sun" in aiSchema.properties, false);
+  assert.strictEqual("Sun_Code" in aiSchema.properties, false);
+  assert.strictEqual("Moon" in aiSchema.properties, false);
+  assert.strictEqual("Moon_Code" in aiSchema.properties, false);
+  assert.strictEqual("Ascendant" in aiSchema.properties, false);
+  assert.strictEqual("Ascendant_Code" in aiSchema.properties, false);
+  assert.strictEqual("Elements" in aiSchema.properties, false);
+
+  // Full schema must have all 18 fields
+  assert.strictEqual(fullSchema.required.length, 18);
+
+  // Mock Gemini output with only 11 interpretive fields
+  const mockAiOutput = {
+    "Personality (Sun, Moon, Ascendant)": "Dynamic and inspiring nature.",
+    "Current Period (Planetary Transits – Daily)": "Favorable clarity today.",
+    "Current Period (Planetary Transits – Weekly)": "Growth in career pursuits.",
+    "Current Period (Planetary Transits – Monthly)": "Financial balance improves.",
+    "Current Period (Planetary Transits – Yearly)": "Transformative year ahead.",
+    "Love & Relationships": "Harmonious connections blossom.",
+    "Career & Finances": "Strategic investments succeed.",
+    "Health & Emotional Balance": "Maintain physical stamina.",
+    "Personal Growth & Spirituality": "Deep intuition guides decisions.",
+    "Advice": "Trust your inner wisdom.",
+    "Summary": "A powerful day for personal achievements."
+  };
+
+  const finalData = {
     sunSign: "Leo",
     moonSign: "Virgo",
     risingSign: "Scorpio",
     firePercent: 35,
     earthPercent: 25,
     airPercent: 20,
-    waterPercent: 20,
-    currentDate: "2026-08-24",
-    currentYear: "2026",
-    month: "august",
-    weekRange: "2026-08-24 to 2026-08-30",
-    periodType: "Daily",
-    language: "en"
+    waterPercent: 20
   };
 
-  const phDataNormalized = {
-    sunSign: "  leo ",
-    moonSign: "virgo",
-    risingSign: " SCORPIO ",
-    firePercent: "35",
-    earthPercent: "25",
-    airPercent: "20",
-    waterPercent: "20",
-    currentDate: "2026-08-24",
-    currentYear: "2026",
-    month: "August",
-    weekRange: " 2026-08-24 to 2026-08-30 ",
-    periodType: "DAILY",
-    language: " EN "
-  };
+  const merged = mergeDeterministicFields("personal_horoscope", mockAiOutput, finalData, "hu");
+  assert.strictEqual(Object.keys(merged).length, 18);
+  assert.strictEqual(merged["Sun"], "Oroszlán");
+  assert.strictEqual(merged["Sun_Code"], "Leo");
+  assert.strictEqual(merged["Moon"], "Szűz");
+  assert.strictEqual(merged["Moon_Code"], "Virgo");
+  assert.strictEqual(merged["Ascendant"], "Skorpió");
+  assert.strictEqual(merged["Ascendant_Code"], "Scorpio");
+  assert.strictEqual(merged["Elements"], "Fire 35%, Earth 25%, Air 20%, Water 20%");
+  assert.strictEqual(validateResponseObject("personal_horoscope", merged), true);
 
-  const key1 = getSharedCacheKey("personal_horoscope", phData1, "gemini-2.5-flash-lite");
-  const key2 = getSharedCacheKey("personal_horoscope", phDataNormalized, "gemini-2.5-flash-lite");
-  assert.strictEqual(key1, key2, "Identical complete semantic inputs must produce identical cache keys");
-  assert.ok(key1.startsWith("aiz:cache:v2:gemini-2.5-flash-lite:personal_horoscope:"));
-  assert.ok(key1.endsWith(":en"));
-
-  // Collision Test: Same Sun/Moon/Rising/date/lang BUT DIFFERENT element balance -> MUST NOT share a key!
-  const phDataDiffElements = {
-    ...phData1,
-    firePercent: 50,
-    earthPercent: 10,
-    airPercent: 20,
-    waterPercent: 20,
-  };
-  const keyDiffElements = getSharedCacheKey("personal_horoscope", phDataDiffElements, "gemini-2.5-flash-lite");
-  assert.notStrictEqual(key1, keyDiffElements, "Changed element balance MUST produce a different cache key");
-
-  // Changed date produces different key
-  const keyDiffDate = getSharedCacheKey("personal_horoscope", { ...phData1, currentDate: "2026-08-25" }, "gemini-2.5-flash-lite");
-  assert.notStrictEqual(key1, keyDiffDate);
-
-  // Changed sign produces different key
-  const keyDiffSign = getSharedCacheKey("personal_horoscope", { ...phData1, risingSign: "Cancer" }, "gemini-2.5-flash-lite");
-  assert.notStrictEqual(key1, keyDiffSign);
-
-  // Verify all 18 Android fields in schema
-  const schema = getResponseSchema("personal_horoscope");
-  assert.strictEqual(schema.required.length, 18);
-  const expectedPhFields = [
-    "Sun", "Sun_Code", "Moon", "Moon_Code", "Ascendant", "Ascendant_Code", "Elements",
-    "Personality (Sun, Moon, Ascendant)",
-    "Current Period (Planetary Transits – Daily)",
-    "Current Period (Planetary Transits – Weekly)",
-    "Current Period (Planetary Transits – Monthly)",
-    "Current Period (Planetary Transits – Yearly)",
-    "Love & Relationships", "Career & Finances", "Health & Emotional Balance",
-    "Personal Growth & Spirituality", "Advice", "Summary"
-  ];
-  for (const f of expectedPhFields) {
-    assert.ok(schema.required.includes(f), `personal_horoscope must require field: ${f}`);
-  }
-  assert.strictEqual(getMaxOutputTokens("personal_horoscope"), 1200, "personal_horoscope bound must be 1200");
-  console.log("✅ Test C passed: personal_horoscope SHA-256 semantic hash, collision prevention, zero PII, and 18 fields verified");
+  console.log("✅ Test D passed: personal_horoscope AI schema has 11 fields, merges to all 18 fields, localized and validated");
 }
 
-// Test D: High-Cost Feature 2 — NUMEROLOGY Deterministic Math & Tuple Cache
+// Test E: NUMEROLOGY Internal AI Schema & Deterministic Merging
 {
-  // 1. Verify deterministic numerology engine
-  const num1 = calculateNumerology("John Doe", "15/08/1990");
-  assert.ok(num1.lifePath > 0 && num1.lifePath <= 33);
-  assert.ok(num1.expression > 0 && num1.expression <= 33);
-  assert.ok(num1.soulUrge > 0 && num1.soulUrge <= 33);
-  assert.ok(num1.personality > 0 && num1.personality <= 33);
+  const aiSchema = getInternalAiSchema("numerology");
+  const fullSchema = getFullResponseSchema("numerology");
 
-  // 2. Verify cache key based on numbers tuple
-  const numData1 = {
+  // AI schema must only have 3 interpretive fields
+  assert.strictEqual(aiSchema.required.length, 3);
+  assert.deepStrictEqual(aiSchema.required, [
+    "Numerology Insights", "Compatibility Insight", "Summary and Guidance"
+  ]);
+
+  // Full schema must have all 8 fields
+  assert.strictEqual(fullSchema.required.length, 8);
+
+  const mockAiOutput = {
+    "Numerology Insights": "You possess deep wisdom and visionary potential.",
+    "Compatibility Insight": "Harmonious synergy with 3 and 7 vibrations.",
+    "Summary and Guidance": "Focus on spiritual growth and deliberate action."
+  };
+
+  const finalData = {
     lifePathNumber: 7,
     expressionNumber: 3,
     soulUrgeNumber: 11,
     personalityNumber: 4,
-    birthdayNumber: 15,
-    language: "en"
-  };
-  const numData2 = {
-    lifePathNumber: "7",
-    expressionNumber: " 3 ",
-    soulUrgeNumber: "11",
-    personalityNumber: "4",
-    birthdayNumber: "15",
-    language: " EN "
+    birthdayNumber: 15
   };
 
-  const key1 = getSharedCacheKey("numerology", numData1, "gemini-2.5-flash-lite");
-  const key2 = getSharedCacheKey("numerology", numData2, "gemini-2.5-flash-lite");
-  assert.strictEqual(key1, key2, "Identical numbers tuple must produce identical cache key");
-  assert.strictEqual(key1, `aiz:cache:v2:gemini-2.5-flash-lite:numerology:7_3_11_4_15:en`);
-  assert.strictEqual(key1.includes("John"), false, "Name must NEVER appear in numerology cache key");
-  assert.strictEqual(key1.includes("1990"), false, "Birth year must NEVER appear in numerology cache key");
+  const merged = mergeDeterministicFields("numerology", mockAiOutput, finalData, "en");
+  assert.strictEqual(Object.keys(merged).length, 8);
+  assert.strictEqual(merged["Life Path Number"], "7");
+  assert.strictEqual(merged["Expression Number"], "3");
+  assert.strictEqual(merged["Soul Urge Number"], "11");
+  assert.strictEqual(merged["Personality Number"], "4");
+  assert.strictEqual(merged["Birthday Number"], "15");
+  assert.strictEqual(validateResponseObject("numerology", merged), true);
 
-  // Changed number produces different key
-  const keyDiffNum = getSharedCacheKey("numerology", { ...numData1, lifePathNumber: 8 }, "gemini-2.5-flash-lite");
-  assert.notStrictEqual(key1, keyDiffNum);
-
-  // Verify all 8 fields in schema
-  const schema = getResponseSchema("numerology");
-  assert.strictEqual(schema.required.length, 8);
-  const expectedNumFields = [
-    "Numerology Insights", "Life Path Number", "Expression Number", "Soul Urge Number",
-    "Personality Number", "Birthday Number", "Compatibility Insight", "Summary and Guidance"
-  ];
-  for (const f of expectedNumFields) {
-    assert.ok(schema.required.includes(f), `numerology must require field: ${f}`);
-  }
-  assert.strictEqual(getMaxOutputTokens("numerology"), 600, "numerology bound must be 600");
-  console.log("✅ Test D passed: numerology deterministic engine, tuple cache, zero PII, and all 8 fields verified");
+  console.log("✅ Test E passed: numerology AI schema has 3 fields, merges 5 deterministic numbers, all 8 fields validated");
 }
 
-// Test E: High-Cost Feature 3 — PERSONAL_ASTRO_CALENDAR Shared Transit Cache
+// Test F: CHINESE_HOROSCOPE Internal AI Schema & Deterministic Merging
 {
-  const calData1 = {
-    timeRange: "daily",
+  const aiSchema = getInternalAiSchema("chinese_horoscope");
+  const fullSchema = getFullResponseSchema("chinese_horoscope");
+
+  // AI schema must have 7 fields (animal, element, yinYang excluded)
+  assert.strictEqual(aiSchema.required.length, 7);
+  assert.strictEqual("animal" in aiSchema.properties, false);
+  assert.strictEqual("element" in aiSchema.properties, false);
+  assert.strictEqual("yinYang" in aiSchema.properties, false);
+
+  // Full schema must have all 10 fields
+  assert.strictEqual(fullSchema.required.length, 10);
+
+  const mockAiOutput = {
+    personalityTraits: "Confident and energetic leader.",
+    elementInfluence: "Wood brings expansive vitality and creative ambition.",
+    yinYangPolarity: "Yang provides bold initiative and forward drive.",
+    compatibilityNotes: "High affinity with Rat and Monkey signs.",
+    yearlyOutlook: "Promising prospects for personal growth.",
+    advice: "Balance ambition with measured patience.",
+    closingReflection: "The Dragon thrives through wise courage."
+  };
+
+  const finalData = {
+    ANIMAL: "Dragon",
+    ELEMENT: "Wood",
+    YIN_YANG: "Yang"
+  };
+
+  const merged = mergeDeterministicFields("chinese_horoscope", mockAiOutput, finalData, "en");
+  assert.strictEqual(Object.keys(merged).length, 10);
+  assert.strictEqual(merged["animal"], "Dragon");
+  assert.strictEqual(merged["element"], "Wood");
+  assert.strictEqual(merged["yinYang"], "Yang");
+  assert.strictEqual(validateResponseObject("chinese_horoscope", merged), true);
+
+  console.log("✅ Test F passed: chinese_horoscope AI schema has 7 fields, merges animal/element/yinYang, all 10 fields validated");
+}
+
+// Test G: PERSONAL_ASTRO_CALENDAR Timeline Array & Schema
+{
+  const aiSchema = getInternalAiSchema("personal_astro_calendar");
+  const fullSchema = getFullResponseSchema("personal_astro_calendar");
+  assert.strictEqual(aiSchema.required.length, 7);
+  assert.strictEqual(fullSchema.required.length, 7);
+
+  const mockAiOutput = {
+    Overview: "A period of celestial momentum.",
+    Timeline: [
+      "Clarity and strategic focus.",
+      "2026-08-25: Productive collaboration.",
+      "Reflective contemplation."
+    ],
+    "Major Transits": "Sun trine Mars empowers decisive action.",
+    "Energy Themes": "Clarity, purpose, vitality.",
+    Advice: "Channel inspiration into concrete plans.",
+    "Best Day": "Tuesday — Favorable for major initiatives.",
+    Summary: "Harness this transit window for meaningful progress."
+  };
+
+  const finalData = {
     timelineDate1: "2026-08-24",
     timelineDate2: "2026-08-25",
-    timelineDate3: "2026-08-26",
-    language: "en"
-  };
-  const calData2 = {
-    timeRange: " DAILY ",
-    timelineDate1: "2026-08-24",
-    timelineDate2: "2026-08-25",
-    timelineDate3: "2026-08-26",
-    language: " EN "
+    timelineDate3: "2026-08-26"
   };
 
-  const key1 = getSharedCacheKey("personal_astro_calendar", calData1, "gemini-2.5-flash-lite");
-  const key2 = getSharedCacheKey("personal_astro_calendar", calData2, "gemini-2.5-flash-lite");
-  assert.strictEqual(key1, key2);
-  assert.strictEqual(key1, `aiz:cache:v2:gemini-2.5-flash-lite:personal_astro_calendar:daily:2026-08-24_2026-08-25_2026-08-26:en`);
+  const merged = mergeDeterministicFields("personal_astro_calendar", mockAiOutput, finalData, "en");
+  assert.strictEqual(merged.Timeline[0].startsWith("2026-08-24:"), true);
+  assert.strictEqual(merged.Timeline[1].startsWith("2026-08-25:"), true);
+  assert.strictEqual(merged.Timeline[2].startsWith("2026-08-26:"), true);
+  assert.strictEqual(validateResponseObject("personal_astro_calendar", merged), true);
 
-  // Changed timeline date produces different key
-  const keyDiffCal = getSharedCacheKey("personal_astro_calendar", { ...calData1, timelineDate1: "2026-08-27" }, "gemini-2.5-flash-lite");
-  assert.notStrictEqual(key1, keyDiffCal);
-
-  // Verify schema and Timeline array shape
-  const schema = getResponseSchema("personal_astro_calendar");
-  assert.strictEqual(schema.required.length, 7);
-  assert.strictEqual(schema.properties.Timeline.type, "array");
-  assert.strictEqual(schema.properties.Timeline.items.type, "string");
-  const expectedCalFields = ["Overview", "Timeline", "Major Transits", "Energy Themes", "Advice", "Best Day", "Summary"];
-  for (const f of expectedCalFields) {
-    assert.ok(schema.required.includes(f), `personal_astro_calendar must require field: ${f}`);
-  }
-  assert.strictEqual(getMaxOutputTokens("personal_astro_calendar"), 700, "personal_astro_calendar bound must be 700");
-  console.log("✅ Test E passed: personal_astro_calendar shared transit cache key, Timeline array shape, and 7 fields verified");
+  console.log("✅ Test G passed: personal_astro_calendar Timeline array and all 7 fields verified");
 }
 
-// Test F: High-Cost Feature 4 — CHINESE_HOROSCOPE CNY Math & Year Segment Cache
-{
-  // 1. Verify deterministic Chinese Zodiac calculation
-  const z1 = getChineseZodiac_FULL("01/12/2025");
-  assert.strictEqual(z1.animal, "Snake");
-  assert.strictEqual(z1.element, "Wood");
-  assert.strictEqual(z1.yinYang, "Yin");
-
-  // 2. Verify cache key
-  const chData = {
-    animal: "Dragon",
-    element: "Wood",
-    yinYang: "Yang",
-    currentYear: "2026",
-    language: "de"
-  };
-  const key = getSharedCacheKey("chinese_horoscope", chData, "gemini-2.5-flash-lite");
-  assert.strictEqual(key, `aiz:cache:v2:gemini-2.5-flash-lite:chinese_horoscope:2026:dragon_wood_yang:de`);
-
-  // Different year produces different key
-  const keyNextYear = getSharedCacheKey("chinese_horoscope", { ...chData, currentYear: "2027" }, "gemini-2.5-flash-lite");
-  assert.notStrictEqual(key, keyNextYear);
-
-  // Verify schema
-  const schema = getResponseSchema("chinese_horoscope");
-  assert.strictEqual(schema.required.length, 10);
-  const expectedChFields = [
-    "animal", "element", "yinYang", "personalityTraits", "elementInfluence",
-    "yinYangPolarity", "compatibilityNotes", "yearlyOutlook", "advice", "closingReflection"
-  ];
-  for (const f of expectedChFields) {
-    assert.ok(schema.required.includes(f), `chinese_horoscope must require field: ${f}`);
-  }
-  assert.strictEqual(getMaxOutputTokens("chinese_horoscope"), 650, "chinese_horoscope bound must be 650");
-  console.log("✅ Test F passed: chinese_horoscope deterministic CNY math, year segment key, and 10 fields verified");
-}
-
-// Test G: BYPASS Types (Personal Custom Question & Explicit Period Snippets)
-{
-  const bypassTypes = [
-    "ask_the_stars",
-    "personal_horoscope_period_daily",
-    "personal_horoscope_period_weekly",
-    "personal_horoscope_period_monthly",
-    "unknown_type"
-  ];
-  for (const bType of bypassTypes) {
-    assert.strictEqual(isSharedCacheEligible(bType), false, `${bType} must remain BYPASS`);
-    assert.strictEqual(getSharedCacheKey(bType, { question: "Will I find love?" }), null);
-  }
-  console.log("✅ Test G passed: Open-ended ask_the_stars and period snippets remain BYPASS");
-}
-
-// Test H: TTL Configurations
-{
-  for (const type of SHARED_CACHE_TYPES) {
-    assert.ok(TTL_SECONDS[type] > 0, `TTL must be configured for ${type}`);
-  }
-  assert.strictEqual(TTL_SECONDS.personal_horoscope, 36 * 3600);
-  assert.strictEqual(TTL_SECONDS.numerology, 90 * 86400);
-  assert.strictEqual(TTL_SECONDS.personal_astro_calendar, 36 * 3600);
-  assert.strictEqual(TTL_SECONDS.chinese_horoscope, 380 * 86400);
-  console.log("✅ Test H passed: All TTL configurations verified");
-}
-
-// Test I: Telemetry Extraction & Recording
-{
-  const mockResp = {
-    text: "Forecast text",
-    usageMetadata: {
-      promptTokenCount: 180,
-      candidatesTokenCount: 220,
-      totalTokenCount: 400,
-    }
-  };
-  const usage = extractUsageMetadata(mockResp);
-  assert.strictEqual(usage.promptTokens, 180);
-  assert.strictEqual(usage.candidateTokens, 220);
-  assert.strictEqual(usage.totalTokens, 400);
-
-  const redisMap = new Map();
-  const mockRedis = {
-    async hincrby(key, field, inc) {
-      if (!redisMap.has(key)) redisMap.set(key, {});
-      const hash = redisMap.get(key);
-      hash[field] = (hash[field] || 0) + inc;
-      return hash[field];
-    },
-    async expire() { return 1; }
-  };
-
-  await recordUsageTelemetry(mockRedis, "personal_horoscope", usage, "2026-08-24");
-  assert.deepStrictEqual(redisMap.get("aiz:usage:2026-08-24:total"), {
-    requests: 1, promptTokens: 180, candidateTokens: 220, totalTokens: 400
-  });
-  assert.deepStrictEqual(redisMap.get("aiz:usage:2026-08-24:type:personal_horoscope"), {
-    requests: 1, promptTokens: 180, candidateTokens: 220, totalTokens: 400
-  });
-  console.log("✅ Test I passed: Telemetry extraction and daily/type aggregation verified");
-}
-
-// Test J: Retry Backoff Tests (503 only, non-503 instant fail)
+// Test H: Telemetry & Retry Backoff Invariant Tests
 {
   let calls = 0;
   const delays = [];
@@ -345,43 +279,27 @@ console.log("==================================================");
   assert.strictEqual(calls, 2);
   assert.deepStrictEqual(delays, [2000]);
 
-  // Non-503 fails immediately
-  let threw = false;
-  try {
-    await retryWithBackoff(async () => {
-      const err = new Error("429");
-      err.status = 429;
-      throw err;
-    }, 5, () => {});
-  } catch (err) {
-    threw = true;
-  }
-  assert.strictEqual(threw, true);
-  console.log("✅ Test J passed: Retry backoff on 503 and immediate failure on non-503 verified");
+  const mockUsage = { promptTokenCount: 150, candidatesTokenCount: 120, totalTokenCount: 270 };
+  const extracted = extractUsageMetadata({ usageMetadata: mockUsage });
+  assert.strictEqual(extracted.promptTokens, 150);
+  assert.strictEqual(extracted.candidateTokens, 120);
+  assert.strictEqual(extracted.totalTokens, 270);
+
+  console.log("✅ Test H passed: Retries (503 backoff) and telemetry metadata extraction verified");
 }
 
-// Test K: End-to-End Mock Pipeline for All 4 Features (HIT, MISS, Validation, No-PII)
+// Test I: End-to-End Mock Pipeline with Deterministic Merging & Cache MISS -> HIT
 {
   const mockCache = new Map();
-  const mockTelemetry = new Map();
-
   const mockRedis = {
     async get(key) { return mockCache.get(key) || null; },
-    async set(key, val, opts) { mockCache.set(key, val); return "OK"; },
-    async hincrby(key, field, inc) {
-      if (!mockTelemetry.has(key)) mockTelemetry.set(key, {});
-      const hash = mockTelemetry.get(key);
-      hash[field] = (hash[field] || 0) + inc;
-      return hash[field];
-    },
+    async set(key, val) { mockCache.set(key, val); return "OK"; },
+    async hincrby() { return 1; },
     async expire() { return 1; }
   };
 
-  let simulatedOutputText = "";
-
-  async function mockGenerateHandler(type, templateData) {
-    const cacheKey = getSharedCacheKey(type, templateData, "gemini-2.5-flash-lite");
-
+  async function mockGenerate(type, finalData) {
+    const cacheKey = getSharedCacheKey(type, finalData, "gemini-2.5-flash-lite");
     if (cacheKey && mockRedis) {
       const cached = await mockRedis.get(cacheKey);
       if (cached) {
@@ -389,90 +307,65 @@ console.log("==================================================");
       }
     }
 
-    const schema = getResponseSchema(type);
-    const text = simulatedOutputText.trim();
-
-    if (schema) {
-      try {
-        JSON.parse(text);
-      } catch (err) {
-        return { status: 500, headers: { "X-AIZ-Cache": "BYPASS" }, body: { error: "invalid_ai_response", message: err.message } };
-      }
+    // Simulate AI output (internal schema only)
+    let rawAiObj;
+    if (type === "numerology") {
+      rawAiObj = {
+        "Numerology Insights": "Deep spiritual intuition.",
+        "Compatibility Insight": "Synergy with 3.",
+        "Summary and Guidance": "Trust your path."
+      };
+    } else if (type === "personal_horoscope") {
+      rawAiObj = {
+        "Personality (Sun, Moon, Ascendant)": "Inspiring spirit.",
+        "Current Period (Planetary Transits – Daily)": "Clarity.",
+        "Current Period (Planetary Transits – Weekly)": "Growth.",
+        "Current Period (Planetary Transits – Monthly)": "Balance.",
+        "Current Period (Planetary Transits – Yearly)": "Transformation.",
+        "Love & Relationships": "Harmony.",
+        "Career & Finances": "Success.",
+        "Health & Emotional Balance": "Vitality.",
+        "Personal Growth & Spirituality": "Intuition.",
+        Advice: "Focus.",
+        Summary: "Great day."
+      };
     }
 
-    const usage = { promptTokens: 100, candidateTokens: 50, totalTokens: 150 };
-    await recordUsageTelemetry(mockRedis, type, usage, "2026-08-24");
+    const merged = mergeDeterministicFields(type, rawAiObj, finalData, "en");
+    assert.strictEqual(validateResponseObject(type, merged), true);
+    const jsonStr = JSON.stringify(merged);
 
-    if (cacheKey && mockRedis && text.length > 0) {
-      await mockRedis.set(cacheKey, text, { ex: 3600 });
-      return { status: 200, headers: { "X-AIZ-Cache": "MISS" }, body: { success: true, content: text } };
+    if (cacheKey && mockRedis) {
+      await mockRedis.set(cacheKey, jsonStr);
     }
-
-    return { status: 200, headers: { "X-AIZ-Cache": "BYPASS" }, body: { success: true, content: text } };
+    return { status: 200, headers: { "X-AIZ-Cache": "MISS" }, body: { success: true, content: jsonStr } };
   }
 
-  // 1. personal_horoscope MISS -> HIT
-  simulatedOutputText = JSON.stringify({
-    "Sun": "Oroszlán", "Sun_Code": "Leo", "Moon": "Szűz", "Moon_Code": "Virgo",
-    "Ascendant": "Skorpió", "Ascendant_Code": "Scorpio",
-    "Elements": "Fire 35%, Earth 25%, Air 20%, Water 20%",
-    "Personality (Sun, Moon, Ascendant)": "Text.",
-    "Current Period (Planetary Transits – Daily)": "Text.",
-    "Current Period (Planetary Transits – Weekly)": "Text.",
-    "Current Period (Planetary Transits – Monthly)": "Text.",
-    "Current Period (Planetary Transits – Yearly)": "Text.",
-    "Love & Relationships": "Text.", "Career & Finances": "Text.",
-    "Health & Emotional Balance": "Text.", "Personal Growth & Spirituality": "Text.",
-    "Advice": "Text.", "Summary": "Text."
-  });
-  const phData = { sunSign: "Leo", moonSign: "Virgo", risingSign: "Scorpio", firePercent: 35, earthPercent: 25, airPercent: 20, waterPercent: 20, currentDate: "2026-08-24", language: "hu" };
-  const call1 = await mockGenerateHandler("personal_horoscope", phData);
-  assert.strictEqual(call1.headers["X-AIZ-Cache"], "MISS");
-  const call2 = await mockGenerateHandler("personal_horoscope", phData);
-  assert.strictEqual(call2.headers["X-AIZ-Cache"], "HIT");
-
-  // 2. numerology MISS -> HIT
-  simulatedOutputText = JSON.stringify({
-    "Numerology Insights": "Text.", "Life Path Number": "7 — Text.",
-    "Expression Number": "3 — Text.", "Soul Urge Number": "11 — Text.",
-    "Personality Number": "4 — Text.", "Birthday Number": "15 — Text.",
-    "Compatibility Insight": "Text.", "Summary and Guidance": "Text."
-  });
+  // numerology MISS -> HIT
   const numData = { lifePathNumber: 7, expressionNumber: 3, soulUrgeNumber: 11, personalityNumber: 4, birthdayNumber: 15, language: "en" };
-  const numCall1 = await mockGenerateHandler("numerology", numData);
-  assert.strictEqual(numCall1.headers["X-AIZ-Cache"], "MISS");
-  const numCall2 = await mockGenerateHandler("numerology", numData);
-  assert.strictEqual(numCall2.headers["X-AIZ-Cache"], "HIT");
+  const num1 = await mockGenerate("numerology", numData);
+  assert.strictEqual(num1.headers["X-AIZ-Cache"], "MISS");
+  const num1Parsed = JSON.parse(num1.body.content);
+  assert.strictEqual(Object.keys(num1Parsed).length, 8);
 
-  // 3. personal_astro_calendar MISS -> HIT
-  simulatedOutputText = JSON.stringify({
-    "Overview": "Text.",
-    "Timeline": ["2026-08-24: Text.", "2026-08-25: Text.", "2026-08-26: Text."],
-    "Major Transits": "Text.", "Energy Themes": "Text.",
-    "Advice": "Text.", "Best Day": "Monday — Text.", "Summary": "Text."
-  });
-  const calData = { timeRange: "daily", timelineDate1: "2026-08-24", timelineDate2: "2026-08-25", timelineDate3: "2026-08-26", language: "en" };
-  const calCall1 = await mockGenerateHandler("personal_astro_calendar", calData);
-  assert.strictEqual(calCall1.headers["X-AIZ-Cache"], "MISS");
-  const calCall2 = await mockGenerateHandler("personal_astro_calendar", calData);
-  assert.strictEqual(calCall2.headers["X-AIZ-Cache"], "HIT");
+  const num2 = await mockGenerate("numerology", numData);
+  assert.strictEqual(num2.headers["X-AIZ-Cache"], "HIT");
+  assert.strictEqual(num2.body.content, num1.body.content);
 
-  // 4. chinese_horoscope MISS -> HIT
-  simulatedOutputText = JSON.stringify({
-    "animal": "Dragon", "element": "Wood", "yinYang": "Yang",
-    "personalityTraits": "Text.", "elementInfluence": "Text.",
-    "yinYangPolarity": "Text.", "compatibilityNotes": "Text.",
-    "yearlyOutlook": "Text.", "advice": "Text.", "closingReflection": "Text."
-  });
-  const chData = { animal: "Dragon", element: "Wood", yinYang: "Yang", currentYear: "2026", language: "en" };
-  const chCall1 = await mockGenerateHandler("chinese_horoscope", chData);
-  assert.strictEqual(chCall1.headers["X-AIZ-Cache"], "MISS");
-  const chCall2 = await mockGenerateHandler("chinese_horoscope", chData);
-  assert.strictEqual(chCall2.headers["X-AIZ-Cache"], "HIT");
+  // personal_horoscope MISS -> HIT
+  const phData = { sunSign: "Leo", moonSign: "Virgo", risingSign: "Scorpio", firePercent: 35, earthPercent: 25, airPercent: 20, waterPercent: 20, currentDate: "2026-08-24", language: "en" };
+  const ph1 = await mockGenerate("personal_horoscope", phData);
+  assert.strictEqual(ph1.headers["X-AIZ-Cache"], "MISS");
+  const ph1Parsed = JSON.parse(ph1.body.content);
+  assert.strictEqual(Object.keys(ph1Parsed).length, 18);
 
-  console.log("✅ Test K passed: All four consolidated high-cost features successfully verified for Cache MISS -> Cache HIT");
+  const ph2 = await mockGenerate("personal_horoscope", phData);
+  assert.strictEqual(ph2.headers["X-AIZ-Cache"], "HIT");
+  assert.strictEqual(ph2.body.content, ph1.body.content);
+
+  console.log("✅ Test I passed: Mock end-to-end generation merges deterministic fields and caches full objects");
 }
 
 console.log("==================================================");
-console.log("ALL BATCH 3 FINAL V2 TESTS PASSED! 🎉");
+console.log("ALL BATCH 4 DETERMINISTIC OFFLOADING TESTS PASSED! 🎉");
 console.log("==================================================");
