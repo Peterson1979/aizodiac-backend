@@ -6,7 +6,7 @@ import { calculateLifePathNumber, calculateNumerology } from "../lib/factualCalc
 import { getChineseZodiac_FULL } from "../lib/chineseZodiac.js";
 import { calculateAscendant, getCoordinatesFromLocation } from "../lib/ascendant.js";
 import { getSharedCacheKey, TTL_SECONDS } from "../lib/cacheHelper.js";
-import { extractUsageMetadata, recordUsageTelemetry } from "../lib/telemetryHelper.js";
+import { extractUsageMetadata, recordUsageTelemetry, recordReserveTelemetry } from "../lib/telemetryHelper.js";
 import {
   getInternalAiSchema,
   mergeDeterministicFields,
@@ -26,6 +26,7 @@ import {
   DEFAULT_PRIMARY_PROVIDER,
   DEFAULT_FALLBACK_PROVIDER
 } from "../lib/budgetHelper.js";
+import { generateReserveResponse } from "../lib/reserveGenerator.js";
 
 const redis = process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
   ? new Redis({ url: process.env.UPSTASH_REDIS_REST_URL, token: process.env.UPSTASH_REDIS_REST_TOKEN })
@@ -352,6 +353,7 @@ export default async function handler(req, res) {
           if (cached !== null && cached !== undefined) {
             const cachedText = typeof cached === "string" ? cached.trim() : JSON.stringify(cached);
             if (cachedText.length > 0) {
+              res.setHeader("X-AIZ-Source", "cache");
               res.setHeader("X-AIZ-Cache", "HIT");
               console.log(`⚡ CACHE HIT for ${type} [Primary]: ${primaryCacheKey}`);
               return res.status(200).json({ success: true, content: cachedText });
@@ -364,6 +366,7 @@ export default async function handler(req, res) {
           if (cachedFallback !== null && cachedFallback !== undefined) {
             const cachedText = typeof cachedFallback === "string" ? cachedFallback.trim() : JSON.stringify(cachedFallback);
             if (cachedText.length > 0) {
+              res.setHeader("X-AIZ-Source", "cache");
               res.setHeader("X-AIZ-Cache", "HIT");
               console.log(`⚡ CACHE HIT for ${type} [Fallback]: ${fallbackCacheKey}`);
               return res.status(200).json({ success: true, content: cachedText });
@@ -390,12 +393,15 @@ export default async function handler(req, res) {
     }
 
     // =========================================================================
-    // 3. ATOMIC BUDGET ADMISSION & ROUTED GENERATION
+    // 3. ATOMIC BUDGET ADMISSION & ROUTED GENERATION (With Emergency Reserve Fallback)
     // =========================================================================
     const aiSchema = getInternalAiSchema(type);
     const maxTokens = getMaxOutputTokens(type);
 
     let aiResult;
+    let fallbackToReserve = false;
+    let reserveReasonCategory = "budget";
+
     try {
       aiResult = await executeProviderRouting({
         type,
@@ -406,14 +412,43 @@ export default async function handler(req, res) {
         geminiRetryFn: retryWithBackoff,
       });
     } catch (routeErr) {
-      if (routeErr.status === 429) {
-        console.warn(`🛑 Cost protection budget rejected for ${type}:`, routeErr.reason || routeErr.message);
-        return res.status(429).json({
-          error: "token_limit_exceeded",
-          reason: routeErr.reason || "BUDGET_EXHAUSTED"
-        });
+      const status = routeErr?.status || 0;
+      const reason = routeErr?.reason || routeErr?.message || "";
+
+      // Controlled conditions for Emergency Reserve activation
+      if (
+        status === 429 ||
+        reason.includes("BUDGET_EXHAUSTED") ||
+        reason.includes("BUDGET_SERVICE_") ||
+        reason.includes("TRANSIENT_FAILURE") ||
+        status === 503 ||
+        status === 502 ||
+        status === 504
+      ) {
+        console.warn(`🛡️ Activating Emergency Content Reserve for ${type}: ${reason}`);
+        fallbackToReserve = true;
+        if (reason.includes("BUDGET_SERVICE_")) {
+          reserveReasonCategory = "budget_service_failure";
+        } else if (reason.includes("TRANSIENT_FAILURE") || status >= 500) {
+          reserveReasonCategory = "provider_failure";
+        } else {
+          reserveReasonCategory = "budget";
+        }
+      } else {
+        // Uncontrolled failures (e.g. 400, 401, 403, 404, or programming errors) fail closed
+        throw routeErr;
       }
-      throw routeErr;
+    }
+
+    if (fallbackToReserve) {
+      // Generate 100% deterministic local response (0 tokens, 0 AI calls)
+      const reserveResult = generateReserveResponse(type, finalData, languageCode);
+      await recordReserveTelemetry(redis, type, reserveReasonCategory, new Date());
+
+      res.setHeader("X-AIZ-Source", "reserve");
+      res.setHeader("X-AIZ-Cache", "RESERVE");
+      console.log(`🛡️ Emergency Reserve generated successfully for ${type}`);
+      return res.status(200).json({ success: true, content: reserveResult.content });
     }
 
     const text = aiResult?.text || "";
@@ -457,6 +492,7 @@ export default async function handler(req, res) {
       res.setHeader("X-AIZ-Cache", "MISS");
     }
 
+    res.setHeader("X-AIZ-Source", aiResult.provider);
     console.log("⬅️ AI RESPONSE CONTENT:", finalJsonString);
     return res.status(200).json({ success: true, content: finalJsonString });
 

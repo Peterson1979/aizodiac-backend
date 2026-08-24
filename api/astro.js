@@ -3,7 +3,7 @@ import { Redis } from "@upstash/redis";
 import { PROMPTS } from "../lib/prompts.js";
 import { getChineseZodiac_FULL } from "../lib/chineseZodiac.js";
 import { getSharedCacheKey, TTL_SECONDS } from "../lib/cacheHelper.js";
-import { recordUsageTelemetry } from "../lib/telemetryHelper.js";
+import { recordUsageTelemetry, recordReserveTelemetry } from "../lib/telemetryHelper.js";
 import {
   getInternalAiSchema,
   mergeDeterministicFields,
@@ -23,6 +23,7 @@ import {
   DEFAULT_PRIMARY_PROVIDER,
   DEFAULT_FALLBACK_PROVIDER
 } from "../lib/budgetHelper.js";
+import { generateReserveResponse } from "../lib/reserveGenerator.js";
 
 // --- Redis setup ---
 const redis = process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
@@ -148,7 +149,11 @@ export default async function handler(request) {
             if (cachedText.length > 0) {
               return new Response(JSON.stringify({ success: true, type, content: cachedText }), {
                 status: 200,
-                headers: { "Content-Type": "application/json", "X-AIZ-Cache": "HIT" },
+                headers: {
+                  "Content-Type": "application/json",
+                  "X-AIZ-Cache": "HIT",
+                  "X-AIZ-Source": "cache",
+                },
               });
             }
           }
@@ -161,7 +166,11 @@ export default async function handler(request) {
             if (cachedText.length > 0) {
               return new Response(JSON.stringify({ success: true, type, content: cachedText }), {
                 status: 200,
-                headers: { "Content-Type": "application/json", "X-AIZ-Cache": "HIT" },
+                headers: {
+                  "Content-Type": "application/json",
+                  "X-AIZ-Cache": "HIT",
+                  "X-AIZ-Source": "cache",
+                },
               });
             }
           }
@@ -184,12 +193,15 @@ export default async function handler(request) {
     }
 
     // =========================================================================
-    // 3. ATOMIC BUDGET ADMISSION & ROUTED GENERATION
+    // 3. ATOMIC BUDGET ADMISSION & ROUTED GENERATION (With Emergency Reserve Fallback)
     // =========================================================================
     const aiSchema = getInternalAiSchema(type);
     const maxTokens = getMaxOutputTokens(type);
 
     let generateResult;
+    let fallbackToReserve = false;
+    let reserveReasonCategory = "budget";
+
     try {
       generateResult = await executeProviderRouting({
         type,
@@ -200,17 +212,44 @@ export default async function handler(request) {
         geminiRetryFn: retryWithBackoff,
       });
     } catch (routeErr) {
-      if (routeErr.status === 429) {
-        console.warn(`🛑 Cost protection budget rejected for ${type}:`, routeErr.reason || routeErr.message);
-        return new Response(JSON.stringify({
-          error: "token_limit_exceeded",
-          reason: routeErr.reason || "BUDGET_EXHAUSTED"
-        }), {
-          status: 429,
-          headers: { "Content-Type": "application/json" }
-        });
+      const status = routeErr?.status || 0;
+      const reason = routeErr?.reason || routeErr?.message || "";
+
+      if (
+        status === 429 ||
+        reason.includes("BUDGET_EXHAUSTED") ||
+        reason.includes("BUDGET_SERVICE_") ||
+        reason.includes("TRANSIENT_FAILURE") ||
+        status === 503 ||
+        status === 502 ||
+        status === 504
+      ) {
+        console.warn(`🛡️ Activating Emergency Content Reserve for ${type}: ${reason}`);
+        fallbackToReserve = true;
+        if (reason.includes("BUDGET_SERVICE_")) {
+          reserveReasonCategory = "budget_service_failure";
+        } else if (reason.includes("TRANSIENT_FAILURE") || status >= 500) {
+          reserveReasonCategory = "provider_failure";
+        } else {
+          reserveReasonCategory = "budget";
+        }
+      } else {
+        throw routeErr;
       }
-      throw routeErr;
+    }
+
+    if (fallbackToReserve) {
+      const reserveResult = generateReserveResponse(type, data, languageCode);
+      await recordReserveTelemetry(redis, type, reserveReasonCategory, new Date());
+
+      return new Response(JSON.stringify({ success: true, type, content: reserveResult.content }), {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json",
+          "X-AIZ-Cache": "RESERVE",
+          "X-AIZ-Source": "reserve",
+        },
+      });
     }
 
     const text = generateResult?.text || null;
@@ -262,22 +301,18 @@ export default async function handler(request) {
       }
     }
 
-    return new Response(JSON.stringify({
-      success: true,
-      type,
-      provider: generateResult.provider,
-      content: finalJsonString
-    }), {
+    return new Response(JSON.stringify({ success: true, type, content: finalJsonString }), {
       status: 200,
       headers: {
         "Content-Type": "application/json",
-        "X-AIZ-Cache": winningCacheKey ? "MISS" : "NONE"
-      },
+        "X-AIZ-Cache": "MISS",
+        "X-AIZ-Source": generateResult.provider,
+      }
     });
 
   } catch (error) {
-    console.error("Astro API error:", error);
-    return new Response(JSON.stringify({ error: "internal_error", message: error.message || "Unexpected error" }), {
+    console.error("Error in astro.js handler:", error);
+    return new Response(JSON.stringify({ error: "internal_error", message: error.message }), {
       status: 500,
       headers: { "Content-Type": "application/json" }
     });
