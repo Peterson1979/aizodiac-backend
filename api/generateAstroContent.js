@@ -28,7 +28,7 @@ import {
 } from "../lib/budgetHelper.js";
 import { generateReserveResponse } from "../lib/reserveGenerator.js";
 
-const redis = process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
+export const redis = process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
   ? new Redis({ url: process.env.UPSTASH_REDIS_REST_URL, token: process.env.UPSTASH_REDIS_REST_TOKEN })
   : null;
 
@@ -56,7 +56,7 @@ function fillTemplate(template, data = {}) {
   return out.replace(/{{\w+}}/g, "");
 }
 
-// ISO dátum (YYYY-MM-DD) → DD/MM/YYYY
+// ISO date (YYYY-MM-DD) → DD/MM/YYYY
 function isoToDdMmYyyy(isoDate) {
   const [year, month, day] = isoDate.split('-');
   return `${day}/${month}/${year}`;
@@ -154,357 +154,8 @@ function getTimelineDates(timeRange = 'daily') {
   return dates;
 }
 
-export default async function handler(req, res) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "method_not_allowed" });
-  }
-
-  const rawIp = req.headers["x-forwarded-for"] || req.socket.remoteAddress || "unknown";
-  const ip = Array.isArray(rawIp) ? rawIp[0] : String(rawIp).split(",")[0].trim();
-
-  try {
-    const body = req.body || {};
-    console.log("➡️ REQUEST BODY:", JSON.stringify(body, null, 2));
-
-    const { type, data = {}, languageCode = "en" } = body;
-    if (!type) return res.status(400).json({ error: "missing_type" });
-
-    const currentDate = data.specificDate || new Date().toISOString().slice(0, 10);
-    const currentYear = new Date(currentDate).getFullYear().toString();
-    const currentMonth = getMonthName(currentDate, languageCode);
-    const weekRange = getWeekRange(currentDate);
-
-    let finalData = { ...data, currentDate, currentYear, currentMonth, month: currentMonth, weekRange };
-
-    let sunSign = "Unknown";
-    let moonSign = "Estimated";
-    let risingSign = "Generalized";
-
-    if (finalData.dateOfBirth) {
-      let ddMmYyyy;
-      if (/^\d{4}-\d{2}-\d{2}$/.test(finalData.dateOfBirth)) {
-        ddMmYyyy = isoToDdMmYyyy(finalData.dateOfBirth);
-      } else {
-        ddMmYyyy = finalData.dateOfBirth;
-      }
-
-      sunSign = getWesternZodiac(ddMmYyyy);
-      moonSign = getMoonSignApprox(ddMmYyyy);
-
-      if (type === "ascendant_calc" || type === "personal_horoscope") {
-        const place = finalData.placeOfBirth?.trim() || "";
-
-        if (place) {
-          try {
-            const coords = await getCoordinatesFromLocation(place);
-            console.log("🌍 Lekért koordináták:", coords);
-
-            risingSign = calculateAscendant(
-              finalData.dateOfBirth,
-              finalData.timeOfBirth || "12:00 PM",
-              coords.latitude,
-              coords.longitude
-            );
-            console.log("✅ Számított aszcendens:", risingSign);
-          } catch (err) {
-            console.warn("⚠️ Aszcendens számítás sikertelen, fallback:", err.message);
-            risingSign = "Generalized";
-          }
-        } else {
-          console.warn("⚠️ Nincs születési hely megadva – nem lehet aszcendenst számolni.");
-        }
-      }
-
-      if (type === "personal_horoscope") {
-        const balance = calculateElementBalance(sunSign, moonSign, risingSign);
-        finalData.firePercent = balance.fire;
-        finalData.earthPercent = balance.earth;
-        finalData.airPercent = balance.air;
-        finalData.waterPercent = balance.water;
-      }
-    }
-
-    if (type === "numerology") {
-      if (!finalData.fullName || !finalData.dateOfBirth) {
-        return res.status(400).json({ error: "missing_fullName_or_dateOfBirth_for_numerology" });
-      }
-
-      const birthdayNumber = extractBirthdayFromDdMmYyyy(finalData.dateOfBirth);
-      const num = calculateNumerology(finalData.fullName, finalData.dateOfBirth);
-
-      finalData.lifePathNumber = num.lifePath;
-      finalData.expressionNumber = num.expression;
-      finalData.soulUrgeNumber = num.soulUrge;
-      finalData.personalityNumber = num.personality;
-      finalData.birthdayNumber = birthdayNumber;
-    }
-
-    if (finalData.dateOfBirth && type === "chinese_horoscope") {
-      console.log("🔍 Chinese Zodiac input date:", finalData.dateOfBirth);
-      const zodiac = getChineseZodiac_FULL(finalData.dateOfBirth);
-      console.log("✅ Chinese Zodiac result:", zodiac);
-      finalData.SYMBOL = zodiac.symbol;
-      finalData.ANIMAL = zodiac.animal;
-      finalData.ELEMENT = zodiac.element;
-      finalData.YIN_YANG = zodiac.yinYang;
-    }
-
-    if (type === "personal_astro_calendar") {
-      const timeRange = finalData.timeRange || "daily";
-      const timelineDates = getTimelineDates(timeRange);
-      finalData.timelineDate1 = timelineDates[0];
-      finalData.timelineDate2 = timelineDates[1];
-      finalData.timelineDate3 = timelineDates[2];
-    }
-
-    finalData.sunSign = sunSign;
-    finalData.moonSign = moonSign;
-    finalData.risingSign = risingSign;
-
-    let promptTemplate = PROMPTS[type];
-    if (!promptTemplate) return res.status(400).json({ error: "unknown_type" });
-
-    const periodMap = { 'daily': 'Daily', 'weekly': 'Weekly', 'monthly': 'Monthly', 'yearly': 'Yearly' };
-    const periodType = periodMap[finalData.period] || 'Daily';
-
-    const templateData = {
-      language: languageCode,
-      currentDate: currentDate,
-      currentYear: currentYear,
-      month: currentMonth,
-      weekRange: weekRange,
-    };
-
-    if (type === "ascendant_calc") {
-      templateData.risingSign = risingSign;
-      templateData.birthTime = finalData.timeOfBirth || "12:00 PM";
-      templateData.birthPlace = finalData.placeOfBirth || "Nincs megadva";
-    }
-
-    if (type === "home_daily_horoscope" || 
-        type.startsWith("ai_horoscope_") || 
-        type === "love_compatibility") {
-      templateData.zodiacSign = finalData.zodiacSign || "Ismeretlen";
-      if (type !== "love_compatibility") {
-        templateData.periodType = periodType;
-      }
-    }
-
-    if (type === "chinese_horoscope") {
-      templateData.animal = finalData.ANIMAL || "";
-      templateData.element = finalData.ELEMENT || "";
-      templateData.yinYang = finalData.YIN_YANG || "";
-    }
-
-    if (type === "personal_horoscope") {
-      templateData.sunSign = sunSign;
-      templateData.moonSign = moonSign;
-      templateData.risingSign = risingSign;
-      templateData.firePercent = finalData.firePercent || 0;
-      templateData.earthPercent = finalData.earthPercent || 0;
-      templateData.airPercent = finalData.airPercent || 0;
-      templateData.waterPercent = finalData.waterPercent || 0;
-      templateData.periodType = periodType;
-    }
-
-    if (type === "numerology") {
-      templateData.lifePathNumber = finalData.lifePathNumber || "X";
-      templateData.expressionNumber = finalData.expressionNumber || "X";
-      templateData.soulUrgeNumber = finalData.soulUrgeNumber || "X";
-      templateData.personalityNumber = finalData.personalityNumber || "X";
-      templateData.birthdayNumber = finalData.birthdayNumber || "X";
-    }
-
-    if (type === "personal_astro_calendar") {
-      templateData.timelineDate1 = finalData.timelineDate1 || "";
-      templateData.timelineDate2 = finalData.timelineDate2 || "";
-      templateData.timelineDate3 = finalData.timelineDate3 || "";
-      templateData.timeRange = finalData.timeRange || "daily";
-    }
-
-    if (type === "ask_the_stars") {
-      templateData.question = finalData.question || "Nincs kérdés megadva";
-    }
-
-    const filledPrompt = fillTemplate(promptTemplate, templateData);
-    console.log(`📝 Filled prompt for ${type}:\n`, filledPrompt);
-
-    const primaryProvider = process.env.AI_PRIMARY_PROVIDER || DEFAULT_PRIMARY_PROVIDER;
-    const fallbackProvider = process.env.AI_FALLBACK_PROVIDER || DEFAULT_FALLBACK_PROVIDER;
-
-    const primaryModel = primaryProvider === AI_PROVIDERS.GROQ
-      ? (process.env.GROQ_MODEL || DEFAULT_GROQ_MODEL)
-      : (process.env.GENERATIVE_MODEL || DEFAULT_GEMINI_MODEL);
-
-    const fallbackModel = fallbackProvider === AI_PROVIDERS.GEMINI
-      ? (process.env.GENERATIVE_MODEL || DEFAULT_GEMINI_MODEL)
-      : (process.env.GROQ_MODEL || DEFAULT_GROQ_MODEL);
-
-    // =========================================================================
-    // 1. CACHE FIRST — ALWAYS (Check primary provider cache, then fallback cache)
-    // =========================================================================
-    const primaryCacheKey = getSharedCacheKey(type, templateData, primaryModel, primaryProvider);
-    const fallbackCacheKey = getSharedCacheKey(type, templateData, fallbackModel, fallbackProvider);
-
-    if (redis) {
-      try {
-        if (primaryCacheKey) {
-          const cached = await redis.get(primaryCacheKey);
-          if (cached !== null && cached !== undefined) {
-            const cachedText = typeof cached === "string" ? cached.trim() : JSON.stringify(cached);
-            if (cachedText.length > 0) {
-              res.setHeader("X-AIZ-Source", "cache");
-              res.setHeader("X-AIZ-Cache", "HIT");
-              console.log(`⚡ CACHE HIT for ${type} [Primary]: ${primaryCacheKey}`);
-              return res.status(200).json({ success: true, content: cachedText });
-            }
-          }
-        }
-
-        if (fallbackCacheKey && fallbackCacheKey !== primaryCacheKey) {
-          const cachedFallback = await redis.get(fallbackCacheKey);
-          if (cachedFallback !== null && cachedFallback !== undefined) {
-            const cachedText = typeof cachedFallback === "string" ? cachedFallback.trim() : JSON.stringify(cachedFallback);
-            if (cachedText.length > 0) {
-              res.setHeader("X-AIZ-Source", "cache");
-              res.setHeader("X-AIZ-Cache", "HIT");
-              console.log(`⚡ CACHE HIT for ${type} [Fallback]: ${fallbackCacheKey}`);
-              return res.status(200).json({ success: true, content: cachedText });
-            }
-          }
-        }
-      } catch (cacheGetErr) {
-        console.warn("⚠️ Redis cache GET error (failing open):", cacheGetErr.message);
-      }
-    }
-
-    res.setHeader("X-AIZ-Cache", primaryCacheKey ? "BYPASS" : "NONE");
-
-    // =========================================================================
-    // 2. ABUSE RATE LIMIT (Applied ONLY on cache MISS / generation requests)
-    // =========================================================================
-    const abuseCheck = await checkAbuseRateLimit(redis, ip, type);
-    if (!abuseCheck.allowed) {
-      console.warn(`🛑 Abuse rate limit exceeded for ${type} [IP hash]:`, abuseCheck);
-      return res.status(429).json({
-        error: "token_limit_exceeded",
-        reason: "AI_RATE_LIMITED"
-      });
-    }
-
-    // =========================================================================
-    // 3. ATOMIC BUDGET ADMISSION & ROUTED GENERATION (With Emergency Reserve Fallback)
-    // =========================================================================
-    const aiSchema = getInternalAiSchema(type);
-    const maxTokens = getMaxOutputTokens(type);
-
-    let aiResult;
-    let fallbackToReserve = false;
-    let reserveReasonCategory = "budget";
-
-    try {
-      aiResult = await executeProviderRouting({
-        type,
-        prompt: filledPrompt,
-        responseSchema: aiSchema,
-        maxOutputTokens: maxTokens,
-        redis,
-        geminiRetryFn: retryWithBackoff,
-      });
-    } catch (routeErr) {
-      const status = routeErr?.status || 0;
-      const reason = routeErr?.reason || routeErr?.message || "";
-
-      // Controlled conditions for Emergency Reserve activation
-      if (
-        status === 429 ||
-        reason.includes("BUDGET_EXHAUSTED") ||
-        reason.includes("BUDGET_SERVICE_") ||
-        reason.includes("TRANSIENT_FAILURE") ||
-        status === 503 ||
-        status === 502 ||
-        status === 504
-      ) {
-        console.warn(`🛡️ Activating Emergency Content Reserve for ${type}: ${reason}`);
-        fallbackToReserve = true;
-        if (reason.includes("BUDGET_SERVICE_")) {
-          reserveReasonCategory = "budget_service_failure";
-        } else if (reason.includes("TRANSIENT_FAILURE") || status >= 500) {
-          reserveReasonCategory = "provider_failure";
-        } else {
-          reserveReasonCategory = "budget";
-        }
-      } else {
-        // Uncontrolled failures (e.g. 400, 401, 403, 404, or programming errors) fail closed
-        throw routeErr;
-      }
-    }
-
-    if (fallbackToReserve) {
-      // Generate 100% deterministic local response (0 tokens, 0 AI calls)
-      const reserveResult = generateReserveResponse(type, finalData, languageCode);
-      await recordReserveTelemetry(redis, type, reserveReasonCategory, new Date());
-
-      res.setHeader("X-AIZ-Source", "reserve");
-      res.setHeader("X-AIZ-Cache", "RESERVE");
-      console.log(`🛡️ Emergency Reserve generated successfully for ${type}`);
-      return res.status(200).json({ success: true, content: reserveResult.content });
-    }
-
-    const text = aiResult?.text || "";
-    const trimmedText = text.trim();
-
-    let rawAiObj;
-    try {
-      rawAiObj = JSON.parse(trimmedText);
-    } catch (jsonErr) {
-      console.error(`❌ Structured output JSON parse failed for ${type} [${aiResult?.provider}]:`, jsonErr.message, "\nRaw text:", trimmedText);
-      return res.status(500).json({ error: "invalid_ai_response", message: "Failed to parse structured JSON from AI" });
-    }
-
-    // Merge server-side deterministic fields into the final response object
-    const finalObj = mergeDeterministicFields(type, rawAiObj, finalData, languageCode);
-
-    // Validate final merged object against canonical full response schema
-    if (!validateResponseObject(type, finalObj)) {
-      console.error(`❌ Final response object validation failed for ${type}. Missing required fields.`, finalObj);
-      return res.status(500).json({ error: "invalid_ai_response", message: "Missing required response fields after merge" });
-    }
-
-    const finalJsonString = JSON.stringify(finalObj);
-
-    // Record exact provider token usage telemetry
-    const usage = aiResult.usage;
-    await recordUsageTelemetry(redis, type, usage, new Date(), aiResult.provider, aiResult.model);
-    console.log(`📊 Token Telemetry for ${type} [${aiResult.provider}/${aiResult.model}]: Prompt=${usage.promptTokens}, Candidates=${usage.candidateTokens}, Total=${usage.totalTokens}`);
-
-    // =========================================================================
-    // 4. CACHE SET (Saved under the ACTUALLY winning provider's identity)
-    // =========================================================================
-    const winningCacheKey = getSharedCacheKey(type, templateData, aiResult.model, aiResult.provider);
-    if (winningCacheKey && redis && finalJsonString.length > 0) {
-      const ttl = TTL_SECONDS[type] || 36 * 3600;
-      try {
-        await redis.set(winningCacheKey, finalJsonString, { ex: ttl });
-      } catch (cacheSetErr) {
-        console.warn("⚠️ Redis cache SET error (failing open):", cacheSetErr.message);
-      }
-      res.setHeader("X-AIZ-Cache", "MISS");
-    }
-
-    res.setHeader("X-AIZ-Source", aiResult.provider);
-    console.log("⬅️ AI RESPONSE CONTENT:", finalJsonString);
-    return res.status(200).json({ success: true, content: finalJsonString });
-
-  } catch (error) {
-    console.error("Error in generateAstroContent:", error);
-    return res.status(500).json({ error: "internal_error", message: error.message || "Unexpected error" });
-  }
-}
-
-// Segédfüggvény: Birthday Number kinyerése DD/MM/YYYY formátumból
 function extractBirthdayFromDdMmYyyy(dateStr) {
-  const parts = dateStr.split('/');
+  const parts = String(dateStr || "").split('/');
   if (parts.length >= 1) {
     const day = parseInt(parts[0], 10);
     if (!isNaN(day) && day >= 1 && day <= 31) {
@@ -512,4 +163,388 @@ function extractBirthdayFromDdMmYyyy(dateStr) {
     }
   }
   return 1;
+}
+
+/**
+ * Unified, canonical request processor for all AI Zodiac generation requests.
+ * Shared by api/generateAstroContent.js and api/astro.js.
+ */
+export async function processAstroRequest({
+  body = {},
+  ip = "unknown",
+  redisClient = redis,
+  sleepFn,
+}) {
+  const { type, data = {}, languageCode = "en" } = body;
+  if (!type) {
+    return { status: 400, headers: {}, body: { error: "missing_type" } };
+  }
+
+  // Safe input length sanitization
+  const safeLang = String(languageCode || "en").trim().slice(0, 10).toLowerCase();
+  const safeData = { ...data };
+  if (safeData.question) {
+    safeData.question = String(safeData.question).slice(0, 500); // 500 chars max question length
+  }
+  if (safeData.fullName) {
+    safeData.fullName = String(safeData.fullName).slice(0, 100);
+  }
+  if (safeData.placeOfBirth) {
+    safeData.placeOfBirth = String(safeData.placeOfBirth).slice(0, 100);
+  }
+
+  const currentDate = safeData.specificDate || new Date().toISOString().slice(0, 10);
+  const currentYear = new Date(currentDate).getFullYear().toString();
+  const currentMonth = getMonthName(currentDate, safeLang);
+  const weekRange = getWeekRange(currentDate);
+
+  let finalData = { ...safeData, currentDate, currentYear, currentMonth, month: currentMonth, weekRange };
+
+  let sunSign = "Unknown";
+  let moonSign = "Estimated";
+  let risingSign = "Generalized";
+
+  if (finalData.dateOfBirth) {
+    let ddMmYyyy;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(finalData.dateOfBirth)) {
+      ddMmYyyy = isoToDdMmYyyy(finalData.dateOfBirth);
+    } else {
+      ddMmYyyy = String(finalData.dateOfBirth).slice(0, 10);
+    }
+
+    sunSign = getWesternZodiac(ddMmYyyy);
+    moonSign = getMoonSignApprox(ddMmYyyy);
+
+    if (type === "ascendant_calc" || type === "personal_horoscope") {
+      const place = finalData.placeOfBirth?.trim() || "";
+      if (place) {
+        try {
+          const coords = await getCoordinatesFromLocation(place);
+          risingSign = calculateAscendant(
+            finalData.dateOfBirth,
+            finalData.timeOfBirth || "12:00 PM",
+            coords.latitude,
+            coords.longitude
+          );
+        } catch (err) {
+          risingSign = "Generalized";
+        }
+      }
+    }
+
+    if (type === "personal_horoscope") {
+      const balance = calculateElementBalance(sunSign, moonSign, risingSign);
+      finalData.firePercent = balance.fire;
+      finalData.earthPercent = balance.earth;
+      finalData.airPercent = balance.air;
+      finalData.waterPercent = balance.water;
+    }
+  }
+
+  if (type === "numerology") {
+    if (!finalData.fullName || !finalData.dateOfBirth) {
+      return { status: 400, headers: {}, body: { error: "missing_fullName_or_dateOfBirth_for_numerology" } };
+    }
+
+    const birthdayNumber = extractBirthdayFromDdMmYyyy(finalData.dateOfBirth);
+    const num = calculateNumerology(finalData.fullName, finalData.dateOfBirth);
+
+    finalData.lifePathNumber = num.lifePath;
+    finalData.expressionNumber = num.expression;
+    finalData.soulUrgeNumber = num.soulUrge;
+    finalData.personalityNumber = num.personality;
+    finalData.birthdayNumber = birthdayNumber;
+  }
+
+  if (finalData.dateOfBirth && type === "chinese_horoscope") {
+    try {
+      const zodiac = getChineseZodiac_FULL(finalData.dateOfBirth);
+      finalData.SYMBOL = zodiac.symbol;
+      finalData.ANIMAL = zodiac.animal;
+      finalData.ELEMENT = zodiac.element;
+      finalData.YIN_YANG = zodiac.yinYang;
+    } catch {
+      return { status: 400, headers: {}, body: { error: "invalid_date_format" } };
+    }
+  }
+
+  if (type === "personal_astro_calendar") {
+    const timeRange = finalData.timeRange || "daily";
+    const timelineDates = getTimelineDates(timeRange);
+    finalData.timelineDate1 = timelineDates[0];
+    finalData.timelineDate2 = timelineDates[1];
+    finalData.timelineDate3 = timelineDates[2];
+  }
+
+  finalData.sunSign = sunSign;
+  finalData.moonSign = moonSign;
+  finalData.risingSign = risingSign;
+
+  const promptTemplate = PROMPTS[type];
+  if (!promptTemplate) {
+    return { status: 400, headers: {}, body: { error: "unknown_type" } };
+  }
+
+  const periodMap = { daily: "Daily", weekly: "Weekly", monthly: "Monthly", yearly: "Yearly" };
+  const periodType = periodMap[finalData.period] || "Daily";
+
+  const templateData = {
+    language: safeLang,
+    currentDate: currentDate,
+    currentYear: currentYear,
+    month: currentMonth,
+    weekRange: weekRange,
+  };
+
+  if (type === "ascendant_calc") {
+    templateData.risingSign = risingSign;
+    templateData.birthTime = finalData.timeOfBirth || "12:00 PM";
+    templateData.birthPlace = finalData.placeOfBirth || "Nincs megadva";
+  }
+
+  if (type === "home_daily_horoscope" || type.startsWith("ai_horoscope_") || type === "love_compatibility") {
+    templateData.zodiacSign = finalData.zodiacSign || "Ismeretlen";
+    if (type !== "love_compatibility") {
+      templateData.periodType = periodType;
+    }
+  }
+
+  if (type === "chinese_horoscope") {
+    templateData.animal = finalData.ANIMAL || "";
+    templateData.element = finalData.ELEMENT || "";
+    templateData.yinYang = finalData.YIN_YANG || "";
+  }
+
+  if (type === "personal_horoscope") {
+    templateData.sunSign = sunSign;
+    templateData.moonSign = moonSign;
+    templateData.risingSign = risingSign;
+    templateData.firePercent = finalData.firePercent || 0;
+    templateData.earthPercent = finalData.earthPercent || 0;
+    templateData.airPercent = finalData.airPercent || 0;
+    templateData.waterPercent = finalData.waterPercent || 0;
+    templateData.periodType = periodType;
+  }
+
+  if (type === "numerology") {
+    templateData.lifePathNumber = finalData.lifePathNumber || "X";
+    templateData.expressionNumber = finalData.expressionNumber || "X";
+    templateData.soulUrgeNumber = finalData.soulUrgeNumber || "X";
+    templateData.personalityNumber = finalData.personalityNumber || "X";
+    templateData.birthdayNumber = finalData.birthdayNumber || "X";
+  }
+
+  if (type === "personal_astro_calendar") {
+    templateData.timelineDate1 = finalData.timelineDate1 || "";
+    templateData.timelineDate2 = finalData.timelineDate2 || "";
+    templateData.timelineDate3 = finalData.timelineDate3 || "";
+    templateData.timeRange = finalData.timeRange || "daily";
+  }
+
+  if (type === "ask_the_stars") {
+    templateData.question = finalData.question || "Nincs kérdés megadva";
+  }
+
+  const filledPrompt = fillTemplate(promptTemplate, templateData);
+
+  const primaryProvider = process.env.AI_PRIMARY_PROVIDER || DEFAULT_PRIMARY_PROVIDER;
+  const fallbackProvider = process.env.AI_FALLBACK_PROVIDER || DEFAULT_FALLBACK_PROVIDER;
+
+  const primaryModel = primaryProvider === AI_PROVIDERS.GROQ
+    ? (process.env.GROQ_MODEL || DEFAULT_GROQ_MODEL)
+    : (process.env.GENERATIVE_MODEL || DEFAULT_GEMINI_MODEL);
+
+  const fallbackModel = fallbackProvider === AI_PROVIDERS.GEMINI
+    ? (process.env.GENERATIVE_MODEL || DEFAULT_GEMINI_MODEL)
+    : (process.env.GROQ_MODEL || DEFAULT_GROQ_MODEL);
+
+  // =========================================================================
+  // 1. CACHE FIRST — ALWAYS (Check primary provider cache, then fallback cache)
+  // =========================================================================
+  const primaryCacheKey = getSharedCacheKey(type, templateData, primaryModel, primaryProvider);
+  const fallbackCacheKey = getSharedCacheKey(type, templateData, fallbackModel, fallbackProvider);
+
+  if (redisClient) {
+    try {
+      if (primaryCacheKey) {
+        const cached = await redisClient.get(primaryCacheKey);
+        if (cached !== null && cached !== undefined) {
+          const cachedText = typeof cached === "string" ? cached.trim() : JSON.stringify(cached);
+          if (cachedText.length > 0) {
+            return {
+              status: 200,
+              headers: { "X-AIZ-Source": "cache", "X-AIZ-Cache": "HIT" },
+              body: { success: true, type, content: cachedText }
+            };
+          }
+        }
+      }
+
+      if (fallbackCacheKey && fallbackCacheKey !== primaryCacheKey) {
+        const cachedFallback = await redisClient.get(fallbackCacheKey);
+        if (cachedFallback !== null && cachedFallback !== undefined) {
+          const cachedText = typeof cachedFallback === "string" ? cachedFallback.trim() : JSON.stringify(cachedFallback);
+          if (cachedText.length > 0) {
+            return {
+              status: 200,
+              headers: { "X-AIZ-Source": "cache", "X-AIZ-Cache": "HIT" },
+              body: { success: true, type, content: cachedText }
+            };
+          }
+        }
+      }
+    } catch (cacheGetErr) {
+      console.warn("⚠️ Redis cache GET error (failing open):", cacheGetErr.message);
+    }
+  }
+
+  // =========================================================================
+  // 2. ABUSE RATE LIMIT (Applied ONLY on cache MISS / generation requests)
+  // =========================================================================
+  const abuseCheck = await checkAbuseRateLimit(redisClient, ip, type);
+  if (!abuseCheck.allowed) {
+    return {
+      status: 429,
+      headers: { "X-AIZ-Cache": "NONE" },
+      body: { error: "token_limit_exceeded", reason: "AI_RATE_LIMITED" }
+    };
+  }
+
+  // =========================================================================
+  // 3. ATOMIC BUDGET ADMISSION & ROUTED GENERATION (With Emergency Reserve Fallback)
+  // =========================================================================
+  const aiSchema = getInternalAiSchema(type);
+  const maxTokens = getMaxOutputTokens(type);
+
+  let aiResult;
+  let fallbackToReserve = false;
+  let reserveReasonCategory = "budget";
+
+  try {
+    aiResult = await executeProviderRouting({
+      type,
+      prompt: filledPrompt,
+      responseSchema: aiSchema,
+      maxOutputTokens: maxTokens,
+      redis: redisClient,
+      geminiRetryFn: retryWithBackoff,
+      groqSleepFn: sleepFn,
+    });
+  } catch (routeErr) {
+    const status = routeErr?.status || 0;
+    const reason = routeErr?.reason || routeErr?.message || "";
+
+    if (
+      status === 429 ||
+      reason.includes("BUDGET_EXHAUSTED") ||
+      reason.includes("BUDGET_SERVICE_") ||
+      reason.includes("TRANSIENT_FAILURE") ||
+      status === 503 ||
+      status === 502 ||
+      status === 504
+    ) {
+      fallbackToReserve = true;
+      if (reason.includes("BUDGET_SERVICE_")) {
+        reserveReasonCategory = "budget_service_failure";
+      } else if (reason.includes("TRANSIENT_FAILURE") || status >= 500) {
+        reserveReasonCategory = "provider_failure";
+      } else {
+        reserveReasonCategory = "budget";
+      }
+    } else {
+      throw routeErr;
+    }
+  }
+
+  if (fallbackToReserve) {
+    const reserveResult = generateReserveResponse(type, finalData, safeLang);
+    await recordReserveTelemetry(redisClient, type, reserveReasonCategory, new Date());
+
+    return {
+      status: 200,
+      headers: { "X-AIZ-Source": "reserve", "X-AIZ-Cache": "RESERVE" },
+      body: { success: true, type, content: reserveResult.content }
+    };
+  }
+
+  const text = aiResult?.text || "";
+  const trimmedText = text.trim();
+
+  let rawAiObj;
+  try {
+    rawAiObj = JSON.parse(trimmedText);
+  } catch (jsonErr) {
+    console.error(`❌ Structured output JSON parse failed for ${type} [${aiResult?.provider}]`);
+    return {
+      status: 500,
+      headers: {},
+      body: { error: "invalid_ai_response", message: "Failed to parse structured JSON from AI" }
+    };
+  }
+
+  const finalObj = mergeDeterministicFields(type, rawAiObj, finalData, safeLang);
+
+  if (!validateResponseObject(type, finalObj)) {
+    console.error(`❌ Final response object validation failed for ${type}`);
+    return {
+      status: 500,
+      headers: {},
+      body: { error: "invalid_ai_response", message: "Missing required response fields after merge" }
+    };
+  }
+
+  const finalJsonString = JSON.stringify(finalObj);
+
+  // Record exact provider token usage telemetry
+  const usage = aiResult.usage;
+  await recordUsageTelemetry(redisClient, type, usage, new Date(), aiResult.provider, aiResult.model);
+
+  // =========================================================================
+  // 4. CACHE SET (Saved under the ACTUALLY winning provider's identity)
+  // =========================================================================
+  const winningCacheKey = getSharedCacheKey(type, templateData, aiResult.model, aiResult.provider);
+  if (winningCacheKey && redisClient && finalJsonString.length > 0) {
+    const ttl = TTL_SECONDS[type] || 36 * 3600;
+    try {
+      await redisClient.set(winningCacheKey, finalJsonString, { ex: ttl });
+    } catch (cacheSetErr) {
+      console.warn("⚠️ Redis cache SET error (failing open):", cacheSetErr.message);
+    }
+  }
+
+  return {
+    status: 200,
+    headers: { "X-AIZ-Source": aiResult.provider, "X-AIZ-Cache": "MISS" },
+    body: { success: true, type, content: finalJsonString }
+  };
+}
+
+/**
+ * Standard Vercel Serverless Function entrypoint (Node.js style req, res).
+ */
+export default async function handler(req, res) {
+  if (req.method !== "POST") {
+    return res.status(405).json({ error: "method_not_allowed" });
+  }
+
+  const rawIp = req.headers["x-forwarded-for"] || req.socket?.remoteAddress || "unknown";
+  const ip = Array.isArray(rawIp) ? rawIp[0] : String(rawIp).split(",")[0].trim();
+
+  try {
+    const body = req.body || {};
+    const result = await processAstroRequest({
+      body,
+      ip,
+      redisClient: redis,
+    });
+
+    if (result.headers) {
+      Object.entries(result.headers).forEach(([k, v]) => res.setHeader(k, v));
+    }
+
+    return res.status(result.status).json(result.body);
+  } catch (error) {
+    console.error("Error in generateAstroContent:", error.message || error);
+    return res.status(500).json({ error: "internal_error" });
+  }
 }
