@@ -269,7 +269,7 @@ export async function processAstroRequest({
   }
 
   if (type === "personal_astro_calendar") {
-    const timeRange = finalData.timeRange || "daily";
+    const timeRange = finalData.timeRange || finalData.period || "daily";
     const timelineDates = getTimelineDates(timeRange);
     finalData.timelineDate1 = timelineDates[0];
     finalData.timelineDate2 = timelineDates[1];
@@ -303,7 +303,8 @@ export async function processAstroRequest({
   }
 
   if (type === "home_daily_horoscope" || type.startsWith("ai_horoscope_") || type === "love_compatibility") {
-    templateData.zodiacSign = finalData.zodiacSign || "Ismeretlen";
+    const rawSign = String(finalData.zodiacSign || "Aries").trim();
+    templateData.zodiacSign = rawSign.length > 0 ? (rawSign.charAt(0).toUpperCase() + rawSign.slice(1).toLowerCase()) : "Aries";
     if (type !== "love_compatibility") {
       templateData.periodType = periodType;
     }
