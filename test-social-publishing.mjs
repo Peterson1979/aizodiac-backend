@@ -34,6 +34,8 @@ import { FacebookAdapter } from "./lib/social/adapters/facebookAdapter.js";
 import { PinterestAdapter } from "./lib/social/adapters/pinterestAdapter.js";
 import { VideoAdapterStub } from "./lib/social/adapters/videoAdapter.stub.js";
 import { executeSocialPublishing } from "./lib/social/publishCoordinator.js";
+import { savePrepareState, PREPARE_STAGES } from "./lib/social/prepareStateHelper.js";
+import { QUALITY_GATE_STATUS } from "./lib/social/quality/socialQualityGate.js";
 import cronHandler from "./api/cron/publishDailySocial.js";
 import canaryHandler from "./api/cron/canarySocialPublish.js";
 
@@ -580,13 +582,18 @@ class MockRedis {
 
   const redis = new MockRedis();
   const date = "2026-08-28";
+  await savePrepareState(redis, date, {
+    publishDate: date,
+    stage: PREPARE_STAGES.QUALITY_GATE_PASS,
+  });
+
   const manifest = {
     date,
     id: "manifest_test_coordination",
     type: MEDIA_TYPES.SINGLE_IMAGE,
     media: [{ url: "https://cdn.aizodiac.app/photo.png" }],
     metadata: {
-      qualityGate: "QUALITY_GATE_PASS",
+      qualityGate: QUALITY_GATE_STATUS.PASS,
     },
     captions: {
       instagram: "IG copy",
@@ -782,6 +789,205 @@ class MockRedis {
   assert.ok(pub.error.message.includes("out of scope for V1"));
 
   console.log("  ✓ VideoAdapterStub provides clean extension point with zero video code");
+}
+
+// ============================================================================
+// TEST 10: Fail-Closed Production Social Quality Gate Decision Matrix (8 Cases)
+// ============================================================================
+{
+  console.log("\n[TEST 10] Fail-Closed Production Social Quality Gate Decision Matrix (8 Matrix Cases)");
+
+  const baseConfig = getSocialConfig({
+    autoPublishEnabled: true,
+    metaPageAccessToken: "EAAB_token",
+    metaPageId: "page_123",
+    instagramAccountId: "ig_456",
+    pinterestAccessToken: "pina_token",
+    pinterestBoardId: "board_789",
+    pinterestAccessTier: "standard",
+  });
+
+  function createMockAdapters() {
+    const writes = { instagram: 0, facebook: 0, pinterest: 0 };
+    const adapters = {
+      [PLATFORMS.INSTAGRAM]: {
+        publish: async () => {
+          writes.instagram++;
+          return { success: true, status: PUBLISH_STATUS.PUBLISHED, postId: "ig_1" };
+        },
+      },
+      [PLATFORMS.FACEBOOK]: {
+        publish: async () => {
+          writes.facebook++;
+          return { success: true, status: PUBLISH_STATUS.PUBLISHED, postId: "fb_1" };
+        },
+      },
+      [PLATFORMS.PINTEREST]: {
+        publish: async () => {
+          writes.pinterest++;
+          return { success: true, status: PUBLISH_STATUS.PUBLISHED, postId: "pin_1" };
+        },
+      },
+    };
+    return { adapters, writes };
+  }
+
+  function createTestManifest(date, qualityGateValue = undefined) {
+    const manifest = {
+      date,
+      id: `social-${date}`,
+      type: MEDIA_TYPES.SINGLE_IMAGE,
+      media: [{ url: "https://pub.aizodiac.app/slide.png" }],
+      captions: {
+        instagram: "IG caption",
+        facebook: "FB caption",
+        pinterest: {
+          title: "Pin title",
+          description: "Pin desc",
+          link: "https://play.google.com/store/apps/details?id=com.oberon.aizodiac",
+        },
+      },
+    };
+    if (qualityGateValue !== undefined) {
+      manifest.metadata = { qualityGate: qualityGateValue };
+    }
+    return manifest;
+  }
+
+  // 1. PASS state + PASS manifest -> publishing path allowed
+  {
+    const date = "2026-09-20";
+    const redis = new MockRedis();
+    await savePrepareState(redis, date, { publishDate: date, stage: PREPARE_STAGES.QUALITY_GATE_PASS });
+    const manifest = createTestManifest(date, QUALITY_GATE_STATUS.PASS);
+    const { adapters, writes } = createMockAdapters();
+
+    const res = await executeSocialPublishing({ redis, config: baseConfig, targetDate: date, manifest, adapters });
+    assert.equal(res.success, true, "PASS state + PASS manifest must allow publishing");
+    assert.equal(res.status, PUBLISH_STATUS.PUBLISHED);
+    assert.equal(writes.instagram, 1);
+    assert.equal(writes.facebook, 1);
+    assert.equal(writes.pinterest, 1);
+    console.log("  ✓ Case 1: PASS state + PASS manifest -> Publishing Allowed (3/3 writes)");
+  }
+
+  // 2. PASS state + FAILED manifest -> BLOCKED
+  {
+    const date = "2026-09-21";
+    const redis = new MockRedis();
+    await savePrepareState(redis, date, { publishDate: date, stage: PREPARE_STAGES.QUALITY_GATE_PASS });
+    const manifest = createTestManifest(date, QUALITY_GATE_STATUS.FAILED);
+    const { adapters, writes } = createMockAdapters();
+
+    const res = await executeSocialPublishing({ redis, config: baseConfig, targetDate: date, manifest, adapters });
+    assert.equal(res.success, false);
+    assert.equal(res.status, "QUALITY_GATE_BLOCKED");
+    assert.equal(writes.instagram, 0, "Instagram writes must be 0");
+    assert.equal(writes.facebook, 0, "Facebook writes must be 0");
+    assert.equal(writes.pinterest, 0, "Pinterest writes must be 0");
+    console.log("  ✓ Case 2: PASS state + FAILED manifest -> QUALITY_GATE_BLOCKED (0 writes)");
+  }
+
+  // 3. FAILED state + PASS manifest -> BLOCKED
+  {
+    const date = "2026-09-22";
+    const redis = new MockRedis();
+    await savePrepareState(redis, date, { publishDate: date, stage: PREPARE_STAGES.QUALITY_GATE_FAILED });
+    const manifest = createTestManifest(date, QUALITY_GATE_STATUS.PASS);
+    const { adapters, writes } = createMockAdapters();
+
+    const res = await executeSocialPublishing({ redis, config: baseConfig, targetDate: date, manifest, adapters });
+    assert.equal(res.success, false);
+    assert.equal(res.status, "QUALITY_GATE_BLOCKED");
+    assert.equal(writes.instagram, 0, "Instagram writes must be 0");
+    assert.equal(writes.facebook, 0, "Facebook writes must be 0");
+    assert.equal(writes.pinterest, 0, "Pinterest writes must be 0");
+    console.log("  ✓ Case 3: FAILED state + PASS manifest -> QUALITY_GATE_BLOCKED (0 writes)");
+  }
+
+  // 4. FAILED state + FAILED manifest -> BLOCKED
+  {
+    const date = "2026-09-23";
+    const redis = new MockRedis();
+    await savePrepareState(redis, date, { publishDate: date, stage: PREPARE_STAGES.QUALITY_GATE_FAILED });
+    const manifest = createTestManifest(date, QUALITY_GATE_STATUS.FAILED);
+    const { adapters, writes } = createMockAdapters();
+
+    const res = await executeSocialPublishing({ redis, config: baseConfig, targetDate: date, manifest, adapters });
+    assert.equal(res.success, false);
+    assert.equal(res.status, "QUALITY_GATE_BLOCKED");
+    assert.equal(writes.instagram, 0, "Instagram writes must be 0");
+    assert.equal(writes.facebook, 0, "Facebook writes must be 0");
+    assert.equal(writes.pinterest, 0, "Pinterest writes must be 0");
+    console.log("  ✓ Case 4: FAILED state + FAILED manifest -> QUALITY_GATE_BLOCKED (0 writes)");
+  }
+
+  // 5. ABSENT state + PASS manifest -> BLOCKED
+  {
+    const date = "2026-09-24";
+    const redis = new MockRedis(); // empty Redis, no prep state seeded
+    const manifest = createTestManifest(date, QUALITY_GATE_STATUS.PASS);
+    const { adapters, writes } = createMockAdapters();
+
+    const res = await executeSocialPublishing({ redis, config: baseConfig, targetDate: date, manifest, adapters });
+    assert.equal(res.success, false);
+    assert.equal(res.status, "QUALITY_GATE_BLOCKED");
+    assert.equal(writes.instagram, 0, "Instagram writes must be 0");
+    assert.equal(writes.facebook, 0, "Facebook writes must be 0");
+    assert.equal(writes.pinterest, 0, "Pinterest writes must be 0");
+    console.log("  ✓ Case 5: ABSENT state + PASS manifest -> QUALITY_GATE_BLOCKED (0 writes)");
+  }
+
+  // 6. PASS state + ABSENT quality metadata -> BLOCKED
+  {
+    const date = "2026-09-25";
+    const redis = new MockRedis();
+    await savePrepareState(redis, date, { publishDate: date, stage: PREPARE_STAGES.QUALITY_GATE_PASS });
+    const manifest = createTestManifest(date, undefined); // no metadata.qualityGate
+    const { adapters, writes } = createMockAdapters();
+
+    const res = await executeSocialPublishing({ redis, config: baseConfig, targetDate: date, manifest, adapters });
+    assert.equal(res.success, false);
+    assert.equal(res.status, "QUALITY_GATE_BLOCKED");
+    assert.equal(writes.instagram, 0, "Instagram writes must be 0");
+    assert.equal(writes.facebook, 0, "Facebook writes must be 0");
+    assert.equal(writes.pinterest, 0, "Pinterest writes must be 0");
+    console.log("  ✓ Case 6: PASS state + ABSENT quality metadata -> QUALITY_GATE_BLOCKED (0 writes)");
+  }
+
+  // 7. INTERMEDIATE state (RENDERED) + PASS manifest -> BLOCKED
+  {
+    const date = "2026-09-26";
+    const redis = new MockRedis();
+    await savePrepareState(redis, date, { publishDate: date, stage: PREPARE_STAGES.RENDERED });
+    const manifest = createTestManifest(date, QUALITY_GATE_STATUS.PASS);
+    const { adapters, writes } = createMockAdapters();
+
+    const res = await executeSocialPublishing({ redis, config: baseConfig, targetDate: date, manifest, adapters });
+    assert.equal(res.success, false);
+    assert.equal(res.status, "QUALITY_GATE_BLOCKED");
+    assert.equal(writes.instagram, 0, "Instagram writes must be 0");
+    assert.equal(writes.facebook, 0, "Facebook writes must be 0");
+    assert.equal(writes.pinterest, 0, "Pinterest writes must be 0");
+    console.log("  ✓ Case 7: INTERMEDIATE state (RENDERED) + PASS manifest -> QUALITY_GATE_BLOCKED (0 writes)");
+  }
+
+  // 8. UNKNOWN state + PASS manifest -> BLOCKED
+  {
+    const date = "2026-09-27";
+    const redis = new MockRedis();
+    await savePrepareState(redis, date, { publishDate: date, stage: "CORRUPTED_OR_UNKNOWN_STAGE" });
+    const manifest = createTestManifest(date, QUALITY_GATE_STATUS.PASS);
+    const { adapters, writes } = createMockAdapters();
+
+    const res = await executeSocialPublishing({ redis, config: baseConfig, targetDate: date, manifest, adapters });
+    assert.equal(res.success, false);
+    assert.equal(res.status, "QUALITY_GATE_BLOCKED");
+    assert.equal(writes.instagram, 0, "Instagram writes must be 0");
+    assert.equal(writes.facebook, 0, "Facebook writes must be 0");
+    assert.equal(writes.pinterest, 0, "Pinterest writes must be 0");
+    console.log("  ✓ Case 8: UNKNOWN state + PASS manifest -> QUALITY_GATE_BLOCKED (0 writes)");
+  }
 }
 
 console.log("\n==================================================");

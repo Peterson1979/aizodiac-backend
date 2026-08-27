@@ -1466,39 +1466,6 @@ function createSampleAiContent(overrides = {}) {
 {
   console.log("\n[TEST 16] Publisher Hard Block Enforces QUALITY_GATE_PASS & Blocks Provider Writes");
 
-  const redis = new MockRedis();
-  const date = "2026-09-10";
-  let providerWriteCalls = 0;
-
-  const mockAdapters = {
-    [PLATFORMS.INSTAGRAM]: {
-      publish: async () => {
-        providerWriteCalls++;
-        return { success: true, status: PUBLISH_STATUS.PUBLISHED, postId: "ig_111" };
-      },
-    },
-    [PLATFORMS.FACEBOOK]: {
-      publish: async () => {
-        providerWriteCalls++;
-        return { success: true, status: PUBLISH_STATUS.PUBLISHED, postId: "fb_222" };
-      },
-    },
-    [PLATFORMS.PINTEREST]: {
-      publish: async () => {
-        providerWriteCalls++;
-        return { success: true, status: PUBLISH_STATUS.PUBLISHED, postId: "pin_333" };
-      },
-    },
-  };
-
-  const manifest = {
-    date,
-    id: `social-${date}`,
-    type: MEDIA_TYPES.CAROUSEL,
-    media: [{ url: "https://pub.r2.dev/s1.png" }, { url: "https://pub.r2.dev/s2.png" }],
-    captions: { instagram: "ig", facebook: "fb", pinterest: { title: "t", description: "d", link: DEFAULT_APP_PLAY_STORE_URL } },
-  };
-
   const config = getSocialConfig({
     autoPublishEnabled: true,
     metaPageAccessToken: "EAAB_token",
@@ -1509,60 +1476,174 @@ function createSampleAiContent(overrides = {}) {
     pinterestAccessTier: "standard",
   });
 
-  // 1. Missing Quality State in Redis -> HARD BLOCK
-  const blockedRes1 = await executeSocialPublishing({
-    redis,
-    config,
-    targetDate: date,
-    manifest,
-    adapters: mockAdapters,
-  });
+  function createMockPublisher() {
+    let writes = { ig: 0, fb: 0, pin: 0 };
+    const adapters = {
+      [PLATFORMS.INSTAGRAM]: {
+        publish: async () => {
+          writes.ig++;
+          return { success: true, status: PUBLISH_STATUS.PUBLISHED, postId: "ig_111" };
+        },
+      },
+      [PLATFORMS.FACEBOOK]: {
+        publish: async () => {
+          writes.fb++;
+          return { success: true, status: PUBLISH_STATUS.PUBLISHED, postId: "fb_222" };
+        },
+      },
+      [PLATFORMS.PINTEREST]: {
+        publish: async () => {
+          writes.pin++;
+          return { success: true, status: PUBLISH_STATUS.PUBLISHED, postId: "pin_333" };
+        },
+      },
+    };
+    return { adapters, writes };
+  }
 
-  assert.equal(blockedRes1.success, false);
-  assert.equal(blockedRes1.status, "QUALITY_GATE_BLOCKED");
-  assert.equal(providerWriteCalls, 0, "Zero provider writes must occur when quality state is missing!");
+  function createManifestWithGate(date, qgStatus) {
+    const manifest = {
+      date,
+      id: `social-${date}`,
+      type: MEDIA_TYPES.CAROUSEL,
+      media: [{ url: "https://pub.r2.dev/s1.png" }, { url: "https://pub.r2.dev/s2.png" }],
+      captions: { instagram: "ig", facebook: "fb", pinterest: { title: "t", description: "d", link: DEFAULT_APP_PLAY_STORE_URL } },
+    };
+    if (qgStatus !== undefined) {
+      manifest.metadata = { qualityGate: qgStatus };
+    }
+    return manifest;
+  }
 
-  // 2. Failed Quality State in Redis (QUALITY_GATE_FAILED) -> HARD BLOCK
-  await savePrepareState(redis, date, {
-    publishDate: date,
-    stage: PREPARE_STAGES.QUALITY_GATE_FAILED,
-    error: "Text overflow in slide 3",
-  });
+  // 1. PASS state + PASS manifest -> publishing path allowed
+  {
+    const date = "2026-09-10";
+    const redis = new MockRedis();
+    await savePrepareState(redis, date, { publishDate: date, stage: PREPARE_STAGES.QUALITY_GATE_PASS });
+    const manifest = createManifestWithGate(date, QUALITY_GATE_STATUS.PASS);
+    const { adapters, writes } = createMockPublisher();
 
-  const blockedRes2 = await executeSocialPublishing({
-    redis,
-    config,
-    targetDate: date,
-    manifest,
-    adapters: mockAdapters,
-  });
+    const res = await executeSocialPublishing({ redis, config, targetDate: date, manifest, adapters });
+    assert.equal(res.success, true);
+    assert.equal(res.status, PUBLISH_STATUS.PUBLISHED);
+    assert.equal(writes.ig, 1);
+    assert.equal(writes.fb, 1);
+    assert.equal(writes.pin, 1);
+  }
 
-  assert.equal(blockedRes2.success, false);
-  assert.equal(blockedRes2.status, "QUALITY_GATE_BLOCKED");
-  assert.equal(providerWriteCalls, 0, "Zero provider writes must occur when quality state is QUALITY_GATE_FAILED!");
+  // 2. PASS state + FAILED manifest -> BLOCKED
+  {
+    const date = "2026-09-10";
+    const redis = new MockRedis();
+    await savePrepareState(redis, date, { publishDate: date, stage: PREPARE_STAGES.QUALITY_GATE_PASS });
+    const manifest = createManifestWithGate(date, QUALITY_GATE_STATUS.FAILED);
+    const { adapters, writes } = createMockPublisher();
 
-  // 3. Approved Quality State in Redis (QUALITY_GATE_PASS) -> PUBLISHING ALLOWED
-  await savePrepareState(redis, date, {
-    publishDate: date,
-    stage: PREPARE_STAGES.QUALITY_GATE_PASS,
-    manifestId: `social-${date}`,
-  });
+    const res = await executeSocialPublishing({ redis, config, targetDate: date, manifest, adapters });
+    assert.equal(res.success, false);
+    assert.equal(res.status, "QUALITY_GATE_BLOCKED");
+    assert.equal(writes.ig, 0);
+    assert.equal(writes.fb, 0);
+    assert.equal(writes.pin, 0);
+  }
 
-  const allowedRes = await executeSocialPublishing({
-    redis,
-    config,
-    targetDate: date,
-    manifest,
-    adapters: mockAdapters,
-  });
+  // 3. FAILED state + PASS manifest -> BLOCKED
+  {
+    const date = "2026-09-10";
+    const redis = new MockRedis();
+    await savePrepareState(redis, date, { publishDate: date, stage: PREPARE_STAGES.QUALITY_GATE_FAILED });
+    const manifest = createManifestWithGate(date, QUALITY_GATE_STATUS.PASS);
+    const { adapters, writes } = createMockPublisher();
 
-  assert.equal(allowedRes.success, true);
-  assert.equal(allowedRes.status, PUBLISH_STATUS.PUBLISHED);
-  assert.equal(providerWriteCalls, 3, "All 3 provider writes execute when QUALITY_GATE_PASS is present");
+    const res = await executeSocialPublishing({ redis, config, targetDate: date, manifest, adapters });
+    assert.equal(res.success, false);
+    assert.equal(res.status, "QUALITY_GATE_BLOCKED");
+    assert.equal(writes.ig, 0);
+    assert.equal(writes.fb, 0);
+    assert.equal(writes.pin, 0);
+  }
 
-  console.log("  ✓ Publisher hard-blocks missing quality state with zero provider writes");
-  console.log("  ✓ Publisher hard-blocks QUALITY_GATE_FAILED state with zero provider writes");
-  console.log("  ✓ Publisher permits writes ONLY when state is explicitly QUALITY_GATE_PASS");
+  // 4. FAILED state + FAILED manifest -> BLOCKED
+  {
+    const date = "2026-09-10";
+    const redis = new MockRedis();
+    await savePrepareState(redis, date, { publishDate: date, stage: PREPARE_STAGES.QUALITY_GATE_FAILED });
+    const manifest = createManifestWithGate(date, QUALITY_GATE_STATUS.FAILED);
+    const { adapters, writes } = createMockPublisher();
+
+    const res = await executeSocialPublishing({ redis, config, targetDate: date, manifest, adapters });
+    assert.equal(res.success, false);
+    assert.equal(res.status, "QUALITY_GATE_BLOCKED");
+    assert.equal(writes.ig, 0);
+    assert.equal(writes.fb, 0);
+    assert.equal(writes.pin, 0);
+  }
+
+  // 5. ABSENT state + PASS manifest -> BLOCKED
+  {
+    const date = "2026-09-10";
+    const redis = new MockRedis();
+    const manifest = createManifestWithGate(date, QUALITY_GATE_STATUS.PASS);
+    const { adapters, writes } = createMockPublisher();
+
+    const res = await executeSocialPublishing({ redis, config, targetDate: date, manifest, adapters });
+    assert.equal(res.success, false);
+    assert.equal(res.status, "QUALITY_GATE_BLOCKED");
+    assert.equal(writes.ig, 0);
+    assert.equal(writes.fb, 0);
+    assert.equal(writes.pin, 0);
+  }
+
+  // 6. PASS state + ABSENT quality metadata -> BLOCKED
+  {
+    const date = "2026-09-10";
+    const redis = new MockRedis();
+    await savePrepareState(redis, date, { publishDate: date, stage: PREPARE_STAGES.QUALITY_GATE_PASS });
+    const manifest = createManifestWithGate(date, undefined);
+    const { adapters, writes } = createMockPublisher();
+
+    const res = await executeSocialPublishing({ redis, config, targetDate: date, manifest, adapters });
+    assert.equal(res.success, false);
+    assert.equal(res.status, "QUALITY_GATE_BLOCKED");
+    assert.equal(writes.ig, 0);
+    assert.equal(writes.fb, 0);
+    assert.equal(writes.pin, 0);
+  }
+
+  // 7. INTERMEDIATE state + PASS manifest -> BLOCKED
+  {
+    const date = "2026-09-10";
+    const redis = new MockRedis();
+    await savePrepareState(redis, date, { publishDate: date, stage: PREPARE_STAGES.RENDERED });
+    const manifest = createManifestWithGate(date, QUALITY_GATE_STATUS.PASS);
+    const { adapters, writes } = createMockPublisher();
+
+    const res = await executeSocialPublishing({ redis, config, targetDate: date, manifest, adapters });
+    assert.equal(res.success, false);
+    assert.equal(res.status, "QUALITY_GATE_BLOCKED");
+    assert.equal(writes.ig, 0);
+    assert.equal(writes.fb, 0);
+    assert.equal(writes.pin, 0);
+  }
+
+  // 8. UNKNOWN state + PASS manifest -> BLOCKED
+  {
+    const date = "2026-09-10";
+    const redis = new MockRedis();
+    await savePrepareState(redis, date, { publishDate: date, stage: "UNKNOWN_STATE" });
+    const manifest = createManifestWithGate(date, QUALITY_GATE_STATUS.PASS);
+    const { adapters, writes } = createMockPublisher();
+
+    const res = await executeSocialPublishing({ redis, config, targetDate: date, manifest, adapters });
+    assert.equal(res.success, false);
+    assert.equal(res.status, "QUALITY_GATE_BLOCKED");
+    assert.equal(writes.ig, 0);
+    assert.equal(writes.fb, 0);
+    assert.equal(writes.pin, 0);
+  }
+
+  console.log("  ✓ Publisher hard-blocks all 7 invalid/inconsistent combinations with 0 provider writes");
+  console.log("  ✓ Publisher permits writes ONLY when BOTH state and manifest confirm QUALITY_GATE_PASS");
 }
 
 // ============================================================================
