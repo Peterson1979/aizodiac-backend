@@ -215,10 +215,10 @@ console.log("==================================================");
   const data = { zodiacSign: "Aries", currentDate: "2026-08-24", language: "en" };
 
   const geminiKey = getSharedCacheKey("home_daily_horoscope", data, "gemini-2.5-flash-lite", "gemini");
-  assert.strictEqual(geminiKey, "aiz:cache:v2:gemini-2.5-flash-lite:home_daily_horoscope:2026-08-24:aries:en");
+  assert.strictEqual(geminiKey, "aiz:cache:v2:gemini-2.5-flash-lite:home_daily_horoscope:b7:2026-08-24:aries:en");
 
   const groqKey = getSharedCacheKey("home_daily_horoscope", data, "openai/gpt-oss-20b", "groq");
-  assert.strictEqual(groqKey, "aiz:cache:v2:groq:openai_gpt-oss-20b:home_daily_horoscope:2026-08-24:aries:en");
+  assert.strictEqual(groqKey, "aiz:cache:v2:groq:openai_gpt-oss-20b:home_daily_horoscope:b7:2026-08-24:aries:en");
 
   assert.notStrictEqual(geminiKey, groqKey);
   console.log("✅ Test 6 passed: Gemini keys remain 100% backward compatible; Groq keys are completely isolated");

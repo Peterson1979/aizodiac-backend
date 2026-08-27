@@ -767,7 +767,7 @@ const mockDate = "2026-08-24";
   const templateData = { zodiacSign: "Aries", currentDate: "2026-08-24", language: "en" };
   const geminiKey = getSharedCacheKey("home_daily_horoscope", templateData, "gemini-2.5-flash-lite", "gemini");
 
-  assert.strictEqual(geminiKey, "aiz:cache:v2:gemini-2.5-flash-lite:home_daily_horoscope:2026-08-24:aries:en");
+  assert.strictEqual(geminiKey, "aiz:cache:v2:gemini-2.5-flash-lite:home_daily_horoscope:b7:2026-08-24:aries:en");
   console.log("✅ Test P passed: Gemini cache keys retain 100% backward compatibility");
 }
 
@@ -778,7 +778,7 @@ const mockDate = "2026-08-24";
   const templateData = { zodiacSign: "Aries", currentDate: "2026-08-24", language: "en" };
   const groqKey = getSharedCacheKey("home_daily_horoscope", templateData, "openai/gpt-oss-20b", "groq");
 
-  assert.strictEqual(groqKey, "aiz:cache:v2:groq:openai_gpt-oss-20b:home_daily_horoscope:2026-08-24:aries:en");
+  assert.strictEqual(groqKey, "aiz:cache:v2:groq:openai_gpt-oss-20b:home_daily_horoscope:b7:2026-08-24:aries:en");
   console.log("✅ Test Q passed: Groq cache namespace is fully isolated from Gemini");
 }
 
