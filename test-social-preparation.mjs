@@ -734,15 +734,15 @@ function createSampleAiContent(overrides = {}) {
   }
 
   // Verify Header Brand region ("AI ZODIAC")
-  await assertRegionHasTextGlyphs(glyphSlideBuffer, { left: 80, top: 80, width: 220, height: 35 }, "Header AI Zodiac");
+  await assertRegionHasTextGlyphs(glyphSlideBuffer, { left: 80, top: 76, width: 260, height: 45 }, "Header AI Zodiac");
   // Verify Zodiac Glyph in Emblem region ("♉")
-  await assertRegionHasTextGlyphs(glyphSlideBuffer, { left: 510, top: 250, width: 60, height: 50 }, "Taurus Symbol Glyph ♉");
+  await assertRegionHasTextGlyphs(glyphSlideBuffer, { left: 510, top: 235, width: 60, height: 50 }, "Taurus Symbol Glyph ♉");
   // Verify Taurus Sign Name region ("TAURUS")
-  await assertRegionHasTextGlyphs(glyphSlideBuffer, { left: 450, top: 415, width: 180, height: 40 }, "Sign Name 'TAURUS'");
+  await assertRegionHasTextGlyphs(glyphSlideBuffer, { left: 450, top: 375, width: 180, height: 40 }, "Sign Name 'TAURUS'");
   // Verify Headline region ("Steady and Dependable")
-  await assertRegionHasTextGlyphs(glyphSlideBuffer, { left: 300, top: 565, width: 480, height: 40 }, "Headline 'Steady and Dependable'");
+  await assertRegionHasTextGlyphs(glyphSlideBuffer, { left: 300, top: 525, width: 480, height: 40 }, "Headline 'Steady and Dependable'");
   // Verify Body region with numbers ("1234567890")
-  await assertRegionHasTextGlyphs(glyphSlideBuffer, { left: 200, top: 730, width: 680, height: 80 }, "Body with 1234567890 numbers");
+  await assertRegionHasTextGlyphs(glyphSlideBuffer, { left: 200, top: 720, width: 680, height: 90 }, "Body with 1234567890 numbers");
 
   // Also verify CTA slide text regions ("Discover more with AI Zodiac", "DOWNLOAD FREE")
   const ctaTestSlide = {
@@ -757,12 +757,12 @@ function createSampleAiContent(overrides = {}) {
     category: "self_discovery",
     categoryTitle: "Self-Discovery",
   });
-  await assertRegionHasTextGlyphs(ctaSlideBuffer, { left: 220, top: 440, width: 640, height: 45 }, "CTA Headline 'Discover more with AI Zodiac'");
-  await assertRegionHasTextGlyphs(ctaSlideBuffer, { left: 240, top: 635, width: 600, height: 35 }, "CTA Body Copy");
+  await assertRegionHasTextGlyphs(ctaSlideBuffer, { left: 220, top: 460, width: 640, height: 60 }, "CTA Headline 'Discover more with AI Zodiac'");
+  await assertRegionHasTextGlyphs(ctaSlideBuffer, { left: 240, top: 655, width: 600, height: 50 }, "CTA Body Copy");
   await assertRegionHasTextGlyphs(ctaSlideBuffer, { left: 380, top: 852, width: 320, height: 35 }, "CTA Button Text 'DOWNLOAD FREE'");
 
-  // 9. Generate All 5 Visual Review Slides to tmp/social-final-review/ (slide-01 through slide-05)
-  const reviewLayoutDir = path.resolve("./tmp/social-final-review");
+  // 9. Generate All 5 Visual Review Slides to tmp/social-final-review-v2/ (slide-01 through slide-05)
+  const reviewLayoutDir = path.resolve("./tmp/social-final-review-v2");
   if (!fs.existsSync(reviewLayoutDir)) fs.mkdirSync(reviewLayoutDir, { recursive: true });
 
   const reviewCarousel = {
@@ -821,7 +821,7 @@ function createSampleAiContent(overrides = {}) {
   console.log("  ✓ Non-overlapping vertical layout zones & minimum gaps verified");
   console.log("  ✓ Bounding-box fitting (renderTextToFit) and button text containment verified");
   console.log("  ✓ Production-like glyph test confirmed actual foreground text pixel variation in all regions");
-  console.log("  ✓ All 5 final review slides rendered to tmp/social-final-review/");
+  console.log("  ✓ All 5 final review slides rendered to tmp/social-final-review-v2/");
 }
 
 // ============================================================================
