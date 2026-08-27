@@ -16,5 +16,6 @@ coverage/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-.DS_Store
-Thumbs.db
+# Temporary & scratch files
+tmp/
+scratch/

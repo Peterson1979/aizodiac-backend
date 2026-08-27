@@ -1,6 +1,8 @@
 // test-social-preparation.mjs
 import assert from "node:assert/strict";
 import sharp from "sharp";
+import fs from "node:fs";
+import path from "node:path";
 import { getTopicStrategyForDate, ROTATION_STRATEGY } from "./lib/social/content/topicRotation.js";
 import {
   normalizeTopic,
@@ -33,7 +35,11 @@ import {
 import {
   getSlideStorageKey,
   renderCarouselSlides,
+  renderSlidePng,
+  createTextLayer,
   convertSvgToPng,
+  FONT_REGULAR_PATH,
+  FONT_BOLD_PATH,
 } from "./lib/social/render/carouselRenderer.js";
 import {
   getR2Config,
@@ -573,12 +579,18 @@ function createSampleAiContent(overrides = {}) {
 }
 
 // ============================================================================
-// TEST 5: Carousel Renderer - SVG, Sharp PNG, 1080x1350 & Text Overflow Guard
+// TEST 5: Carousel Renderer - Deterministic Fontfile, Glyph Verification & Sharp PNG
 // ============================================================================
 {
-  console.log("\n[TEST 5] Carousel Renderer: SVG Templates, Sharp PNG & Text Overflow Guard");
+  console.log("\n[TEST 5] Carousel Renderer: Bundled Fontfile, Glyph Verification & 1080x1350 PNG");
 
-  // 1. Text wrapping test with very long sentence
+  // 1. Verify Bundled Font Files Exist on Local Filesystem
+  assert.ok(fs.existsSync(FONT_REGULAR_PATH), `Regular font file must exist at ${FONT_REGULAR_PATH}`);
+  assert.ok(fs.existsSync(FONT_BOLD_PATH), `Bold font file must exist at ${FONT_BOLD_PATH}`);
+  assert.ok(fs.statSync(FONT_REGULAR_PATH).size > 100000, "Regular font file must be a non-empty TTF font");
+  assert.ok(fs.statSync(FONT_BOLD_PATH).size > 100000, "Bold font file must be a non-empty TTF font");
+
+  // 2. Text wrapping test with very long sentence
   const longText = "This is an extraordinarily long sentence designed to test whether the SVG word wrapping algorithm safely splits sentences without ever overflowing the 900px content box margins.";
   const wrappedLines = wrapTextToLines(longText, 36);
   assert.ok(wrappedLines.length >= 4);
@@ -586,16 +598,89 @@ function createSampleAiContent(overrides = {}) {
     assert.ok(line.length <= 45, `Line exceeded safe wrapping length: ${line}`);
   });
 
-  // 2. XML escaping test
+  // 3. XML escaping test
   const dangerousText = `Signs that value "trust" & <loyalty> > everything else`;
   const escaped = escapeXml(dangerousText);
   assert.ok(!escaped.includes("<loyalty>"));
   assert.ok(escaped.includes("&amp;"));
   assert.ok(escaped.includes("&lt;loyalty&gt;"));
 
-  // 3. Render 5-slide sample carousel to PNG
+  // 4. Production-like Glyph Rendering & Text Bounding Box Pixel Variance Verification
+  // Test slide containing all required strings:
+  // "AI Zodiac", "Taurus", "Emotional consistency", "Discover more with AI Zodiac", "Free on Google Play", "1234567890"
+  const glyphTestSlide = {
+    type: "sign",
+    sign: "Taurus",
+    headline: "Emotional consistency",
+    body: "Grounded Taurus offers steadfast devotion and 1234567890 cosmic balance.",
+  };
+
+  const glyphSlideBuffer = await renderSlidePng({
+    slide: glyphTestSlide,
+    slideNumber: 2,
+    totalSlides: 5,
+    category: "personality",
+    categoryTitle: "Personality / Top 3",
+  });
+
+  const glyphMeta = await sharp(glyphSlideBuffer).metadata();
+  assert.equal(glyphMeta.width, 1080);
+  assert.equal(glyphMeta.height, 1350);
+  assert.equal(glyphMeta.format, "png");
+
+  // Helper function to extract crop and verify non-empty text pixel variation (luminance delta)
+  async function assertRegionHasTextGlyphs(buffer, cropRect, regionName) {
+    const rawPixels = await sharp(buffer)
+      .extract(cropRect)
+      .raw()
+      .toBuffer();
+
+    let minLum = 255;
+    let maxLum = 0;
+    for (let i = 0; i < rawPixels.length; i += 4) {
+      const r = rawPixels[i];
+      const g = rawPixels[i + 1];
+      const b = rawPixels[i + 2];
+      const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+      if (lum < minLum) minLum = lum;
+      if (lum > maxLum) maxLum = lum;
+    }
+    const delta = maxLum - minLum;
+    assert.ok(
+      delta > 60,
+      `Region '${regionName}' failed glyph verification (lum delta: ${delta.toFixed(1)}, expected > 60). Text may be missing or tofu!`
+    );
+  }
+
+  // Verify Header Brand region ("AI Zodiac")
+  await assertRegionHasTextGlyphs(glyphSlideBuffer, { left: 95, top: 88, width: 170, height: 26 }, "Header AI Zodiac");
+  // Verify Taurus Sign Badge region ("Taurus")
+  await assertRegionHasTextGlyphs(glyphSlideBuffer, { left: 390, top: 334, width: 300, height: 36 }, "Taurus Sign Badge");
+  // Verify Headline region ("Emotional consistency")
+  await assertRegionHasTextGlyphs(glyphSlideBuffer, { left: 200, top: 460, width: 680, height: 40 }, "Headline 'Emotional consistency'");
+  // Verify Body region with numbers ("1234567890")
+  await assertRegionHasTextGlyphs(glyphSlideBuffer, { left: 200, top: 670, width: 680, height: 80 }, "Body with 1234567890 numbers");
+
+  // Also verify CTA slide text regions ("Discover more with AI Zodiac", "Free on Google Play")
+  const ctaTestSlide = {
+    type: "cta",
+    headline: "Discover more with AI Zodiac",
+    body: "Free on Google Play",
+  };
+  const ctaSlideBuffer = await renderSlidePng({
+    slide: ctaTestSlide,
+    slideNumber: 5,
+    totalSlides: 5,
+    category: "self_discovery",
+    categoryTitle: "Self-Discovery",
+  });
+  await assertRegionHasTextGlyphs(ctaSlideBuffer, { left: 200, top: 430, width: 680, height: 50 }, "CTA Headline 'Discover more with AI Zodiac'");
+  await assertRegionHasTextGlyphs(ctaSlideBuffer, { left: 200, top: 670, width: 680, height: 50 }, "CTA Body 'Free on Google Play'");
+
+  // 5. Render 5-slide sample carousel to PNG and save to local verification directory (tmp/social-render-check/)
   const sample = createSampleAiContent();
-  const rendered = await renderCarouselSlides(sample);
+  const outputDir = path.resolve("./tmp/social-render-check");
+  const rendered = await renderCarouselSlides(sample, { outputDir });
 
   assert.equal(rendered.length, 5);
 
@@ -613,8 +698,10 @@ function createSampleAiContent(overrides = {}) {
     assert.equal(meta.format, "png");
   }
 
+  console.log("  ✓ Bundled Noto Sans TTF font files verified on disk");
   console.log("  ✓ Text wrapping safely controls lines without margin overflow");
-  console.log("  ✓ All 5 carousel slides render to deterministic 1080x1350 PNG images");
+  console.log("  ✓ Production-like glyph test confirmed actual foreground text pixel variation in all regions");
+  console.log("  ✓ All 5 carousel slides render to deterministic 1080x1350 PNG images in tmp/social-render-check/");
 }
 
 // ============================================================================
