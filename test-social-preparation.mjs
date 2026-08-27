@@ -117,13 +117,22 @@ class MockRedis {
     return result;
   }
 
+  async hincrby(key, field, amount) {
+    if (!this.hashes.has(key)) this.hashes.set(key, new Map());
+    const map = this.hashes.get(key);
+    const current = Number(map.get(field) || 0);
+    const updated = current + Number(amount);
+    map.set(field, String(updated));
+    return updated;
+  }
+
   async expire(key, seconds) {
     this.expirations.set(key, Date.now() + seconds * 1000);
     return 1;
   }
 
   async eval(script, keys, args) {
-    // Basic distributed lock release lua script support
+    // 1. Basic distributed lock release lua script support
     if (script.includes("return redis.call('DEL', KEYS[1])")) {
       const key = keys[0];
       const expectedOwner = String(args[0]);
@@ -134,6 +143,55 @@ class MockRedis {
       }
       return 0;
     }
+
+    // 2. Budget Reservation Lua script
+    if (script.includes("GLOBAL_BUDGET_EXHAUSTED")) {
+      const globalKey = keys[0];
+      const providerKey = keys[1];
+      const reserveAmount = Number(args[0]);
+      const globalLimit = Number(args[1]);
+      const providerLimit = Number(args[2]);
+
+      const globalUsed = Number((await this.get(globalKey)) || 0);
+      const providerUsed = Number((await this.get(providerKey)) || 0);
+
+      if (globalUsed + reserveAmount > globalLimit) {
+        return [0, "GLOBAL_BUDGET_EXHAUSTED", String(globalUsed), String(globalLimit)];
+      }
+
+      if (providerUsed + reserveAmount > providerLimit) {
+        return [0, "PROVIDER_BUDGET_EXHAUSTED", String(providerUsed), String(providerLimit)];
+      }
+
+      const newGlobal = globalUsed + reserveAmount;
+      const newProvider = providerUsed + reserveAmount;
+
+      await this.set(globalKey, newGlobal);
+      await this.set(providerKey, newProvider);
+
+      return [1, "RESERVED", String(newGlobal), String(newProvider)];
+    }
+
+    // 3. Budget Settlement Lua script
+    if (script.includes("SETTLED")) {
+      const globalKey = keys[0];
+      const providerKey = keys[1];
+      const reservedAmount = Number(args[0]);
+      const actualAmount = Number(args[1]);
+
+      const diff = reservedAmount - actualAmount;
+
+      let globalUsed = Number((await this.get(globalKey)) || 0) - diff;
+      if (globalUsed < 0) globalUsed = 0;
+      let providerUsed = Number((await this.get(providerKey)) || 0) - diff;
+      if (providerUsed < 0) providerUsed = 0;
+
+      await this.set(globalKey, globalUsed);
+      await this.set(providerKey, providerUsed);
+
+      return [1, "SETTLED", String(globalUsed), String(providerUsed)];
+    }
+
     return 1;
   }
 }
@@ -812,6 +870,65 @@ function createSampleAiContent(overrides = {}) {
   delete process.env.CRON_SECRET;
 
   console.log("  ✓ prepareDailySocial cron endpoint enforces CRON_SECRET and HTTP methods");
+}
+
+// ============================================================================
+// TEST 12: Groq Structured Outputs Request Payload for Social Content
+// ============================================================================
+{
+  console.log("\n[TEST 12] Groq Structured Outputs Request Payload for Social Content");
+
+  let capturedUrl = null;
+  let capturedBody = null;
+
+  const mockGroqFetch = async (url, options) => {
+    capturedUrl = url;
+    capturedBody = JSON.parse(options.body);
+
+    return {
+      ok: true,
+      json: async () => ({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify(createSampleAiContent({ publishDate: "2026-09-01" })),
+            },
+          },
+        ],
+        usage: {
+          prompt_tokens: 150,
+          completion_tokens: 300,
+          total_tokens: 450,
+        },
+      }),
+    };
+  };
+
+  const redis = new MockRedis();
+  const { executeProviderRouting } = await import("./lib/aiProvider.js");
+
+  const routingResult = await executeProviderRouting({
+    type: "social_daily_content",
+    prompt: "Test prompt for daily social content",
+    responseSchema: SOCIAL_CONTENT_SCHEMA,
+    maxOutputTokens: 1000,
+    redis,
+    date: "2026-09-01",
+    primaryProvider: "groq",
+    groqApiKey: "gsk_test_groq_key_123",
+    groqFetchFn: mockGroqFetch,
+    groqModel: "openai/gpt-oss-20b",
+  });
+
+  assert.strictEqual(capturedUrl, "https://api.groq.com/openai/v1/chat/completions");
+  assert.strictEqual(capturedBody.model, "openai/gpt-oss-20b");
+  assert.strictEqual(capturedBody.response_format.type, "json_schema");
+  assert.strictEqual(capturedBody.response_format.json_schema.strict, true, "strict must be explicitly true");
+  assert.strictEqual(capturedBody.response_format.json_schema.name, "astro_response");
+  assert.deepStrictEqual(capturedBody.response_format.json_schema.schema, SOCIAL_CONTENT_SCHEMA);
+  assert.strictEqual(routingResult.provider, "groq");
+
+  console.log("  ✓ Groq request body includes model 'openai/gpt-oss-20b', strict: true, and exact SOCIAL_CONTENT_SCHEMA");
 }
 
 console.log("\n==================================================");
