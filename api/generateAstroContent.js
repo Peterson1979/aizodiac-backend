@@ -11,6 +11,7 @@ import {
   getInternalAiSchema,
   mergeDeterministicFields,
   validateResponseObject,
+  validateHoroscopeSubject,
   getResponseSchema,
   getMaxOutputTokens
 } from "../lib/responseSchemas.js";
@@ -305,6 +306,7 @@ export async function processAstroRequest({
   if (type === "home_daily_horoscope" || type.startsWith("ai_horoscope_") || type === "love_compatibility") {
     const rawSign = String(finalData.zodiacSign || "Aries").trim();
     templateData.zodiacSign = rawSign.length > 0 ? (rawSign.charAt(0).toUpperCase() + rawSign.slice(1).toLowerCase()) : "Aries";
+    finalData.zodiacSign = templateData.zodiacSign;
     if (type !== "love_compatibility") {
       templateData.periodType = periodType;
     }
@@ -372,11 +374,24 @@ export async function processAstroRequest({
         if (cached !== null && cached !== undefined) {
           const cachedText = typeof cached === "string" ? cached.trim() : JSON.stringify(cached);
           if (cachedText.length > 0) {
-            return {
-              status: 200,
-              headers: { "X-AIZ-Source": "cache", "X-AIZ-Cache": "HIT" },
-              body: { success: true, type, content: cachedText }
-            };
+            let validCache = true;
+            try {
+              const cachedObj = JSON.parse(cachedText);
+              const subjectCheck = validateHoroscopeSubject(type, cachedObj, templateData.zodiacSign || finalData.zodiacSign, safeLang);
+              if (!subjectCheck.valid) {
+                validCache = false;
+                console.warn(`⚠️ Evicting/ignoring corrupt cached response for ${primaryCacheKey}: ${subjectCheck.reason}`);
+              }
+            } catch {
+              validCache = false;
+            }
+            if (validCache) {
+              return {
+                status: 200,
+                headers: { "X-AIZ-Source": "cache", "X-AIZ-Cache": "HIT" },
+                body: { success: true, type, content: cachedText }
+              };
+            }
           }
         }
       }
@@ -386,11 +401,24 @@ export async function processAstroRequest({
         if (cachedFallback !== null && cachedFallback !== undefined) {
           const cachedText = typeof cachedFallback === "string" ? cachedFallback.trim() : JSON.stringify(cachedFallback);
           if (cachedText.length > 0) {
-            return {
-              status: 200,
-              headers: { "X-AIZ-Source": "cache", "X-AIZ-Cache": "HIT" },
-              body: { success: true, type, content: cachedText }
-            };
+            let validCache = true;
+            try {
+              const cachedObj = JSON.parse(cachedText);
+              const subjectCheck = validateHoroscopeSubject(type, cachedObj, templateData.zodiacSign || finalData.zodiacSign, safeLang);
+              if (!subjectCheck.valid) {
+                validCache = false;
+                console.warn(`⚠️ Evicting/ignoring corrupt cached response for ${fallbackCacheKey}: ${subjectCheck.reason}`);
+              }
+            } catch {
+              validCache = false;
+            }
+            if (validCache) {
+              return {
+                status: 200,
+                headers: { "X-AIZ-Source": "cache", "X-AIZ-Cache": "HIT" },
+                body: { success: true, type, content: cachedText }
+              };
+            }
           }
         }
       }
@@ -491,6 +519,21 @@ export async function processAstroRequest({
       status: 500,
       headers: {},
       body: { error: "invalid_ai_response", message: "Missing required response fields after merge" }
+    };
+  }
+
+  // HARD CORRECTNESS GUARD: Validate horoscope subject matches requested zodiac sign
+  const canonicalRequestedSign = templateData.zodiacSign || finalData.zodiacSign;
+  const subjectCheck = validateHoroscopeSubject(type, finalObj, canonicalRequestedSign, safeLang);
+  if (!subjectCheck.valid) {
+    console.warn(`⚠️ Subject validation rejected AI output for ${type} [${canonicalRequestedSign}]: ${subjectCheck.reason}. Falling back to zero-token reserve.`);
+    const reserveResult = generateReserveResponse(type, finalData, safeLang);
+    await recordReserveTelemetry(redisClient, type, "subject_mismatch", new Date());
+
+    return {
+      status: 200,
+      headers: { "X-AIZ-Source": "reserve", "X-AIZ-Cache": "RESERVE" },
+      body: { success: true, type, content: reserveResult.content }
     };
   }
 

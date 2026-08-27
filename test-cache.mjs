@@ -37,11 +37,11 @@ console.log("==================================================");
 // Test 1: Global Cache Version & Type Revisions
 {
   assert.strictEqual(CACHE_VERSION, "v2", "CACHE_VERSION must remain v2");
-  assert.strictEqual(CACHE_TYPE_REVISION.home_daily_horoscope, "b6");
-  assert.strictEqual(CACHE_TYPE_REVISION.ai_horoscope_daily, "b6");
-  assert.strictEqual(CACHE_TYPE_REVISION.ai_horoscope_weekly, "b6");
-  assert.strictEqual(CACHE_TYPE_REVISION.ai_horoscope_monthly, "b6");
-  assert.strictEqual(CACHE_TYPE_REVISION.ai_horoscope_yearly, "b6");
+  assert.strictEqual(CACHE_TYPE_REVISION.home_daily_horoscope, "b7");
+  assert.strictEqual(CACHE_TYPE_REVISION.ai_horoscope_daily, "b7");
+  assert.strictEqual(CACHE_TYPE_REVISION.ai_horoscope_weekly, "b7");
+  assert.strictEqual(CACHE_TYPE_REVISION.ai_horoscope_monthly, "b7");
+  assert.strictEqual(CACHE_TYPE_REVISION.ai_horoscope_yearly, "b7");
   assert.strictEqual(CACHE_TYPE_REVISION.personal_horoscope, "b4");
   assert.strictEqual(CACHE_TYPE_REVISION.numerology, "b4");
   assert.strictEqual(CACHE_TYPE_REVISION.personal_astro_calendar, "b4");
@@ -54,24 +54,24 @@ console.log("==================================================");
   console.log("✅ Test 1 passed: CACHE_VERSION = v2 and type revisions configured properly");
 }
 
-// Test 2: Updated Horoscope Caches (b6 revision) & Unchanged Quote Cache
+// Test 2: Updated Horoscope Caches (b7 revision) & Unchanged Quote Cache
 {
   const k1 = getSharedCacheKey("home_daily_horoscope", { zodiacSign: "Aries", currentDate: "2026-08-24", language: "en" }, "gemini-2.5-flash-lite");
-  assert.strictEqual(k1, "aiz:cache:v2:gemini-2.5-flash-lite:home_daily_horoscope:b6:2026-08-24:aries:en");
+  assert.strictEqual(k1, "aiz:cache:v2:gemini-2.5-flash-lite:home_daily_horoscope:b7:2026-08-24:aries:en");
 
   const k2 = getSharedCacheKey("home_daily_quote", { currentDate: "2026-08-24", language: "hu" }, "gemini-2.5-flash-lite");
   assert.strictEqual(k2, "aiz:cache:v2:gemini-2.5-flash-lite:home_daily_quote:2026-08-24:hu");
 
   const k3 = getSharedCacheKey("ai_horoscope_daily", { zodiacSign: "Virgo", currentDate: "2026-08-24", language: "es" }, "gemini-2.5-flash-lite");
-  assert.strictEqual(k3, "aiz:cache:v2:gemini-2.5-flash-lite:ai_horoscope_daily:b6:2026-08-24:virgo:es");
+  assert.strictEqual(k3, "aiz:cache:v2:gemini-2.5-flash-lite:ai_horoscope_daily:b7:2026-08-24:virgo:es");
 
   const k4 = getSharedCacheKey("ai_horoscope_general", { zodiacSign: "Virgo", currentDate: "2026-08-24", language: "es" }, "gemini-2.5-flash-lite");
-  assert.strictEqual(k4, "aiz:cache:v2:gemini-2.5-flash-lite:ai_horoscope_daily:b6:2026-08-24:virgo:es");
+  assert.strictEqual(k4, "aiz:cache:v2:gemini-2.5-flash-lite:ai_horoscope_daily:b7:2026-08-24:virgo:es");
 
-  console.log("✅ Test 2 passed: Updated horoscope caches use b6 revision; home_daily_quote remains unchanged baseline");
+  console.log("✅ Test 2 passed: Updated horoscope caches use b7 revision; home_daily_quote remains unchanged baseline");
 }
 
-// Test 3: Batch 5 Offloaded Request Types (weekly, monthly, yearly on b6; ascendant, love on b5)
+// Test 3: Batch 5 Offloaded Request Types (weekly, monthly, yearly on b7; ascendant, love on b5)
 {
   // ai_horoscope_weekly (Week Range offloaded)
   const aiWeekly = getInternalAiSchema("ai_horoscope_weekly");
@@ -83,7 +83,7 @@ console.log("==================================================");
   assert.strictEqual(mergedWeekly["Week Range"], "2026-08-24 to 2026-08-30");
 
   const keyWeekly = getSharedCacheKey("ai_horoscope_weekly", { zodiacSign: "Leo", weekRange: "2026-w35", language: "en" }, "gemini-2.5-flash-lite");
-  assert.strictEqual(keyWeekly, "aiz:cache:v2:gemini-2.5-flash-lite:ai_horoscope_weekly:b6:2026-w35:leo:en");
+  assert.strictEqual(keyWeekly, "aiz:cache:v2:gemini-2.5-flash-lite:ai_horoscope_weekly:b7:2026-w35:leo:en");
 
   // ai_horoscope_monthly (Month offloaded)
   const aiMonthly = getInternalAiSchema("ai_horoscope_monthly");
@@ -95,7 +95,7 @@ console.log("==================================================");
   assert.strictEqual(mergedMonthly["Month"], "August");
 
   const keyMonthly = getSharedCacheKey("ai_horoscope_monthly", { zodiacSign: "Leo", month: "august", currentYear: "2026", language: "en" }, "gemini-2.5-flash-lite");
-  assert.strictEqual(keyMonthly, "aiz:cache:v2:gemini-2.5-flash-lite:ai_horoscope_monthly:b6:2026_august:leo:en");
+  assert.strictEqual(keyMonthly, "aiz:cache:v2:gemini-2.5-flash-lite:ai_horoscope_monthly:b7:2026_august:leo:en");
 
   // ai_horoscope_yearly (Year offloaded)
   const aiYearly = getInternalAiSchema("ai_horoscope_yearly");
@@ -107,7 +107,7 @@ console.log("==================================================");
   assert.strictEqual(mergedYearly["Year"], "2026");
 
   const keyYearly = getSharedCacheKey("ai_horoscope_yearly", { zodiacSign: "Leo", currentYear: "2026", language: "en" }, "gemini-2.5-flash-lite");
-  assert.strictEqual(keyYearly, "aiz:cache:v2:gemini-2.5-flash-lite:ai_horoscope_yearly:b6:2026:leo:en");
+  assert.strictEqual(keyYearly, "aiz:cache:v2:gemini-2.5-flash-lite:ai_horoscope_yearly:b7:2026:leo:en");
 
   // ascendant_calc (Rising Sign offloaded & localized)
   const aiAsc = getInternalAiSchema("ascendant_calc");
@@ -287,12 +287,12 @@ console.log("==================================================");
   const oldGeminiDailyKey = "aiz:cache:v2:gemini-2.5-flash-lite:ai_horoscope_daily:2026-08-24:gemini:hu";
   const newGeminiDailyKey = getSharedCacheKey("ai_horoscope_daily", { zodiacSign: "Gemini", currentDate: "2026-08-24", language: "hu" }, "gemini-2.5-flash-lite");
   assert.notStrictEqual(newGeminiDailyKey, oldGeminiDailyKey, "New daily key must differ from old unversioned key");
-  assert.strictEqual(newGeminiDailyKey, "aiz:cache:v2:gemini-2.5-flash-lite:ai_horoscope_daily:b6:2026-08-24:gemini:hu");
+  assert.strictEqual(newGeminiDailyKey, "aiz:cache:v2:gemini-2.5-flash-lite:ai_horoscope_daily:b7:2026-08-24:gemini:hu");
 
   const oldLeoYearlyKey = "aiz:cache:v2:gemini-2.5-flash-lite:ai_horoscope_yearly:b5:2026:leo:hu";
   const newLeoYearlyKey = getSharedCacheKey("ai_horoscope_yearly", { zodiacSign: "Leo", currentYear: "2026", language: "hu" }, "gemini-2.5-flash-lite");
   assert.notStrictEqual(newLeoYearlyKey, oldLeoYearlyKey, "New yearly key must differ from old b5 key");
-  assert.strictEqual(newLeoYearlyKey, "aiz:cache:v2:gemini-2.5-flash-lite:ai_horoscope_yearly:b6:2026:leo:hu");
+  assert.strictEqual(newLeoYearlyKey, "aiz:cache:v2:gemini-2.5-flash-lite:ai_horoscope_yearly:b7:2026:leo:hu");
 
   // Prove unrelated cache revisions remain completely unchanged
   assert.strictEqual(CACHE_TYPE_REVISION.personal_horoscope, "b4");
