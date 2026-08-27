@@ -19,6 +19,8 @@ export const PRIVACY_POLICY_HTML = `<!DOCTYPE html>
       --accent-color: #7c3aed;
       --accent-light: #a78bfa;
       --border-color: #2e344e;
+      --link-color: #a78bfa;
+      --link-hover: #c4b5fd;
       --line-height: 1.7;
     }
 
@@ -32,6 +34,8 @@ export const PRIVACY_POLICY_HTML = `<!DOCTYPE html>
         --accent-color: #6d28d9;
         --accent-light: #7c3aed;
         --border-color: #e2e8f0;
+        --link-color: #6d28d9;
+        --link-hover: #4c1d95;
       }
     }
 
@@ -113,6 +117,16 @@ export const PRIVACY_POLICY_HTML = `<!DOCTYPE html>
       color: var(--heading-color);
     }
 
+    a {
+      color: var(--link-color);
+      text-decoration: underline;
+      word-break: break-all;
+    }
+
+    a:hover {
+      color: var(--link-hover);
+    }
+
     footer {
       border-top: 1px solid var(--border-color);
       padding-top: 1.5rem;
@@ -138,122 +152,141 @@ export const PRIVACY_POLICY_HTML = `<!DOCTYPE html>
       <section>
         <h2>1. Introduction</h2>
         <p>
-          This Privacy Policy describes how the <strong>AI Zodiac</strong> mobile application and its associated backend services ("we", "our", or "the app"), developed by <strong>Forray Gyöngyi</strong>, collect, process, and safeguard information when you use our mobile application.
+          This Privacy Policy describes how the <strong>AI Zodiac</strong> mobile application and its associated backend services ("we", "our", or "the app"), developed by <strong>Forray Gyöngyi</strong>, collect, process, and protect information when you use our application.
         </p>
         <p>
-          We are committed to user privacy, transparency, and data minimization. We design AI Zodiac so that astrological calculations and personalized horoscope insights can be generated without collecting unnecessary personal data.
-        </p>
-      </section>
-
-      <section>
-        <h2>2. Information the App May Process</h2>
-        <p>Depending on the features you choose to use within the AI Zodiac mobile application, the app may process the following categories of information:</p>
-        <ul>
-          <li><strong>Astrological & Birth Inputs:</strong> Birth date, birth time, and approximate birth location/coordinates provided by you to calculate natal charts, planetary transits, ascendants, element balances, and Chinese zodiac alignments.</li>
-          <li><strong>Astrology Queries:</strong> Questions or topics you submit to interactive astrological features (such as general transit interpretations or horoscope questions).</li>
-          <li><strong>Language & Preferences:</strong> Your preferred language and app settings to deliver content in your selected language.</li>
-        </ul>
-      </section>
-
-      <section>
-        <h2>3. How Information Is Processed</h2>
-        <p>The information processed by AI Zodiac is used solely for the following purposes:</p>
-        <ul>
-          <li>To compute factual astrological and astronomical values (such as life path numbers, lunar positions, rising signs, and element distributions).</li>
-          <li>To generate daily, weekly, monthly, and yearly horoscope interpretations.</li>
-          <li>To respond to your interactive astrology inquiries within the app.</li>
-          <li>To operate and maintain app performance and prevent service abuse.</li>
-        </ul>
-      </section>
-
-      <section>
-        <h2>4. AI-Generated Content Processing</h2>
-        <p>
-          AI Zodiac utilizes artificial intelligence models alongside deterministic astrological calculation engines to generate personalized horoscope readings.
-        </p>
-        <p>
-          When queries are sent to backend AI inference providers for content generation, prompts contain only non-personally identifiable astrological parameters (such as the target zodiac sign, date, and transit configurations). We do not include names, contact details, device identifiers, or persistent profile IDs in generation prompts.
+          We are committed to user privacy, transparency, and data minimization. This policy explains what information is stored on your device, what data is transmitted when requesting astrological insights, how backend processing functions, and how third-party advertising is handled.
         </p>
       </section>
 
       <section>
-        <h2>5. Technical & Service Data</h2>
-        <p>To ensure backend security, reliability, and cost protection, our backend infrastructure processes minimal technical service data:</p>
+        <h2>2. Local Device Storage (No Cloud User Accounts)</h2>
+        <p>
+          AI Zodiac is designed with a decentralized, local-first storage architecture:
+        </p>
         <ul>
-          <li><strong>Abuse Prevention & Rate Limiting:</strong> Client IP addresses may be hashed using SHA-256 (storing only truncated cryptographic hashes) to prevent automated denial-of-service or quota abuse. Raw IP addresses are not permanently stored.</li>
-          <li><strong>Temporary Caching:</strong> Calculated horoscopes and non-PII astrological outputs are cached temporarily in secure in-memory storage (Upstash Redis) to provide fast response times and reduce redundant processing.</li>
-          <li><strong>Aggregated Telemetry:</strong> Non-personally identifiable request counts and token usage totals are recorded in aggregate for system monitoring.</li>
+          <li><strong>Local Profile Storage:</strong> Birth and profile details entered in the application (such as your name or full name, gender, birth date, birth time, birth city, birth country, timezone, and calculated Western/Chinese zodiac signs) are saved exclusively on your Android device using private <code>SharedPreferences</code> storage.</li>
+          <li><strong>No Cloud User Accounts:</strong> The app does not require account creation, logins, passwords, or a persistent cloud database for user profiles.</li>
+          <li><strong>Local Data Control:</strong> You can edit or delete your profile information at any time directly in the app's Profile section, or remove all stored data by clearing app storage in Android settings or uninstalling the application.</li>
         </ul>
       </section>
 
       <section>
-        <h2>6. Third-Party Service Providers</h2>
-        <p>AI Zodiac relies on reputable cloud infrastructure providers strictly to host backend services and perform AI inference:</p>
+        <h2>3. Information Transmitted for AI-Powered Astrology Features</h2>
+        <p>
+          When you actively request horoscope interpretations or interactive astrological calculations (such as Daily Horoscope, Personal Horoscope, Ascendant Calculation, Chinese Horoscope, Numerology, Love Compatibility, Personal Astro Calendar, or Ask the Stars), the application transmits necessary query inputs over secure HTTPS to the AI Zodiac backend hosted on <strong>Vercel</strong> (<code>https://aizodiac-backend-new.vercel.app/</code>).
+        </p>
+        <p>Depending on the specific feature you select, the transmitted information may include:</p>
         <ul>
-          <li><strong>Cloud Hosting & Edge Functions:</strong> Vercel (for serverless execution and static content delivery).</li>
-          <li><strong>Caching & Rate Limiting:</strong> Upstash Redis (for ephemeral caching and rate-limiting).</li>
-          <li><strong>AI Model Inference:</strong> Google Gemini API and Groq API (for processing non-PII astrological interpretation prompts).</li>
+          <li><strong>Birth &amp; Astrological Parameters:</strong> Birth date, birth time (or default time if marked unknown), birth city, birth country, timezone, and zodiac signs.</li>
+          <li><strong>Identity &amp; Profile Inputs:</strong> Name or full name (if provided) and gender.</li>
+          <li><strong>Feature-Specific Queries:</strong> Partner birth information (for love compatibility analysis, if entered), specific questions (for Ask the Stars), focus areas, calculation time periods (daily, weekly, monthly, yearly, or lifetime), and your chosen app language.</li>
+        </ul>
+        <p><strong>Device &amp; Location Disclosures:</strong></p>
+        <ul>
+          <li>The app does not request GPS, fine location, or coarse location permissions. Birth city and country are entered or selected manually by the user; precise GPS coordinates are not collected.</li>
+          <li>The app does not access or collect device hardware identifiers such as Android ID, IMEI, hardware serial numbers, or MAC addresses.</li>
+          <li>IP addresses are inherently transmitted at the network layer during standard HTTPS communication with the backend and integrated services.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>4. AI Processing &amp; Backend Infrastructure</h2>
+        <p>
+          To generate personalized astrological readings, the backend processes incoming calculation requests using reputable artificial intelligence and infrastructure providers:
+        </p>
+        <ul>
+          <li><strong>Backend Hosting:</strong> <strong>Vercel</strong> (for serverless API execution and static delivery).</li>
+          <li><strong>AI Inference:</strong> <strong>Google Gemini</strong> and <strong>Groq</strong> AI APIs (for generating natural-language astrological interpretations and calculations).</li>
+          <li><strong>Backend Caching &amp; Rate Limiting:</strong> <strong>Upstash Redis</strong> is utilized as backend infrastructure for operational rate limiting, abuse prevention, budget controls, and temporary caching of generated horoscope content to ensure fast response times and service stability. Upstash Redis is backend infrastructure and is not contacted directly by the mobile app.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>5. Advertising – Google AdMob</h2>
+        <p>
+          AI Zodiac displays advertisements using <strong>Google AdMob</strong>, an advertising service provided by <strong>Google LLC</strong>.
+        </p>
+        <p>
+          To serve banner and interstitial advertisements, prevent ad fraud, ensure security, and provide ad measurement, Google AdMob and its SDK may automatically collect and process certain device and usage information, including:
+        </p>
+        <ul>
+          <li>Device identifiers, including the Google Advertising ID (AAID) where available.</li>
+          <li>IP address and general network connection details.</li>
+          <li>Ad interaction, viewability, click, and impression data.</li>
+          <li>Diagnostic and technical performance data related to ad serving.</li>
         </ul>
         <p>
-          We do not sell, rent, or trade your data to third parties. We do not use third-party advertising networks, data brokers, or behavioral analytics SDKs.
+          Google's data collection and processing activities are governed by Google's own Privacy Policy. For detailed information on how Google processes advertising data, please review:
+        </p>
+        <ul>
+          <li><a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer">Google Privacy Policy (https://policies.google.com/privacy)</a></li>
+          <li><a href="https://policies.google.com/technologies/ads" target="_blank" rel="noopener noreferrer">How Google uses information from sites or apps that use our services (https://policies.google.com/technologies/ads)</a></li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>6. Analytics &amp; Tracking SDK Disclosures</h2>
+        <p>
+          The AI Zodiac mobile application itself does not integrate standalone analytics, crash tracking, or behavioral profiling SDKs such as Firebase Analytics, Google Analytics, Firebase Crashlytics, Firebase App Check, Facebook/Meta SDK, AppsFlyer, Adjust, Branch, Mixpanel, Amplitude, or Segment.
+        </p>
+        <p>
+          Advertising-related data processing is conducted independently by Google AdMob as described in Section 5.
         </p>
       </section>
 
       <section>
         <h2>7. Data Retention</h2>
-        <p>
-          AI Zodiac operates on a stateless, data-minimized model:
-        </p>
         <ul>
-          <li>Birth details entered in the mobile application are stored locally on your device and are not saved to a persistent user account database on our servers.</li>
-          <li>Backend calculation cache entries expire automatically based on predefined time-to-live (TTL) settings.</li>
-          <li>Temporary rate-limiting records expire automatically within 1 hour.</li>
+          <li><strong>On-Device Profile Data:</strong> Profile data remains in local storage on your device until you edit or remove it within the app, clear app data, or uninstall the app.</li>
+          <li><strong>Backend State:</strong> The backend does not maintain persistent user account databases. Ephemeral cache and rate-limiting entries on Upstash Redis expire automatically based on standard TTL configurations.</li>
         </ul>
       </section>
 
       <section>
         <h2>8. Data Security</h2>
         <p>
-          All network communications between the AI Zodiac mobile application and the backend API use secure HTTPS encryption (Transport Layer Security / TLS). We enforce fail-closed security controls and minimize server-side data retention to protect against unauthorized access.
+          All communications between the mobile application and backend services are encrypted in transit using standard HTTPS / TLS (Transport Layer Security). We enforce fail-closed security controls and minimize server-side data retention to protect against unauthorized access.
         </p>
       </section>
 
       <section>
-        <h2>9. User Rights & Data Control</h2>
+        <h2>9. User Rights &amp; Data Control</h2>
         <p>
-          You maintain full control over your data within the AI Zodiac mobile application:
+          You have direct control over your information within AI Zodiac:
         </p>
         <ul>
-          <li>You can update, modify, or delete your birth details at any time directly within the app settings.</li>
-          <li>You can clear all locally stored data by clearing the app storage in your device settings or by uninstalling the application.</li>
+          <li>You can update, modify, or delete your birth information at any time directly in the app's Profile section.</li>
+          <li>You can reset or manage advertising identifiers and ad personalization through your Android device settings (under Google &gt; Ads).</li>
+          <li>You can delete all locally stored app data at any time through Android Settings &gt; Apps &gt; AI Zodiac &gt; Storage &gt; Clear Storage, or by uninstalling the app.</li>
         </ul>
       </section>
 
       <section>
         <h2>10. Children's Privacy</h2>
         <p>
-          AI Zodiac is not directed to children under the age of 13 (or under 16 in applicable jurisdictions). We do not knowingly collect or solicit personal information from children. If you believe a child has provided us with personal information, please contact us so that we can take appropriate steps.
+          AI Zodiac is not directed to children under the age of 13 (or under 16 in applicable jurisdictions), and we do not knowingly collect personal information from children. If you believe a child has provided personal information to the application, please contact us so that we can take appropriate steps.
         </p>
       </section>
 
       <section>
-        <h2>11. Cookies & Tracking</h2>
+        <h2>11. Cookies &amp; Tracking on This Webpage</h2>
         <p>
-          This Privacy Policy webpage and the AI Zodiac backend services do not use cookies, tracking pixels, or third-party web analytics tools.
+          This Privacy Policy webpage and the AI Zodiac backend API endpoints do not use cookies, web beacons, tracking pixels, or third-party web analytics tools.
         </p>
       </section>
 
       <section>
         <h2>12. Changes to This Privacy Policy</h2>
         <p>
-          We may update this Privacy Policy periodically to reflect changes in our practices or applicable legal requirements. When updates occur, the "Last updated" date at the top of this policy will be revised.
+          We may update this Privacy Policy from time to time to reflect changes in application features or legal requirements. When updates occur, the "Last updated" date at the top of this document will be updated.
         </p>
       </section>
 
       <section>
         <h2>13. Contact Information</h2>
         <p>
-          If you have any questions, inquiries, or requests regarding this Privacy Policy or data handling in AI Zodiac, you may contact the developer, <strong>Forray Gyöngyi</strong>, through the official AI Zodiac app listing and developer support channels.
+          If you have questions, inquiries, or feedback regarding this Privacy Policy or data handling in AI Zodiac, you may contact the developer, <strong>Forray Gyöngyi</strong>, through the official AI Zodiac Google Play app listing and developer support channels.
         </p>
       </section>
     </main>

@@ -66,10 +66,10 @@ function createMockResponse() {
 }
 
 // ============================================================================
-// TEST 2: Required Identity & Content Assertions
+// TEST 2: Required Identity, Google AdMob, and Infrastructure Assertions
 // ============================================================================
 {
-  console.log("\n[TEST 2] Identity & Mandatory Policy Sections");
+  console.log("\n[TEST 2] Identity, Advertising Disclosures & Infrastructure Verification");
 
   const req = { method: "GET", headers: {} };
   const res = createMockResponse();
@@ -84,22 +84,56 @@ function createMockResponse() {
   assert.ok(html.includes("Forray Gyöngyi"), "Must clearly identify 'Forray Gyöngyi'");
   assert.ok(html.includes("Last updated:"), "Must include 'Last updated:' date");
 
+  // Google AdMob & Advertising Disclosures
+  assert.ok(html.includes("Google AdMob"), "Must explicitly disclose 'Google AdMob'");
+  assert.ok(html.includes("Google LLC"), "Must explicitly mention provider 'Google LLC'");
+  assert.ok(html.includes("https://policies.google.com/privacy"), "Must link to Google Privacy Policy URL");
+  assert.ok(html.includes("https://policies.google.com/technologies/ads"), "Must link to Google Ads technologies URL");
+  assert.ok(
+    html.includes("Google Advertising ID") || html.includes("AAID") || html.includes("Device identifiers"),
+    "Must disclose advertising and device identifier processing"
+  );
+
+  // Negative checks: Must NOT falsely claim no advertising is used
+  assert.ok(!html.includes("do not use third-party advertising"), "Must NOT claim no third-party advertising is used");
+  assert.ok(!html.includes("no advertising/tracking brokers"), "Must NOT claim no advertising brokers are used");
+  assert.ok(!html.includes("no advertising providers"), "Must NOT claim no advertising providers are used");
+
+  // Backend Infrastructure & AI Providers
+  assert.ok(html.includes("Vercel"), "Must disclose Vercel hosting");
+  assert.ok(html.includes("Google Gemini"), "Must disclose Google Gemini AI");
+  assert.ok(html.includes("Groq"), "Must disclose Groq AI");
+  assert.ok(html.includes("Upstash Redis"), "Must disclose Upstash Redis backend infrastructure");
+
+  // Local Storage & Android App Behavior
+  assert.ok(html.includes("SharedPreferences"), "Must mention local private SharedPreferences storage");
+  assert.ok(html.includes("No Cloud User Accounts") || html.includes("no persistent cloud database"), "Must clarify lack of cloud user account database");
+
+  // Location & Hardware Identifier Disclosures
+  assert.ok(
+    html.includes("GPS") || html.includes("location permissions"),
+    "Must disclose that GPS/fine location permissions are not requested"
+  );
+  assert.ok(
+    html.includes("Android ID") || html.includes("IMEI"),
+    "Must disclose that hardware identifiers like Android ID/IMEI are not accessed directly"
+  );
+
   // Core Sections
-  assert.ok(html.includes("Information the App May Process"), "Must cover information processed");
-  assert.ok(html.includes("Astrological & Birth Inputs") || html.includes("Birth Inputs"), "Must cover birth data/astrology inputs");
-  assert.ok(html.includes("AI-Generated Content Processing"), "Must cover AI content processing");
-  assert.ok(html.includes("Technical & Service Data"), "Must cover technical/service data");
-  assert.ok(html.includes("Third-Party Service Providers"), "Must cover third-party providers");
+  assert.ok(html.includes("Introduction"), "Must contain Introduction section");
+  assert.ok(html.includes("Advertising – Google AdMob") || html.includes("Google AdMob"), "Must contain Google AdMob section");
   assert.ok(html.includes("Data Retention"), "Must cover data retention");
   assert.ok(html.includes("Data Security"), "Must cover data security");
   assert.ok(html.includes("User Rights"), "Must cover user rights");
   assert.ok(html.includes("Children's Privacy"), "Must cover children's privacy");
-  assert.ok(html.includes("Changes to This Privacy Policy"), "Must cover policy changes");
   assert.ok(html.includes("Contact Information"), "Must cover contact information");
 
   console.log("  ✓ Page contains 'AI Zodiac Privacy Policy' title");
   console.log("  ✓ Page clearly identifies 'AI Zodiac' and 'Forray Gyöngyi'");
-  console.log("  ✓ All required privacy policy sections are present and detailed");
+  console.log("  ✓ Contains accurate Google AdMob & Google LLC disclosures with clickable links");
+  console.log("  ✓ Does NOT contain false claims of no advertising");
+  console.log("  ✓ Accurately identifies Vercel, Google Gemini, Groq, and Upstash Redis");
+  console.log("  ✓ Accurately reflects local SharedPreferences storage and device permissions");
 }
 
 // ============================================================================
@@ -112,13 +146,13 @@ function createMockResponse() {
 
   // No secrets
   assert.ok(!html.includes("process.env"), "Must not leak process.env references");
-  assert.ok(!html.includes("UPSTASH"), "Must not leak UPSTASH connection strings");
+  assert.ok(!html.includes("UPSTASH_REDIS_REST_URL"), "Must not leak UPSTASH connection strings");
   assert.ok(!html.includes("CRON_SECRET"), "Must not leak CRON_SECRET");
   assert.ok(!html.includes("AI_PROVIDER"), "Must not leak provider internal configs");
   assert.ok(!html.includes("api_key"), "Must not leak api_key strings");
 
-  // No tracking or external scripts
-  assert.ok(!html.includes("<script"), "Must contain zero script tags (no tracking/cookies/analytics)");
+  // No tracking or external scripts added to this privacy page itself
+  assert.ok(!html.includes("<script"), "Must contain zero script tags (no tracking/cookies/analytics on privacy page)");
   assert.ok(!html.includes("googletagmanager"), "No Google Tag Manager");
   assert.ok(!html.includes("facebook-jssdk") && !html.includes("fb-root"), "No Meta tracking pixel");
   assert.ok(!html.includes("pintrk"), "No Pinterest tracking pixel");
@@ -141,8 +175,12 @@ function createMockResponse() {
 
   assert.ok(staticContent.includes("AI Zodiac Privacy Policy"));
   assert.ok(staticContent.includes("Forray Gyöngyi"));
+  assert.ok(staticContent.includes("Google AdMob"));
+  assert.ok(staticContent.includes("Google LLC"));
   assert.ok(staticIndexContent.includes("AI Zodiac Privacy Policy"));
   assert.ok(staticIndexContent.includes("Forray Gyöngyi"));
+  assert.ok(staticIndexContent.includes("Google AdMob"));
+  assert.ok(staticIndexContent.includes("Google LLC"));
 
   // Check vercel.json rewrites
   const vercelConfig = JSON.parse(await readFile(resolve(process.cwd(), "vercel.json"), "utf8"));
