@@ -11,11 +11,15 @@ import {
   getDaysDifference,
 } from "./lib/social/content/contentHistory.js";
 import {
+  SOCIAL_AI_CREATIVE_SCHEMA,
   SOCIAL_CONTENT_SCHEMA,
   buildSocialContentPrompt,
+  validateAiCreativeOutput,
+  assembleCanonicalSocialContent,
   validateSocialContent,
   generateDailySocialContent,
   VALID_ZODIAC_SIGNS,
+  DEFAULT_APP_PLAY_STORE_URL,
 } from "./lib/social/content/dailyContentGenerator.js";
 import {
   CANVAS_WIDTH,
@@ -236,50 +240,40 @@ class MockS3Client {
   }
 }
 
-// Sample Canonical Valid AI Output
-function createSampleAiContent(overrides = {}) {
+// Sample Raw Creative AI Output (before deterministic assembly)
+function createSampleAiCreative(overrides = {}) {
   return {
-    contentId: "social-2026-09-01",
-    publishDate: "2026-09-01",
-    category: "personality",
     topic: "3 Zodiac Signs That Value Loyalty Most",
-    slides: [
+    items: [
       {
-        type: "title",
-        headline: "3 Zodiac Signs That Value Loyalty Most",
-        body: null,
-      },
-      {
-        type: "sign",
         sign: "Taurus",
-        headline: "Taurus",
-        body: "Grounded and unwavering, Taurus builds trust slowly but defends it fiercely.",
+        text: "Grounded and unwavering, Taurus builds trust slowly but defends it fiercely.",
       },
       {
-        type: "sign",
         sign: "Scorpio",
-        headline: "Scorpio",
-        body: "Intensely devoted, Scorpio gives all-or-nothing loyalty to those who earn it.",
+        text: "Intensely devoted, Scorpio gives all-or-nothing loyalty to those who earn it.",
       },
       {
-        type: "sign",
         sign: "Capricorn",
-        headline: "Capricorn",
-        body: "Steadfast and reliable, Capricorn stands by commitments through every storm.",
-      },
-      {
-        type: "cta",
-        headline: "Discover more with AI Zodiac",
-        body: "Free on Google Play",
+        text: "Steadfast and reliable, Capricorn stands by commitments through every storm.",
       },
     ],
     instagramCaption: "Which zodiac sign has shown you the deepest loyalty? ✨ Explore your personal astrological blueprint with AI Zodiac. Link in bio! 🔮 #astrology #zodiac #horoscope #aizodiac #taurus #scorpio #capricorn",
     facebookCaption: "Loyalty runs deep in these 3 zodiac signs. Do you agree with this ranking? Download AI Zodiac free on Google Play for personalized daily horoscopes and compatibility insights! 🌟 https://play.google.com/store/apps/details?id=com.oberon.aizodiac",
     pinterestTitle: "3 Zodiac Signs That Value Loyalty Most | Astrology Insights",
     pinterestDescription: "Discover which zodiac signs value loyalty above all else in friendships and relationships. Explore your complete astrological profile with the free AI Zodiac app.",
-    pinterestLink: "https://play.google.com/store/apps/details?id=com.oberon.aizodiac",
     ...overrides,
   };
+}
+
+// Sample Canonical Assembled Content
+function createSampleAiContent(overrides = {}) {
+  const creative = createSampleAiCreative(overrides);
+  return assembleCanonicalSocialContent({
+    creative,
+    publishDate: overrides.publishDate || "2026-09-01",
+    category: overrides.category || "personality",
+  });
 }
 
 // ============================================================================
@@ -432,81 +426,95 @@ function createSampleAiContent(overrides = {}) {
     }
   }
 
-  assertStrictGroqJsonSchema(SOCIAL_CONTENT_SCHEMA, "SOCIAL_CONTENT_SCHEMA");
+  assertStrictGroqJsonSchema(SOCIAL_AI_CREATIVE_SCHEMA, "SOCIAL_AI_CREATIVE_SCHEMA");
 
-  // Check nullable optional-semantic fields remain in required
-  const slideItemSchema = SOCIAL_CONTENT_SCHEMA.properties.slides.items;
-  assert.deepEqual(slideItemSchema.properties.body.type, ["string", "null"]);
-  assert.deepEqual(slideItemSchema.properties.sign.type, ["string", "null"]);
-  assert.ok(slideItemSchema.required.includes("body"));
-  assert.ok(slideItemSchema.required.includes("sign"));
-  assert.ok(slideItemSchema.required.includes("headline"));
-  assert.ok(slideItemSchema.required.includes("type"));
-  assert.strictEqual(slideItemSchema.additionalProperties, false);
+  // Verify creative AI schema contains NO deterministic metadata
+  assert.strictEqual(SOCIAL_AI_CREATIVE_SCHEMA.properties.contentId, undefined);
+  assert.strictEqual(SOCIAL_AI_CREATIVE_SCHEMA.properties.publishDate, undefined);
+  assert.strictEqual(SOCIAL_AI_CREATIVE_SCHEMA.properties.category, undefined);
+  assert.strictEqual(SOCIAL_AI_CREATIVE_SCHEMA.properties.pinterestLink, undefined);
+  assert.strictEqual(SOCIAL_AI_CREATIVE_SCHEMA.properties.slides, undefined);
 
-  const validSample = createSampleAiContent();
-  const validCheck = validateSocialContent(validSample);
-  assert.equal(validCheck.valid, true);
+  // Creative AI schema requires items array of { sign, text }
+  const itemSchema = SOCIAL_AI_CREATIVE_SCHEMA.properties.items.items;
+  assert.strictEqual(itemSchema.type, "object");
+  assert.strictEqual(itemSchema.additionalProperties, false);
+  assert.deepEqual(itemSchema.required, ["sign", "text"]);
 
-  // 1. Missing CTA slide
-  const noCta = createSampleAiContent({
-    slides: validSample.slides.slice(0, 4), // 4 slides without CTA
+  // 1. Creative Validation
+  const validCreative = createSampleAiCreative();
+  const creativeCheck = validateAiCreativeOutput(validCreative);
+  assert.equal(creativeCheck.valid, true);
+
+  // Rejects invalid items count !== 3
+  const badCount = validateAiCreativeOutput({
+    ...validCreative,
+    items: validCreative.items.slice(0, 2),
   });
-  const noCtaCheck = validateSocialContent(noCta);
-  assert.equal(noCtaCheck.valid, false);
-  assert.ok(noCtaCheck.errors.some(e => e.includes("cta")));
+  assert.equal(badCount.valid, false);
+  assert.ok(badCount.errors.some(e => e.includes("count must be exactly 3")));
 
-  // 2. Duplicate signs in carousel
-  const dupSigns = createSampleAiContent({
-    slides: [
-      validSample.slides[0],
-      { type: "sign", sign: "Taurus", headline: "Taurus", body: "Loyal" },
-      { type: "sign", sign: "Taurus", headline: "Taurus Again", body: "Still Loyal" },
-      validSample.slides[3],
-      validSample.slides[4],
+  // Rejects duplicate sign
+  const dupSignCreative = validateAiCreativeOutput({
+    ...validCreative,
+    items: [
+      { sign: "Taurus", text: "Text 1" },
+      { sign: "Taurus", text: "Text 2" },
+      { sign: "Leo", text: "Text 3" },
     ],
   });
-  const dupSignsCheck = validateSocialContent(dupSigns);
-  assert.equal(dupSignsCheck.valid, false);
-  assert.ok(dupSignsCheck.errors.some(e => e.includes("Duplicate zodiac sign 'Taurus'")));
+  assert.equal(dupSignCreative.valid, false);
+  assert.ok(dupSignCreative.errors.some(e => e.includes("Duplicate zodiac sign 'Taurus'")));
 
-  // 3. Invalid zodiac sign name
-  const invalidSign = createSampleAiContent({
-    slides: [
-      validSample.slides[0],
-      { type: "sign", sign: "Ophiuchus", headline: "Ophiuchus", body: "Unknown" },
-      validSample.slides[2],
-      validSample.slides[3],
-      validSample.slides[4],
+  // Rejects invalid sign
+  const invalidSignCreative = validateAiCreativeOutput({
+    ...validCreative,
+    items: [
+      { sign: "Ophiuchus", text: "Text 1" },
+      { sign: "Virgo", text: "Text 2" },
+      { sign: "Leo", text: "Text 3" },
     ],
   });
-  const invalidSignCheck = validateSocialContent(invalidSign);
-  assert.equal(invalidSignCheck.valid, false);
-  assert.ok(invalidSignCheck.errors.some(e => e.includes("invalid zodiac sign")));
+  assert.equal(invalidSignCreative.valid, false);
+  assert.ok(invalidSignCreative.errors.some(e => e.includes("invalid zodiac sign")));
 
-  // 4. Slide body containing hashtags (forbidden inside images)
-  const hashtagSlide = createSampleAiContent({
-    slides: [
-      validSample.slides[0],
-      { type: "sign", sign: "Taurus", headline: "Taurus #loyal", body: "Loyal" },
-      validSample.slides[2],
-      validSample.slides[3],
-      validSample.slides[4],
+  // Rejects hashtags in item text
+  const hashtagCreative = validateAiCreativeOutput({
+    ...validCreative,
+    items: [
+      { sign: "Taurus", text: "Text with #hashtag" },
+      { sign: "Virgo", text: "Text 2" },
+      { sign: "Leo", text: "Text 3" },
     ],
   });
-  const hashtagCheck = validateSocialContent(hashtagSlide);
-  assert.equal(hashtagCheck.valid, false);
-  assert.ok(hashtagCheck.errors.some(e => e.includes("must not contain hashtags")));
+  assert.equal(hashtagCreative.valid, false);
+  assert.ok(hashtagCreative.errors.some(e => e.includes("must not contain hashtags")));
 
-  // 5. Pinterest title exceeding 100 chars
-  const longPinTitle = createSampleAiContent({
-    pinterestTitle: "A".repeat(105),
+  // 2. Deterministic Assembly & Canonical Validation
+  const canonical = assembleCanonicalSocialContent({
+    creative: validCreative,
+    publishDate: "2026-09-01",
+    category: "personality",
   });
-  assert.equal(validateSocialContent(longPinTitle).valid, false);
 
-  console.log("  ✓ SOCIAL_CONTENT_SCHEMA satisfies all strict Groq Structured Outputs schema requirements recursively");
-  console.log("  ✓ Valid content passes all quality guards");
-  console.log("  ✓ Guards strictly reject missing CTA, duplicate signs, invalid signs, hashtag images, and oversized titles");
+  assert.equal(canonical.contentId, "social-2026-09-01");
+  assert.equal(canonical.publishDate, "2026-09-01");
+  assert.equal(canonical.category, "personality");
+  assert.equal(canonical.pinterestLink, DEFAULT_APP_PLAY_STORE_URL);
+  assert.equal(canonical.slides.length, 5);
+  assert.equal(canonical.slides[0].type, "title");
+  assert.equal(canonical.slides[0].headline, validCreative.topic);
+  assert.equal(canonical.slides[4].type, "cta");
+  assert.equal(canonical.slides[4].headline, "Discover more with AI Zodiac");
+  assert.equal(canonical.slides[4].body, "Free on Google Play");
+
+  const canonicalCheck = validateSocialContent(canonical);
+  assert.equal(canonicalCheck.valid, true);
+
+  console.log("  ✓ SOCIAL_AI_CREATIVE_SCHEMA satisfies all strict Groq Structured Outputs requirements");
+  console.log("  ✓ Creative output validator enforces 3 items, valid signs, and no hashtags");
+  console.log("  ✓ Deterministic assembly builds canonical 5-slide object with guaranteed metadata");
+  console.log("  ✓ Resulting canonical object passes validateSocialContent");
 }
 
 // ============================================================================
@@ -709,7 +717,7 @@ function createSampleAiContent(overrides = {}) {
   let aiCalls = 0;
   const mockGenerateFn = async () => {
     aiCalls++;
-    return createSampleAiContent();
+    return createSampleAiCreative();
   };
 
   const prepRes = await executeDailyPreparation({
@@ -777,7 +785,7 @@ function createSampleAiContent(overrides = {}) {
   let aiCalls = 0;
   const mockGenerateFn = async () => {
     aiCalls++;
-    return createSampleAiContent({ publishDate: date });
+    return createSampleAiCreative({ publishDate: date });
   };
 
   // Run preparation - it should resume without calling AI again!
@@ -813,7 +821,7 @@ function createSampleAiContent(overrides = {}) {
   let aiCalls = 0;
   const mockGenerateFn = async () => {
     aiCalls++;
-    return createSampleAiContent({ publishDate: date });
+    return createSampleAiCreative({ publishDate: date });
   };
 
   const dryRunRes = await executeDailyPreparation({
@@ -891,14 +899,14 @@ function createSampleAiContent(overrides = {}) {
         choices: [
           {
             message: {
-              content: JSON.stringify(createSampleAiContent({ publishDate: "2026-09-01" })),
+              content: JSON.stringify(createSampleAiCreative()),
             },
           },
         ],
         usage: {
           prompt_tokens: 150,
-          completion_tokens: 300,
-          total_tokens: 450,
+          completion_tokens: 200,
+          total_tokens: 350,
         },
       }),
     };
@@ -910,8 +918,8 @@ function createSampleAiContent(overrides = {}) {
   const routingResult = await executeProviderRouting({
     type: "social_daily_content",
     prompt: "Test prompt for daily social content",
-    responseSchema: SOCIAL_CONTENT_SCHEMA,
-    maxOutputTokens: 1000,
+    responseSchema: SOCIAL_AI_CREATIVE_SCHEMA,
+    maxOutputTokens: 800,
     redis,
     date: "2026-09-01",
     primaryProvider: "groq",
@@ -925,10 +933,66 @@ function createSampleAiContent(overrides = {}) {
   assert.strictEqual(capturedBody.response_format.type, "json_schema");
   assert.strictEqual(capturedBody.response_format.json_schema.strict, true, "strict must be explicitly true");
   assert.strictEqual(capturedBody.response_format.json_schema.name, "astro_response");
-  assert.deepStrictEqual(capturedBody.response_format.json_schema.schema, SOCIAL_CONTENT_SCHEMA);
+  assert.deepStrictEqual(capturedBody.response_format.json_schema.schema, SOCIAL_AI_CREATIVE_SCHEMA);
   assert.strictEqual(routingResult.provider, "groq");
 
-  console.log("  ✓ Groq request body includes model 'openai/gpt-oss-20b', strict: true, and exact SOCIAL_CONTENT_SCHEMA");
+  console.log("  ✓ Groq request body includes model 'openai/gpt-oss-20b', strict: true, and exact SOCIAL_AI_CREATIVE_SCHEMA");
+}
+
+// ============================================================================
+// TEST 13: Deterministic Boundary & Anti-Metadata Injection Verification
+// ============================================================================
+{
+  console.log("\n[TEST 13] Deterministic Boundary & Anti-Metadata Injection Verification");
+
+  // 1. AI Schema contains ZERO metadata keys
+  const schemaKeys = Object.keys(SOCIAL_AI_CREATIVE_SCHEMA.properties);
+  assert.ok(!schemaKeys.includes("contentId"), "AI Schema must NOT contain contentId");
+  assert.ok(!schemaKeys.includes("publishDate"), "AI Schema must NOT contain publishDate");
+  assert.ok(!schemaKeys.includes("category"), "AI Schema must NOT contain category");
+  assert.ok(!schemaKeys.includes("pinterestLink"), "AI Schema must NOT contain pinterestLink");
+  assert.ok(!schemaKeys.includes("slides"), "AI Schema must NOT contain slides");
+  assert.ok(!schemaKeys.includes("generatedAt"), "AI Schema must NOT contain generatedAt");
+
+  // 2. Even if an AI mock attempts to inject a malformed contentId or wrong date,
+  // assembleCanonicalSocialContent deterministically computes contentId from requested date
+  const mockAiWithInjectedBadMetadata = {
+    ...createSampleAiCreative(),
+    contentId: "malformed-injected-id-12345",
+    publishDate: "1999-01-01",
+    category: "hacked_category",
+    pinterestLink: "http://malicious-link.com",
+  };
+
+  const assembled = assembleCanonicalSocialContent({
+    creative: mockAiWithInjectedBadMetadata,
+    publishDate: "2026-09-05",
+    category: "love_compatibility",
+  });
+
+  assert.strictEqual(assembled.contentId, "social-2026-09-05", "contentId must be constructed deterministically by backend");
+  assert.strictEqual(assembled.publishDate, "2026-09-05", "publishDate must be exact requested date");
+  assert.strictEqual(assembled.category, "love_compatibility", "category must match topic rotation");
+  assert.strictEqual(assembled.pinterestLink, DEFAULT_APP_PLAY_STORE_URL, "pinterestLink must be official Google Play link");
+  assert.strictEqual(assembled.slides[0].type, "title", "Title slide must be constructed by backend");
+  assert.strictEqual(assembled.slides[4].type, "cta", "CTA slide must be constructed by backend");
+  assert.strictEqual(assembled.slides[4].body, "Free on Google Play");
+
+  // 3. Verify resulting canonical passes validation and renders to 1080x1350 PNG slides
+  const validCheck = validateSocialContent(assembled);
+  assert.strictEqual(validCheck.valid, true);
+
+  const renderedSlides = await renderCarouselSlides(assembled);
+  assert.strictEqual(renderedSlides.length, 5);
+  for (const slide of renderedSlides) {
+    const meta = await sharp(slide.buffer).metadata();
+    assert.strictEqual(meta.width, 1080);
+    assert.strictEqual(meta.height, 1350);
+  }
+
+  console.log("  ✓ Verified AI schema has zero metadata fields");
+  console.log("  ✓ Backend deterministically enforces contentId, publishDate, category, CTA, and link");
+  console.log("  ✓ Assembled package renders cleanly to 5 1080x1350 PNG slides");
 }
 
 console.log("\n==================================================");
