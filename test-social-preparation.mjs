@@ -26,6 +26,10 @@ import {
 import {
   CANVAS_WIDTH,
   CANVAS_HEIGHT,
+  BACKGROUND_COVER_PATH,
+  BACKGROUND_ZODIAC_PATH,
+  BACKGROUND_CTA_PATH,
+  loadBackgroundImageBuffer,
   wrapTextToLines,
   escapeXml,
   renderTitleSlideSvg,
@@ -585,10 +589,10 @@ function createSampleAiContent(overrides = {}) {
 }
 
 // ============================================================================
-// TEST 5: Carousel Renderer - Layout Hierarchy, Zero SVG Text, Zones & Review PNGs
+// TEST 5: Carousel Renderer - Master Background Assets, Zero SVG Text & Review PNGs
 // ============================================================================
 {
-  console.log("\n[TEST 5] Carousel Renderer: Layout Hierarchy, Zero SVG Text, Zones & 1080x1350 PNG");
+  console.log("\n[TEST 5] Carousel Renderer: Master Background Assets, Zero SVG Text & 1080x1350 PNG");
 
   // 1. Verify Bundled Font Files Exist on Local Filesystem
   assert.ok(fs.existsSync(FONT_REGULAR_PATH), `Regular font file must exist at ${FONT_REGULAR_PATH}`);
@@ -596,7 +600,27 @@ function createSampleAiContent(overrides = {}) {
   assert.ok(fs.statSync(FONT_REGULAR_PATH).size > 100000, "Regular font file must be a non-empty TTF font");
   assert.ok(fs.statSync(FONT_BOLD_PATH).size > 100000, "Bold font file must be a non-empty TTF font");
 
-  // 2. Audit & Assert Zero SVG <text> Elements Anywhere in lib/social/render
+  // 2. Verify Approved Master Background PNG Assets Exist and Load to 1080x1350
+  assert.ok(fs.existsSync(BACKGROUND_COVER_PATH), `Cover master background must exist at ${BACKGROUND_COVER_PATH}`);
+  assert.ok(fs.existsSync(BACKGROUND_ZODIAC_PATH), `Zodiac master background must exist at ${BACKGROUND_ZODIAC_PATH}`);
+  assert.ok(fs.existsSync(BACKGROUND_CTA_PATH), `CTA master background must exist at ${BACKGROUND_CTA_PATH}`);
+
+  const coverBgBuf = await loadBackgroundImageBuffer(BACKGROUND_COVER_PATH);
+  const coverBgMeta = await sharp(coverBgBuf).metadata();
+  assert.equal(coverBgMeta.width, 1080);
+  assert.equal(coverBgMeta.height, 1350);
+
+  const zodiacBgBuf = await loadBackgroundImageBuffer(BACKGROUND_ZODIAC_PATH);
+  const zodiacBgMeta = await sharp(zodiacBgBuf).metadata();
+  assert.equal(zodiacBgMeta.width, 1080);
+  assert.equal(zodiacBgMeta.height, 1350);
+
+  const ctaBgBuf = await loadBackgroundImageBuffer(BACKGROUND_CTA_PATH);
+  const ctaBgMeta = await sharp(ctaBgBuf).metadata();
+  assert.equal(ctaBgMeta.width, 1080);
+  assert.equal(ctaBgMeta.height, 1350);
+
+  // 3. Audit & Assert Zero SVG <text> Elements Anywhere in lib/social/render
   const renderDir = path.resolve("./lib/social/render");
   const renderFiles = ["designSystem.js", "carouselRenderer.js", "templates.js", "templates/coverSlide.js", "templates/zodiacFeatureSlide.js", "templates/ctaSlide.js"];
   for (const relFile of renderFiles) {
@@ -607,7 +631,7 @@ function createSampleAiContent(overrides = {}) {
     assert.ok(!content.includes("font-family="), `File ${relFile} must NOT contain font-family attributes!`);
   }
 
-  // 3. Verify Complete 12-Sign Zodiac Design System Data
+  // 4. Verify Complete 12-Sign Zodiac Design System Data
   const expectedSigns = [
     "Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo",
     "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"
@@ -623,12 +647,10 @@ function createSampleAiContent(overrides = {}) {
     assert.ok(data.keywords && data.keywords.length > 0, `Sign '${sign}' missing keywords`);
   }
 
-  // 4. Verify Non-Overlapping Layout Zones & Minimum Positive Vertical Gaps
+  // 5. Verify Non-Overlapping Layout Zones & Minimum Positive Vertical Gaps
   assert.ok(LAYOUT_ZONES.HEADER.bottom <= LAYOUT_ZONES.COVER.CATEGORY.top);
-  assert.ok(LAYOUT_ZONES.COVER.CATEGORY.bottom <= LAYOUT_ZONES.COVER.DECORATION.top);
-  assert.ok(LAYOUT_ZONES.COVER.DECORATION.bottom <= LAYOUT_ZONES.COVER.TITLE.top);
-  assert.ok(LAYOUT_ZONES.COVER.TITLE.bottom <= LAYOUT_ZONES.COVER.MARKERS.top);
-  assert.ok(LAYOUT_ZONES.COVER.MARKERS.bottom <= LAYOUT_ZONES.COVER.FOOTER.top);
+  assert.ok(LAYOUT_ZONES.COVER.CATEGORY.bottom <= LAYOUT_ZONES.COVER.TITLE.top);
+  assert.ok(LAYOUT_ZONES.COVER.TITLE.bottom <= LAYOUT_ZONES.COVER.FOOTER.top);
 
   assert.ok(LAYOUT_ZONES.HEADER.bottom <= LAYOUT_ZONES.FEATURE.EMBLEM.top);
   assert.ok(LAYOUT_ZONES.FEATURE.EMBLEM.bottom <= LAYOUT_ZONES.FEATURE.SIGN.top);
@@ -637,14 +659,13 @@ function createSampleAiContent(overrides = {}) {
   assert.ok(LAYOUT_ZONES.FEATURE.HEADLINE.bottom <= LAYOUT_ZONES.FEATURE.BODY.top);
   assert.ok(LAYOUT_ZONES.FEATURE.BODY.bottom <= LAYOUT_ZONES.FEATURE.FOOTER.top);
 
-  assert.ok(LAYOUT_ZONES.HEADER.bottom <= LAYOUT_ZONES.CTA.EMBLEM.top);
-  assert.ok(LAYOUT_ZONES.CTA.EMBLEM.bottom <= LAYOUT_ZONES.CTA.HEADLINE.top);
+  assert.ok(LAYOUT_ZONES.HEADER.bottom <= LAYOUT_ZONES.CTA.HEADLINE.top);
   assert.ok(LAYOUT_ZONES.CTA.HEADLINE.bottom <= LAYOUT_ZONES.CTA.BODY.top);
   assert.ok(LAYOUT_ZONES.CTA.BODY.bottom <= LAYOUT_ZONES.CTA.BUTTON.top);
   assert.ok(LAYOUT_ZONES.CTA.BUTTON.bottom <= LAYOUT_ZONES.CTA.SECONDARY.top);
   assert.ok(LAYOUT_ZONES.CTA.SECONDARY.bottom <= LAYOUT_ZONES.CTA.FOOTER.top);
 
-  // 5. Verify Bounding Box Fitting via renderTextToFit
+  // 6. Verify Bounding Box Fitting via renderTextToFit
   const testFit = await renderTextToFit({
     text: "3 Zodiac Signs That Value Emotional Consistency",
     fontfile: FONT_BOLD_PATH,
@@ -657,7 +678,7 @@ function createSampleAiContent(overrides = {}) {
   assert.ok(testFit.height <= 380, "Fitted text height must not exceed maxHeight");
   assert.ok(testFit.fontSize >= 42, "Font size must not drop below minSize");
 
-  // 6. Verify Meaningful Alt Text Generation
+  // 7. Verify Meaningful Alt Text Generation
   const altCover = generateSlideAltText({ type: "cover", headline: "3 Zodiac Signs That Value Emotional Consistency" });
   assert.equal(altCover, "3 Zodiac Signs That Value Emotional Consistency | AI Zodiac");
 
@@ -667,7 +688,7 @@ function createSampleAiContent(overrides = {}) {
   const altCta = generateSlideAltText({ type: "cta", headline: "Discover more with AI Zodiac" });
   assert.equal(altCta, "Discover more with AI Zodiac | AI Zodiac");
 
-  // 7. Production-like Glyph Rendering & Text Bounding Box Pixel Variance Verification
+  // 8. Production-like Glyph Rendering & Text Bounding Box Pixel Variance Verification
   const glyphTestSlide = {
     type: "sign",
     sign: "Taurus",
@@ -740,8 +761,8 @@ function createSampleAiContent(overrides = {}) {
   await assertRegionHasTextGlyphs(ctaSlideBuffer, { left: 240, top: 645, width: 600, height: 30 }, "CTA Body Copy");
   await assertRegionHasTextGlyphs(ctaSlideBuffer, { left: 380, top: 852, width: 320, height: 32 }, "CTA Button Text 'DOWNLOAD FREE'");
 
-  // 8. Generate Exact 3 Visual Review Slides to tmp/social-layout-review/ (slide-01, slide-02, slide-05)
-  const reviewLayoutDir = path.resolve("./tmp/social-layout-review");
+  // 9. Generate Exact 3 Visual Review Slides to tmp/social-fixed-bg-review/ (slide-01, slide-02, slide-05)
+  const reviewLayoutDir = path.resolve("./tmp/social-fixed-bg-review");
   if (!fs.existsSync(reviewLayoutDir)) fs.mkdirSync(reviewLayoutDir, { recursive: true });
 
   const coverSlide = { type: "cover", headline: "3 Zodiac Signs That Value Emotional Consistency" };
@@ -765,11 +786,12 @@ function createSampleAiContent(overrides = {}) {
   fs.writeFileSync(path.join(reviewLayoutDir, "slide-02.png"), bufTaurus);
   fs.writeFileSync(path.join(reviewLayoutDir, "slide-05.png"), bufCta);
 
+  console.log("  ✓ All 3 approved master background PNG assets verified & load to 1080x1350");
   console.log("  ✓ Zero SVG <text> elements verified across all render modules");
   console.log("  ✓ Non-overlapping vertical layout zones & minimum gaps verified");
   console.log("  ✓ Bounding-box fitting (renderTextToFit) and button text containment verified");
   console.log("  ✓ Production-like glyph test confirmed actual foreground text pixel variation in all regions");
-  console.log("  ✓ Exactly 3 layout review slides rendered to tmp/social-layout-review/");
+  console.log("  ✓ Exactly 3 fixed background review slides rendered to tmp/social-fixed-bg-review/");
 }
 
 // ============================================================================
