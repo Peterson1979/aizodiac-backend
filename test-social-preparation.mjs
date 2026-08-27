@@ -490,6 +490,38 @@ function createSampleAiContent(overrides = {}) {
   assert.equal(hashtagCreative.valid, false);
   assert.ok(hashtagCreative.errors.some(e => e.includes("must not contain hashtags")));
 
+  // Rejects topic with scope mismatch language (e.g. "Every Zodiac Element")
+  const scopeMismatchTopic = validateAiCreativeOutput({
+    ...validCreative,
+    topic: "Green Flags Every Zodiac Element Loves",
+  });
+  assert.equal(scopeMismatchTopic.valid, false);
+  assert.ok(scopeMismatchTopic.errors.some(e => e.includes("scope-mismatch")));
+
+  // Rejects topic without 3-sign list framing
+  const non3SignTopic = validateAiCreativeOutput({
+    ...validCreative,
+    topic: "Signs That Love Loyalty in Relationships",
+  });
+  assert.equal(non3SignTopic.valid, false);
+  assert.ok(non3SignTopic.errors.some(e => e.includes("3-sign selection")));
+
+  // Rejects Pinterest description claiming coverage of all four elements / every element
+  const scopeMismatchPin = validateAiCreativeOutput({
+    ...validCreative,
+    pinterestDescription: "Discover green flags for earth, air, fire, and water across all four elements in astrology.",
+  });
+  assert.equal(scopeMismatchPin.valid, false);
+  assert.ok(scopeMismatchPin.errors.some(e => e.includes("scope-mismatch")));
+
+  // Rejects Instagram caption claiming coverage of every zodiac sign
+  const scopeMismatchIg = validateAiCreativeOutput({
+    ...validCreative,
+    instagramCaption: "Here is what every zodiac sign needs in relationships! #astrology",
+  });
+  assert.equal(scopeMismatchIg.valid, false);
+  assert.ok(scopeMismatchIg.errors.some(e => e.includes("scope-mismatch")));
+
   // 2. Deterministic Assembly & Canonical Validation
   const canonical = assembleCanonicalSocialContent({
     creative: validCreative,
@@ -513,6 +545,7 @@ function createSampleAiContent(overrides = {}) {
 
   console.log("  ✓ SOCIAL_AI_CREATIVE_SCHEMA satisfies all strict Groq Structured Outputs requirements");
   console.log("  ✓ Creative output validator enforces 3 items, valid signs, and no hashtags");
+  console.log("  ✓ Scope mismatch language (every zodiac, all elements, etc.) strictly rejected");
   console.log("  ✓ Deterministic assembly builds canonical 5-slide object with guaranteed metadata");
   console.log("  ✓ Resulting canonical object passes validateSocialContent");
 }
