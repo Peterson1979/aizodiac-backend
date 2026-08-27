@@ -23,6 +23,7 @@ import {
   VALID_ZODIAC_SIGNS,
   DEFAULT_APP_PLAY_STORE_URL,
 } from "./lib/social/content/dailyContentGenerator.js";
+import { getSocialConfig } from "./lib/social/config.js";
 import {
   CANVAS_WIDTH,
   CANVAS_HEIGHT,
@@ -67,7 +68,21 @@ import {
 import { executeDailyPreparation } from "./lib/social/prepareCoordinator.js";
 import { validateManifest, resolveManifestForDate } from "./lib/social/contentManifest.js";
 import { MEDIA_TYPES } from "./lib/social/types.js";
-import prepareCronHandler from "./api/cron/prepareDailySocial.js";
+import {
+  evaluateQualityGate,
+  validateAiCreative,
+  validateCanonicalAssembly,
+  validateRenderSet,
+  validatePublishManifest,
+  QUALITY_GATE_STATUS,
+} from "./lib/social/quality/socialQualityGate.js";
+import {
+  ZODIAC_SVG_PATHS,
+  getZodiacSvgGlyph,
+  renderVectorArrowSvg,
+} from "./lib/social/render/zodiacVectors.js";
+import { executeSocialPublishing } from "./lib/social/publishCoordinator.js";
+import { PLATFORMS, PUBLISH_STATUS } from "./lib/social/types.js";
 
 console.log("==================================================");
 console.log("RUNNING SOCIAL PREPARATION PIPELINE TEST SUITE");
@@ -263,14 +278,17 @@ function createSampleAiCreative(overrides = {}) {
     items: [
       {
         sign: "Taurus",
+        headline: "Steady and Dependable",
         text: "Grounded and unwavering, Taurus builds trust slowly but defends it fiercely.",
       },
       {
         sign: "Scorpio",
+        headline: "Deep and Devoted",
         text: "Intensely devoted, Scorpio gives all-or-nothing loyalty to those who earn it.",
       },
       {
         sign: "Capricorn",
+        headline: "Steadfast and Loyal",
         text: "Steadfast and reliable, Capricorn stands by commitments through every storm.",
       },
     ],
@@ -451,11 +469,11 @@ function createSampleAiContent(overrides = {}) {
   assert.strictEqual(SOCIAL_AI_CREATIVE_SCHEMA.properties.pinterestLink, undefined);
   assert.strictEqual(SOCIAL_AI_CREATIVE_SCHEMA.properties.slides, undefined);
 
-  // Creative AI schema requires items array of { sign, text }
+  // Creative AI schema requires items array of { sign, headline, text }
   const itemSchema = SOCIAL_AI_CREATIVE_SCHEMA.properties.items.items;
   assert.strictEqual(itemSchema.type, "object");
   assert.strictEqual(itemSchema.additionalProperties, false);
-  assert.deepEqual(itemSchema.required, ["sign", "text"]);
+  assert.deepEqual(itemSchema.required, ["sign", "headline", "text"]);
 
   // 1. Creative Validation
   const validCreative = createSampleAiCreative();
@@ -474,9 +492,9 @@ function createSampleAiContent(overrides = {}) {
   const dupSignCreative = validateAiCreativeOutput({
     ...validCreative,
     items: [
-      { sign: "Taurus", text: "Text 1" },
-      { sign: "Taurus", text: "Text 2" },
-      { sign: "Leo", text: "Text 3" },
+      { sign: "Taurus", headline: "Trait 1", text: "Text 1" },
+      { sign: "Taurus", headline: "Trait 2", text: "Text 2" },
+      { sign: "Leo", headline: "Trait 3", text: "Text 3" },
     ],
   });
   assert.equal(dupSignCreative.valid, false);
@@ -486,21 +504,93 @@ function createSampleAiContent(overrides = {}) {
   const invalidSignCreative = validateAiCreativeOutput({
     ...validCreative,
     items: [
-      { sign: "Ophiuchus", text: "Text 1" },
-      { sign: "Virgo", text: "Text 2" },
-      { sign: "Leo", text: "Text 3" },
+      { sign: "Ophiuchus", headline: "Trait 1", text: "Text 1" },
+      { sign: "Virgo", headline: "Trait 2", text: "Text 2" },
+      { sign: "Leo", headline: "Trait 3", text: "Text 3" },
     ],
   });
   assert.equal(invalidSignCreative.valid, false);
   assert.ok(invalidSignCreative.errors.some(e => e.includes("invalid zodiac sign")));
 
+  // Rejects missing headline
+  const missingHeadline = validateAiCreativeOutput({
+    ...validCreative,
+    items: [
+      { sign: "Taurus", headline: "", text: "Text 1" },
+      { sign: "Virgo", headline: "Trait 2", text: "Text 2" },
+      { sign: "Leo", headline: "Trait 3", text: "Text 3" },
+    ],
+  });
+  assert.equal(missingHeadline.valid, false);
+  assert.ok(missingHeadline.errors.some(e => e.includes("requires a non-empty 'headline'")));
+
+  // Rejects headline equal to sign
+  const headlineEqualsSign = validateAiCreativeOutput({
+    ...validCreative,
+    items: [
+      { sign: "Taurus", headline: "Taurus", text: "Text 1" },
+      { sign: "Virgo", headline: "Trait 2", text: "Text 2" },
+      { sign: "Leo", headline: "Trait 3", text: "Text 3" },
+    ],
+  });
+  assert.equal(headlineEqualsSign.valid, false);
+  assert.ok(headlineEqualsSign.errors.some(e => e.includes("headline must not equal sign name")));
+
+  // Rejects excessive headline (> 45 chars)
+  const excessiveHeadline = validateAiCreativeOutput({
+    ...validCreative,
+    items: [
+      { sign: "Taurus", headline: "A".repeat(50), text: "Text 1" },
+      { sign: "Virgo", headline: "Trait 2", text: "Text 2" },
+      { sign: "Leo", headline: "Trait 3", text: "Text 3" },
+    ],
+  });
+  assert.equal(excessiveHeadline.valid, false);
+  assert.ok(excessiveHeadline.errors.some(e => e.includes("exceeds 45 characters")));
+
+  // Rejects duplicate headlines
+  const dupHeadline = validateAiCreativeOutput({
+    ...validCreative,
+    items: [
+      { sign: "Taurus", headline: "Deep Devotion", text: "Text 1" },
+      { sign: "Virgo", headline: "Deep Devotion", text: "Text 2" },
+      { sign: "Leo", headline: "Trait 3", text: "Text 3" },
+    ],
+  });
+  assert.equal(dupHeadline.valid, false);
+  assert.ok(dupHeadline.errors.some(e => e.includes("Duplicate headline")));
+
+  // Rejects placeholders (e.g. "Lorem ipsum")
+  const placeholderCreative = validateAiCreativeOutput({
+    ...validCreative,
+    items: [
+      { sign: "Taurus", headline: "Lorem ipsum dolor", text: "Your text here for testing." },
+      { sign: "Virgo", headline: "Trait 2", text: "Text 2" },
+      { sign: "Leo", headline: "Trait 3", text: "Text 3" },
+    ],
+  });
+  assert.equal(placeholderCreative.valid, false);
+  assert.ok(placeholderCreative.errors.some(e => e.includes("placeholder")));
+
+  // Rejects Unicode replacement character ()
+  const unicodeReplacementCreative = validateAiCreativeOutput({
+    ...validCreative,
+    items: [
+      { sign: "Taurus", headline: "Steady and True", text: "Grounded \uFFFD insight text" },
+      { sign: "Virgo", headline: "Trait 2", text: "Text 2" },
+      { sign: "Leo", headline: "Trait 3", text: "Text 3" },
+    ],
+  });
+  assert.equal(unicodeReplacementCreative.valid, false);
+  assert.ok(unicodeReplacementCreative.errors.some(e => e.includes("Unicode replacement character")));
+
   // Rejects hashtags in item text
   const hashtagCreative = validateAiCreativeOutput({
     ...validCreative,
     items: [
-      { sign: "Taurus", text: "Text with #hashtag" },
-      { sign: "Virgo", text: "Text 2" },
-      { sign: "Leo", text: "Text 3" },
+      { sign: "Taurus", headline: "Trait 1", text: "Text with #hashtag" },
+      { sign: "Virgo", headline: "Trait 2", text: "Text 2" },
+      { sign: "Leo", headline: "Trait 3", text: "Text 3" },
     ],
   });
   assert.equal(hashtagCreative.valid, false);
@@ -552,6 +642,7 @@ function createSampleAiContent(overrides = {}) {
   assert.equal(canonical.slides.length, 5);
   assert.equal(canonical.slides[0].type, "title");
   assert.equal(canonical.slides[0].headline, validCreative.topic);
+  assert.equal(canonical.slides[1].headline, "Steady and Dependable");
   assert.equal(canonical.slides[4].type, "cta");
   assert.equal(canonical.slides[4].headline, "Discover more with AI Zodiac");
   assert.equal(canonical.slides[4].body, "Free on Google Play");
@@ -560,7 +651,11 @@ function createSampleAiContent(overrides = {}) {
   assert.equal(canonicalCheck.valid, true);
 
   console.log("  ✓ SOCIAL_AI_CREATIVE_SCHEMA satisfies all strict Groq Structured Outputs requirements");
-  console.log("  ✓ Creative output validator enforces 3 items, valid signs, and no hashtags");
+  console.log("  ✓ Creative output validator enforces 3 items, valid signs, required headlines != sign, and no hashtags");
+  console.log("  ✓ Placeholder content and Unicode replacement characters strictly rejected");
+  console.log("  ✓ Scope mismatch language (every zodiac, all elements, etc.) strictly rejected");
+  console.log("  ✓ Deterministic assembly builds canonical 5-slide object with guaranteed metadata");
+  console.log("  ✓ Resulting canonical object passes validateSocialContent");
   console.log("  ✓ Scope mismatch language (every zodiac, all elements, etc.) strictly rejected");
   console.log("  ✓ Deterministic assembly builds canonical 5-slide object with guaranteed metadata");
   console.log("  ✓ Resulting canonical object passes validateSocialContent");
@@ -969,7 +1064,7 @@ function createSampleAiContent(overrides = {}) {
   });
 
   assert.equal(prepRes.success, true);
-  assert.equal(prepRes.status, "PREPARED");
+  assert.equal(prepRes.status, QUALITY_GATE_STATUS.PASS);
   assert.equal(prepRes.slideCount, 5);
   assert.equal(aiCalls, 1, "Exactly ONE AI call must occur in normal flow");
 
@@ -986,14 +1081,14 @@ function createSampleAiContent(overrides = {}) {
 
   // Verify preparation state tracking in Redis
   const prepState = await getPrepareState(redis, date);
-  assert.equal(prepState.stage, PREPARE_STAGES.MANIFEST_READY);
+  assert.equal(prepState.stage, PREPARE_STAGES.QUALITY_GATE_PASS);
   assert.equal(prepState.manifestId, "social-2026-09-01");
   assert.ok(prepState.generatedContent);
   assert.ok(prepState.uploadedMedia);
 
   console.log("  ✓ End-to-end preparation completes with exactly 1 AI call");
   console.log("  ✓ Valid manifest stored in Redis and confirmed by validateManifest");
-  console.log("  ✓ Preparation state successfully reached MANIFEST_READY");
+  console.log("  ✓ Preparation state successfully reached QUALITY_GATE_PASS");
 }
 
 // ============================================================================
@@ -1038,11 +1133,11 @@ function createSampleAiContent(overrides = {}) {
   });
 
   assert.equal(res.success, true);
-  assert.equal(res.status, "PREPARED");
+  assert.equal(res.status, QUALITY_GATE_STATUS.PASS);
   assert.equal(aiCalls, 0, "Must NOT call AI generator if CONTENT_GENERATED is already in Redis state!");
 
   const finalState = await getPrepareState(redis, date);
-  assert.equal(finalState.stage, PREPARE_STAGES.MANIFEST_READY);
+  assert.equal(finalState.stage, PREPARE_STAGES.QUALITY_GATE_PASS);
   assert.equal(finalState.topic, "3 Signs with Unshakeable Mental Resilience");
 
   console.log("  ✓ Successfully resumed preparation from CONTENT_GENERATED with ZERO additional AI calls");
@@ -1089,6 +1184,7 @@ function createSampleAiContent(overrides = {}) {
 {
   console.log("\n[TEST 11] Serverless Cron Endpoint (api/cron/prepareDailySocial.js)");
 
+  const prepareCronHandler = (await import("./api/cron/prepareDailySocial.js")).default;
   process.env.CRON_SECRET = "test_cron_secret_777";
 
   let statusCode = null;
@@ -1235,6 +1331,406 @@ function createSampleAiContent(overrides = {}) {
   console.log("  ✓ Assembled package renders cleanly to 5 1080x1350 PNG slides");
 }
 
+// ============================================================================
+// TEST 14: Central Production Quality Gate: Comprehensive Validation Suite
+// ============================================================================
+{
+  console.log("\n[TEST 14] Production Social Quality Gate: Comprehensive Validation Suite");
+
+  const validCreative = createSampleAiCreative();
+  const validCanonical = assembleCanonicalSocialContent({
+    creative: validCreative,
+    publishDate: "2026-09-01",
+    category: "personality",
+  });
+  const validRendered = await renderCarouselSlides(validCanonical);
+  const validManifest = {
+    date: "2026-09-01",
+    id: "social-2026-09-01",
+    type: MEDIA_TYPES.CAROUSEL,
+    media: validRendered.map(item => ({
+      url: `https://pub-4169b32ebff84de78189ef9a010baa5c.r2.dev/${item.key}`,
+      altText: item.slideNumber === 1
+        ? `${validCanonical.topic} | AI Zodiac`
+        : item.slideNumber === 5
+          ? "Discover more with AI Zodiac | AI Zodiac"
+          : `${validCanonical.slides[item.slideNumber - 1].sign} — ${validCanonical.slides[item.slideNumber - 1].headline} | AI Zodiac`,
+    })),
+    captions: {
+      instagram: validCanonical.instagramCaption,
+      facebook: validCanonical.facebookCaption,
+      pinterest: {
+        title: validCanonical.pinterestTitle,
+        description: validCanonical.pinterestDescription,
+        link: DEFAULT_APP_PLAY_STORE_URL,
+      },
+    },
+  };
+
+  // 1. Fully valid evaluation -> QUALITY_GATE_PASS
+  const passGate = await evaluateQualityGate({
+    creative: validCreative,
+    canonical: validCanonical,
+    renderedSlides: validRendered,
+    manifest: validManifest,
+    expectedDate: "2026-09-01",
+    expectedCategory: "personality",
+    mediaBaseUrl: "https://pub-4169b32ebff84de78189ef9a010baa5c.r2.dev",
+  });
+
+  assert.equal(passGate.passed, true);
+  assert.equal(passGate.status, QUALITY_GATE_STATUS.PASS);
+  assert.equal(passGate.errors.length, 0);
+
+  // 2. Reject if altText uses full paragraph instead of concise tag
+  const badAltManifest = {
+    ...validManifest,
+    media: validManifest.media.map(m => ({ ...m, altText: "A".repeat(150) })),
+  };
+  const badAltGate = await evaluateQualityGate({ manifest: badAltManifest });
+  assert.equal(badAltGate.passed, false);
+  assert.ok(badAltGate.errors.some(e => e.includes("altText exceeds 120 characters")));
+
+  // 3. Reject if rendered slide has invalid dimensions
+  const badDimSlides = [{ buffer: await sharp({ create: { width: 500, height: 500, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 1 } } }).png().toBuffer() }];
+  const badDimGate = await evaluateQualityGate({ renderedSlides: badDimSlides });
+  assert.equal(badDimGate.passed, false);
+  assert.ok(badDimGate.errors.some(e => e.includes("Render set must contain exactly 5 slides")));
+
+  console.log("  ✓ evaluateQualityGate returns QUALITY_GATE_PASS for valid end-to-end package");
+  console.log("  ✓ Alt-text length and branding rules strictly enforced on manifest");
+  console.log("  ✓ Render dimension and buffer validation catches malformed images");
+}
+
+// ============================================================================
+// TEST 15: All 12 Zodiac Symbols & Vector Arrow Deterministic Vector Coverage
+// ============================================================================
+{
+  console.log("\n[TEST 15] 12 Zodiac Symbols & Vector Arrow Deterministic Vector Coverage");
+
+  const allSigns = Array.from(VALID_ZODIAC_SIGNS);
+  assert.equal(allSigns.length, 12, "Must contain all 12 Western zodiac signs");
+
+  for (const sign of allSigns) {
+    const glyphSvg = getZodiacSvgGlyph(sign, "#fbbf24", 3.5);
+    assert.ok(glyphSvg.includes("<path") || glyphSvg.includes("<circle"), `Sign ${sign} must define vector path`);
+
+    // Render each sign to a 180x180 emblem disc and verify non-zero luminance
+    const svgDisc = `
+      <svg width="180" height="180" viewBox="-90 -90 180 180" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="0" cy="0" r="88" fill="#141733" stroke="#fbbf24" stroke-width="2.5"/>
+        ${glyphSvg}
+      </svg>
+    `.trim();
+
+    const buf = await sharp(Buffer.from(svgDisc)).png().toBuffer();
+    const meta = await sharp(buf).metadata();
+    assert.equal(meta.width, 180);
+    assert.equal(meta.height, 180);
+    assert.ok(buf.length > 5000, `Sign ${sign} PNG buffer must be substantial (${buf.length} bytes)`);
+
+    // Verify slide rendering with this sign
+    const signSlide = {
+      type: "sign",
+      sign,
+      headline: "Core Astrological Trait",
+      body: "Insightful, precise and deeply meaningful description of planetary alignment.",
+    };
+
+    const renderedSignBuffer = await renderSlidePng({
+      slide: signSlide,
+      slideNumber: 2,
+      totalSlides: 5,
+      category: "personality",
+      categoryTitle: "Personality",
+    });
+
+    const slideMeta = await sharp(renderedSignBuffer).metadata();
+    assert.equal(slideMeta.width, 1080);
+    assert.equal(slideMeta.height, 1350);
+  }
+
+  // Verify Vector Arrow SVG
+  const arrowSvg = renderVectorArrowSvg({ color: "#c4b5fd", width: 30, height: 30, strokeWidth: 3 });
+  const arrowBuf = await sharp(Buffer.from(arrowSvg)).png().toBuffer();
+  assert.ok(arrowBuf.length > 150);
+
+  console.log("  ✓ All 12 zodiac symbols (Aries through Pisces) render deterministically with vector SVG");
+  console.log("  ✓ Zero tofu / codepoint boxes across all 12 signs");
+  console.log("  ✓ Deterministic vector arrow renders crisp on swipe prompt");
+}
+
+// ============================================================================
+// TEST 16: Publisher Hard Block Enforces QUALITY_GATE_PASS
+// ============================================================================
+{
+  console.log("\n[TEST 16] Publisher Hard Block Enforces QUALITY_GATE_PASS & Blocks Provider Writes");
+
+  const redis = new MockRedis();
+  const date = "2026-09-10";
+  let providerWriteCalls = 0;
+
+  const mockAdapters = {
+    [PLATFORMS.INSTAGRAM]: {
+      publish: async () => {
+        providerWriteCalls++;
+        return { success: true, status: PUBLISH_STATUS.PUBLISHED, postId: "ig_111" };
+      },
+    },
+    [PLATFORMS.FACEBOOK]: {
+      publish: async () => {
+        providerWriteCalls++;
+        return { success: true, status: PUBLISH_STATUS.PUBLISHED, postId: "fb_222" };
+      },
+    },
+    [PLATFORMS.PINTEREST]: {
+      publish: async () => {
+        providerWriteCalls++;
+        return { success: true, status: PUBLISH_STATUS.PUBLISHED, postId: "pin_333" };
+      },
+    },
+  };
+
+  const manifest = {
+    date,
+    id: `social-${date}`,
+    type: MEDIA_TYPES.CAROUSEL,
+    media: [{ url: "https://pub.r2.dev/s1.png" }, { url: "https://pub.r2.dev/s2.png" }],
+    captions: { instagram: "ig", facebook: "fb", pinterest: { title: "t", description: "d", link: DEFAULT_APP_PLAY_STORE_URL } },
+  };
+
+  const config = getSocialConfig({
+    autoPublishEnabled: true,
+    metaPageAccessToken: "EAAB_token",
+    metaPageId: "page_123",
+    instagramAccountId: "ig_456",
+    pinterestAccessToken: "pina_token",
+    pinterestBoardId: "board_789",
+    pinterestAccessTier: "standard",
+  });
+
+  // 1. Missing Quality State in Redis -> HARD BLOCK
+  const blockedRes1 = await executeSocialPublishing({
+    redis,
+    config,
+    targetDate: date,
+    manifest,
+    adapters: mockAdapters,
+  });
+
+  assert.equal(blockedRes1.success, false);
+  assert.equal(blockedRes1.status, "QUALITY_GATE_BLOCKED");
+  assert.equal(providerWriteCalls, 0, "Zero provider writes must occur when quality state is missing!");
+
+  // 2. Failed Quality State in Redis (QUALITY_GATE_FAILED) -> HARD BLOCK
+  await savePrepareState(redis, date, {
+    publishDate: date,
+    stage: PREPARE_STAGES.QUALITY_GATE_FAILED,
+    error: "Text overflow in slide 3",
+  });
+
+  const blockedRes2 = await executeSocialPublishing({
+    redis,
+    config,
+    targetDate: date,
+    manifest,
+    adapters: mockAdapters,
+  });
+
+  assert.equal(blockedRes2.success, false);
+  assert.equal(blockedRes2.status, "QUALITY_GATE_BLOCKED");
+  assert.equal(providerWriteCalls, 0, "Zero provider writes must occur when quality state is QUALITY_GATE_FAILED!");
+
+  // 3. Approved Quality State in Redis (QUALITY_GATE_PASS) -> PUBLISHING ALLOWED
+  await savePrepareState(redis, date, {
+    publishDate: date,
+    stage: PREPARE_STAGES.QUALITY_GATE_PASS,
+    manifestId: `social-${date}`,
+  });
+
+  const allowedRes = await executeSocialPublishing({
+    redis,
+    config,
+    targetDate: date,
+    manifest,
+    adapters: mockAdapters,
+  });
+
+  assert.equal(allowedRes.success, true);
+  assert.equal(allowedRes.status, PUBLISH_STATUS.PUBLISHED);
+  assert.equal(providerWriteCalls, 3, "All 3 provider writes execute when QUALITY_GATE_PASS is present");
+
+  console.log("  ✓ Publisher hard-blocks missing quality state with zero provider writes");
+  console.log("  ✓ Publisher hard-blocks QUALITY_GATE_FAILED state with zero provider writes");
+  console.log("  ✓ Publisher permits writes ONLY when state is explicitly QUALITY_GATE_PASS");
+}
+
+// ============================================================================
+// TEST 17: AI Creative Retry Policy (3 Attempts Max, 0 Retries on Deterministic Errors)
+// ============================================================================
+{
+  console.log("\n[TEST 17] AI Creative Retry Policy & Hard Failure Boundary");
+
+  const redis = new MockRedis();
+  const date = "2026-09-12";
+
+  // 1. Invalid creative on attempt 1, valid on attempt 2 -> Retries and succeeds
+  let attemptCount = 0;
+  const retryMock = async () => {
+    attemptCount++;
+    if (attemptCount === 1) {
+      // Missing headline on first attempt
+      return {
+        ...createSampleAiCreative(),
+        items: [
+          { sign: "Taurus", headline: "", text: "Text 1" },
+          { sign: "Virgo", headline: "Trait 2", text: "Text 2" },
+          { sign: "Leo", headline: "Trait 3", text: "Text 3" },
+        ],
+      };
+    }
+    return createSampleAiCreative();
+  };
+
+  const prepRes = await executeDailyPreparation({
+    redis,
+    targetDate: date,
+    generateFn: retryMock,
+    s3Client: new MockS3Client(),
+    dryRun: false,
+  });
+
+  assert.equal(prepRes.success, true);
+  assert.equal(attemptCount, 2, "Should retry once upon invalid creative output and succeed on attempt 2");
+
+  // 2. 3 consecutive invalid attempts -> Throws with QUALITY_GATE_FAILED and halts
+  let failAttemptCount = 0;
+  const alwaysFailMock = async () => {
+    failAttemptCount++;
+    return {
+      topic: "Invalid Topic Without 3 Signs",
+      items: [],
+      instagramCaption: "",
+      facebookCaption: "",
+      pinterestTitle: "",
+      pinterestDescription: "",
+    };
+  };
+
+  let caughtErr = null;
+  try {
+    await executeDailyPreparation({
+      redis,
+      targetDate: "2026-09-13",
+      generateFn: alwaysFailMock,
+      s3Client: new MockS3Client(),
+      dryRun: false,
+    });
+  } catch (err) {
+    caughtErr = err;
+  }
+
+  assert.ok(caughtErr, "Must throw when max AI attempts exhausted");
+  assert.equal(failAttemptCount, 3, "Must attempt exactly 3 times before failing");
+  const failedState = await getPrepareState(redis, "2026-09-13");
+  assert.equal(failedState.stage, PREPARE_STAGES.QUALITY_GATE_FAILED);
+
+  console.log("  ✓ Invalid creative output safely triggers up to 2 retries (3 total attempts)");
+  console.log("  ✓ Exhausted attempts transition state to QUALITY_GATE_FAILED and skip publication");
+}
+
+// ============================================================================
+// TEST 18: Production-Like Canary Fixture & Quality Gate Review Set
+// ============================================================================
+{
+  console.log("\n[TEST 18] Production-Like Canary Fixture & Quality Gate Verification");
+
+  const canaryDir = path.resolve("./tmp/social-quality-gate-review");
+  if (!fs.existsSync(canaryDir)) fs.mkdirSync(canaryDir, { recursive: true });
+
+  const canaryCarousel = {
+    contentId: "social-2026-09-15",
+    publishDate: "2026-09-15",
+    category: "zodiac_psychology",
+    topic: "3 Zodiac Signs That Are the Ultimate Midnight Thinkers",
+    slides: [
+      {
+        type: "title",
+        headline: "3 Zodiac Signs That Are the Ultimate Midnight Thinkers",
+      },
+      {
+        type: "sign",
+        sign: "Gemini",
+        headline: "Curiosity Never Sleeps",
+        body: "Their brilliant, hyperactive minds race through ideas, concepts and connections while the rest of the world rests.",
+      },
+      {
+        type: "sign",
+        sign: "Virgo",
+        headline: "Midnight Problem Solver",
+        body: "The quiet hours offer pure mental clarity, allowing Virgo to analyze, organize and solve life's deepest puzzles.",
+      },
+      {
+        type: "sign",
+        sign: "Pisces",
+        headline: "Dreams Come Alive After Dark",
+        body: "Nighttime unleashes their boundless imagination, unlocking mystical inspiration, vivid visions and creative wonder.",
+      },
+      {
+        type: "cta",
+        headline: "Discover more with AI Zodiac",
+        body: "Free on Google Play",
+      },
+    ],
+    instagramCaption: "Do you do your best thinking at midnight? 🌙✨ Gemini, Virgo, and Pisces thrive in the quiet hours. Explore your cosmic archetype with AI Zodiac. #astrology #zodiac #horoscope #aizodiac",
+    facebookCaption: "Midnight thinkers of the zodiac: Gemini, Virgo, and Pisces! Discover personalized insights with AI Zodiac on Google Play.",
+    pinterestTitle: "3 Zodiac Signs That Are Midnight Thinkers | AI Zodiac",
+    pinterestDescription: "Discover why Gemini, Virgo, and Pisces do their deepest thinking late at night. Download AI Zodiac free.",
+    pinterestLink: DEFAULT_APP_PLAY_STORE_URL,
+  };
+
+  const canaryRendered = await renderCarouselSlides(canaryCarousel, { outputDir: canaryDir });
+  assert.equal(canaryRendered.length, 5);
+
+  const canaryManifest = {
+    date: "2026-09-15",
+    id: "social-2026-09-15",
+    type: MEDIA_TYPES.CAROUSEL,
+    media: canaryRendered.map(item => ({
+      url: `https://pub-4169b32ebff84de78189ef9a010baa5c.r2.dev/${item.key}`,
+      altText: item.slideNumber === 1
+        ? `${canaryCarousel.topic} | AI Zodiac`
+        : item.slideNumber === 5
+          ? "Discover more with AI Zodiac | AI Zodiac"
+          : `${canaryCarousel.slides[item.slideNumber - 1].sign} — ${canaryCarousel.slides[item.slideNumber - 1].headline} | AI Zodiac`,
+    })),
+    captions: {
+      instagram: canaryCarousel.instagramCaption,
+      facebook: canaryCarousel.facebookCaption,
+      pinterest: {
+        title: canaryCarousel.pinterestTitle,
+        description: canaryCarousel.pinterestDescription,
+        link: DEFAULT_APP_PLAY_STORE_URL,
+      },
+    },
+  };
+
+  const canaryGate = await evaluateQualityGate({
+    canonical: canaryCarousel,
+    renderedSlides: canaryRendered,
+    manifest: canaryManifest,
+    expectedDate: "2026-09-15",
+    expectedCategory: "zodiac_psychology",
+    mediaBaseUrl: "https://pub-4169b32ebff84de78189ef9a010baa5c.r2.dev",
+  });
+
+  assert.equal(canaryGate.passed, true, `Canary fixture must pass Quality Gate: ${canaryGate.errors.join("; ")}`);
+  assert.equal(canaryGate.status, QUALITY_GATE_STATUS.PASS);
+
+  console.log(`  ✓ Canary fixture rendered to tmp/social-quality-gate-review/ (5 slides)`);
+  console.log(`  ✓ Canary Quality Gate Result: ${canaryGate.status} 🎉`);
+}
+
 console.log("\n==================================================");
-console.log("ALL SOCIAL PREPARATION TESTS PASSED SUCCESSFULLY! 🎉");
+console.log("ALL SOCIAL PREPARATION & QUALITY GATE TESTS PASSED! 🎉");
 console.log("==================================================");

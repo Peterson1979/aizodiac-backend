@@ -585,6 +585,9 @@ class MockRedis {
     id: "manifest_test_coordination",
     type: MEDIA_TYPES.SINGLE_IMAGE,
     media: [{ url: "https://cdn.aizodiac.app/photo.png" }],
+    metadata: {
+      qualityGate: "QUALITY_GATE_PASS",
+    },
     captions: {
       instagram: "IG copy",
       facebook: "FB copy",
