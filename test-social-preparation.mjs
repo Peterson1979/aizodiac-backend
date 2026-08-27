@@ -327,6 +327,65 @@ function createSampleAiContent(overrides = {}) {
 {
   console.log("\n[TEST 3] Strict AI JSON Quality Guards & Schema Validation");
 
+  // 0. Recursive Groq Structured Outputs JSON Schema Compliance Check
+  function assertStrictGroqJsonSchema(schema, path = "root") {
+    assert.ok(schema && typeof schema === "object", `${path} must be an object schema`);
+
+    if (schema.type === "object") {
+      assert.strictEqual(
+        schema.additionalProperties,
+        false,
+        `${path}: additionalProperties must be explicitly set to false`
+      );
+
+      assert.ok(
+        Array.isArray(schema.required),
+        `${path}: required must be an array`
+      );
+
+      const propKeys = schema.properties ? Object.keys(schema.properties) : [];
+      const requiredKeys = schema.required;
+
+      // Check: Every property must be present in required
+      for (const key of propKeys) {
+        assert.ok(
+          requiredKeys.includes(key),
+          `${path}: property "${key}" must be included in required array`
+        );
+      }
+
+      // Check: No unknown required properties exist
+      for (const reqKey of requiredKeys) {
+        assert.ok(
+          propKeys.includes(reqKey),
+          `${path}: required key "${reqKey}" is not defined in properties`
+        );
+      }
+
+      // Recursively check each property
+      if (schema.properties) {
+        for (const [key, propSchema] of Object.entries(schema.properties)) {
+          assertStrictGroqJsonSchema(propSchema, `${path}.properties.${key}`);
+        }
+      }
+    } else if (schema.type === "array") {
+      assert.ok(schema.items, `${path}: array must define items schema`);
+      assertStrictGroqJsonSchema(schema.items, `${path}.items`);
+    }
+  }
+
+  assertStrictGroqJsonSchema(SOCIAL_CONTENT_SCHEMA, "SOCIAL_CONTENT_SCHEMA");
+
+  // Check nullable optional-semantic fields remain in required
+  const slideItemSchema = SOCIAL_CONTENT_SCHEMA.properties.slides.items;
+  assert.deepEqual(slideItemSchema.properties.body.type, ["string", "null"]);
+  assert.deepEqual(slideItemSchema.properties.sign.type, ["string", "null"]);
+  assert.ok(slideItemSchema.required.includes("body"));
+  assert.ok(slideItemSchema.required.includes("sign"));
+  assert.ok(slideItemSchema.required.includes("headline"));
+  assert.ok(slideItemSchema.required.includes("type"));
+  assert.strictEqual(slideItemSchema.additionalProperties, false);
+
   const validSample = createSampleAiContent();
   const validCheck = validateSocialContent(validSample);
   assert.equal(validCheck.valid, true);
@@ -387,6 +446,7 @@ function createSampleAiContent(overrides = {}) {
   });
   assert.equal(validateSocialContent(longPinTitle).valid, false);
 
+  console.log("  ✓ SOCIAL_CONTENT_SCHEMA satisfies all strict Groq Structured Outputs schema requirements recursively");
   console.log("  ✓ Valid content passes all quality guards");
   console.log("  ✓ Guards strictly reject missing CTA, duplicate signs, invalid signs, hashtag images, and oversized titles");
 }
