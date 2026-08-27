@@ -733,22 +733,22 @@ function createSampleAiContent(overrides = {}) {
     );
   }
 
-  // Verify Header Brand region ("AI Zodiac")
-  await assertRegionHasTextGlyphs(glyphSlideBuffer, { left: 95, top: 78, width: 170, height: 26 }, "Header AI Zodiac");
+  // Verify Header Brand region ("AI ZODIAC")
+  await assertRegionHasTextGlyphs(glyphSlideBuffer, { left: 80, top: 80, width: 220, height: 35 }, "Header AI Zodiac");
   // Verify Zodiac Glyph in Emblem region ("♉")
-  await assertRegionHasTextGlyphs(glyphSlideBuffer, { left: 520, top: 268, width: 40, height: 35 }, "Taurus Symbol Glyph ♉");
+  await assertRegionHasTextGlyphs(glyphSlideBuffer, { left: 510, top: 250, width: 60, height: 50 }, "Taurus Symbol Glyph ♉");
   // Verify Taurus Sign Name region ("TAURUS")
-  await assertRegionHasTextGlyphs(glyphSlideBuffer, { left: 450, top: 425, width: 180, height: 35 }, "Sign Name 'TAURUS'");
+  await assertRegionHasTextGlyphs(glyphSlideBuffer, { left: 450, top: 415, width: 180, height: 40 }, "Sign Name 'TAURUS'");
   // Verify Headline region ("Steady and Dependable")
-  await assertRegionHasTextGlyphs(glyphSlideBuffer, { left: 300, top: 598, width: 480, height: 35 }, "Headline 'Steady and Dependable'");
+  await assertRegionHasTextGlyphs(glyphSlideBuffer, { left: 300, top: 565, width: 480, height: 40 }, "Headline 'Steady and Dependable'");
   // Verify Body region with numbers ("1234567890")
-  await assertRegionHasTextGlyphs(glyphSlideBuffer, { left: 200, top: 800, width: 680, height: 80 }, "Body with 1234567890 numbers");
+  await assertRegionHasTextGlyphs(glyphSlideBuffer, { left: 200, top: 730, width: 680, height: 80 }, "Body with 1234567890 numbers");
 
   // Also verify CTA slide text regions ("Discover more with AI Zodiac", "DOWNLOAD FREE")
   const ctaTestSlide = {
     type: "cta",
-    headline: "Discover more with AI Zodiac",
-    body: "Daily astrology, compatibility and zodiac insights in one app.",
+    headline: "Discover more with\nAI Zodiac",
+    body: "Daily astrology, compatibility\nand zodiac insights in one app.",
   };
   const ctaSlideBuffer = await renderSlidePng({
     slide: ctaTestSlide,
@@ -757,41 +757,71 @@ function createSampleAiContent(overrides = {}) {
     category: "self_discovery",
     categoryTitle: "Self-Discovery",
   });
-  await assertRegionHasTextGlyphs(ctaSlideBuffer, { left: 220, top: 430, width: 640, height: 40 }, "CTA Headline 'Discover more with AI Zodiac'");
-  await assertRegionHasTextGlyphs(ctaSlideBuffer, { left: 240, top: 645, width: 600, height: 30 }, "CTA Body Copy");
-  await assertRegionHasTextGlyphs(ctaSlideBuffer, { left: 380, top: 852, width: 320, height: 32 }, "CTA Button Text 'DOWNLOAD FREE'");
+  await assertRegionHasTextGlyphs(ctaSlideBuffer, { left: 220, top: 440, width: 640, height: 45 }, "CTA Headline 'Discover more with AI Zodiac'");
+  await assertRegionHasTextGlyphs(ctaSlideBuffer, { left: 240, top: 635, width: 600, height: 35 }, "CTA Body Copy");
+  await assertRegionHasTextGlyphs(ctaSlideBuffer, { left: 380, top: 852, width: 320, height: 35 }, "CTA Button Text 'DOWNLOAD FREE'");
 
-  // 9. Generate Exact 3 Visual Review Slides to tmp/social-fixed-bg-review/ (slide-01, slide-02, slide-05)
-  const reviewLayoutDir = path.resolve("./tmp/social-fixed-bg-review");
+  // 9. Generate All 5 Visual Review Slides to tmp/social-final-review/ (slide-01 through slide-05)
+  const reviewLayoutDir = path.resolve("./tmp/social-final-review");
   if (!fs.existsSync(reviewLayoutDir)) fs.mkdirSync(reviewLayoutDir, { recursive: true });
 
-  const coverSlide = { type: "cover", headline: "3 Zodiac Signs That Value Emotional Consistency" };
-  const taurusSlide = {
-    type: "sign",
-    sign: "Taurus",
-    headline: "Steady and Dependable",
-    body: "Grounded and patient, Taurus builds trust through reliability, steady communication and emotional presence.",
-  };
-  const ctaSlide = {
-    type: "cta",
-    headline: "Discover more with AI Zodiac",
-    body: "Daily astrology, compatibility and zodiac insights in one app.",
+  const reviewCarousel = {
+    publishDate: "2026-09-01",
+    category: "relationships",
+    topic: "3 Zodiac Signs That Value Emotional Consistency",
+    slides: [
+      {
+        type: "cover",
+        headline: "3 Zodiac Signs That Value Emotional Consistency",
+      },
+      {
+        type: "sign",
+        sign: "Taurus",
+        headline: "Steady and Dependable",
+        body: "Grounded and patient, Taurus builds trust through reliability, steady communication and emotional presence.",
+      },
+      {
+        type: "sign",
+        sign: "Cancer",
+        headline: "Devoted and Intuitive",
+        body: "Deeply loyal to their inner circle, Cancer offers profound emotional depth, unwavering warmth and heartfelt protection.",
+      },
+      {
+        type: "sign",
+        sign: "Pisces",
+        headline: "Empathetic and Genuine",
+        body: "Guided by compassion and gentle understanding, Pisces nurtures authentic, soulful and lifelong emotional connections.",
+      },
+      {
+        type: "cta",
+        headline: "Discover more with\nAI Zodiac",
+        body: "Daily astrology, compatibility\nand zodiac insights in one app.",
+      },
+    ],
   };
 
-  const bufCover = await renderSlidePng({ slide: coverSlide, slideNumber: 1, totalSlides: 5, category: "relationships", categoryTitle: "Relationships" });
-  const bufTaurus = await renderSlidePng({ slide: taurusSlide, slideNumber: 2, totalSlides: 5, category: "personality", categoryTitle: "Personality / Top 3" });
-  const bufCta = await renderSlidePng({ slide: ctaSlide, slideNumber: 5, totalSlides: 5, category: "self_discovery", categoryTitle: "Self-Discovery" });
+  const reviewRendered = await renderCarouselSlides(reviewCarousel, { outputDir: reviewLayoutDir });
+  assert.equal(reviewRendered.length, 5);
 
-  fs.writeFileSync(path.join(reviewLayoutDir, "slide-01.png"), bufCover);
-  fs.writeFileSync(path.join(reviewLayoutDir, "slide-02.png"), bufTaurus);
-  fs.writeFileSync(path.join(reviewLayoutDir, "slide-05.png"), bufCta);
+  for (let i = 0; i < reviewRendered.length; i++) {
+    const slide = reviewRendered[i];
+    assert.equal(slide.slideNumber, i + 1);
+    assert.equal(slide.key, `social/2026/09/01/slide-0${i + 1}.png`);
+    assert.equal(slide.mimeType, "image/png");
+    assert.ok(slide.buffer.length > 50000, "PNG buffer should be substantial");
+
+    const meta = await sharp(slide.buffer).metadata();
+    assert.equal(meta.width, 1080);
+    assert.equal(meta.height, 1350);
+    assert.equal(meta.format, "png");
+  }
 
   console.log("  ✓ All 3 approved master background PNG assets verified & load to 1080x1350");
   console.log("  ✓ Zero SVG <text> elements verified across all render modules");
   console.log("  ✓ Non-overlapping vertical layout zones & minimum gaps verified");
   console.log("  ✓ Bounding-box fitting (renderTextToFit) and button text containment verified");
   console.log("  ✓ Production-like glyph test confirmed actual foreground text pixel variation in all regions");
-  console.log("  ✓ Exactly 3 fixed background review slides rendered to tmp/social-fixed-bg-review/");
+  console.log("  ✓ All 5 final review slides rendered to tmp/social-final-review/");
 }
 
 // ============================================================================
