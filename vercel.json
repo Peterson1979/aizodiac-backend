@@ -12,10 +12,6 @@
   ],
   "crons": [
     {
-      "path": "/api/cron/prepareDailySocial",
-      "schedule": "0 6 * * *"
-    },
-    {
       "path": "/api/cron/publishDailySocial",
       "schedule": "0 12 * * *"
     }
