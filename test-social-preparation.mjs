@@ -31,12 +31,20 @@ import {
   renderTitleSlideSvg,
   renderContentSlideSvg,
   renderCtaSlideSvg,
+  ZODIAC_DATA,
+  ELEMENT_ACCENTS,
+  SPACING,
+  COLORS,
+  getAdaptiveCoverTitleSize,
+  getAdaptiveHeadlineSize,
+  getAdaptiveBodySize,
 } from "./lib/social/render/templates.js";
 import {
   getSlideStorageKey,
   renderCarouselSlides,
   renderSlidePng,
   createTextLayer,
+  generateSlideAltText,
   convertSvgToPng,
   FONT_REGULAR_PATH,
   FONT_BOLD_PATH,
@@ -579,10 +587,10 @@ function createSampleAiContent(overrides = {}) {
 }
 
 // ============================================================================
-// TEST 5: Carousel Renderer - Deterministic Fontfile, Glyph Verification & Sharp PNG
+// TEST 5: Carousel Renderer - Design System, Zodiac Data, Alt Text & Glyph Verification
 // ============================================================================
 {
-  console.log("\n[TEST 5] Carousel Renderer: Bundled Fontfile, Glyph Verification & 1080x1350 PNG");
+  console.log("\n[TEST 5] Carousel Renderer: Design System, Zodiac Data, Alt Text & 1080x1350 PNG");
 
   // 1. Verify Bundled Font Files Exist on Local Filesystem
   assert.ok(fs.existsSync(FONT_REGULAR_PATH), `Regular font file must exist at ${FONT_REGULAR_PATH}`);
@@ -590,7 +598,48 @@ function createSampleAiContent(overrides = {}) {
   assert.ok(fs.statSync(FONT_REGULAR_PATH).size > 100000, "Regular font file must be a non-empty TTF font");
   assert.ok(fs.statSync(FONT_BOLD_PATH).size > 100000, "Bold font file must be a non-empty TTF font");
 
-  // 2. Text wrapping test with very long sentence
+  // 2. Verify Complete 12-Sign Zodiac Design System Data
+  const expectedSigns = [
+    "Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo",
+    "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"
+  ];
+  assert.equal(Object.keys(ZODIAC_DATA).length, 12);
+  for (const sign of expectedSigns) {
+    const data = ZODIAC_DATA[sign];
+    assert.ok(data, `ZODIAC_DATA missing sign '${sign}'`);
+    assert.equal(data.name, sign);
+    assert.ok(data.symbol && data.symbol.length > 0, `Sign '${sign}' missing symbol`);
+    assert.ok(["Fire", "Earth", "Air", "Water"].includes(data.element), `Invalid element for ${sign}`);
+    assert.ok(data.accent && data.accent.color, `Sign '${sign}' missing accent color`);
+    assert.ok(data.keywords && data.keywords.length > 0, `Sign '${sign}' missing keywords`);
+  }
+
+  // Verify Elemental Accents
+  assert.equal(ZODIAC_DATA.Aries.element, "Fire");
+  assert.equal(ZODIAC_DATA.Taurus.element, "Earth");
+  assert.equal(ZODIAC_DATA.Gemini.element, "Air");
+  assert.equal(ZODIAC_DATA.Cancer.element, "Water");
+
+  // 3. Verify Adaptive Typography Functions
+  assert.equal(getAdaptiveCoverTitleSize("Short Title"), 56);
+  assert.equal(getAdaptiveCoverTitleSize("3 Zodiac Signs That Value Deep Loyalty"), 48);
+  assert.equal(getAdaptiveCoverTitleSize("3 Zodiac Signs That Value Unshakeable Emotional Consistency"), 42);
+
+  assert.equal(getAdaptiveHeadlineSize("Short"), 48);
+  assert.equal(getAdaptiveHeadlineSize("Steady and Dependable"), 48);
+  assert.equal(getAdaptiveHeadlineSize("Extremely Long Trait Headline That Exceeds Normal Length"), 36);
+
+  // 4. Verify Meaningful Alt Text Generation
+  const altCover = generateSlideAltText({ type: "cover", headline: "3 Zodiac Signs That Value Emotional Consistency" });
+  assert.equal(altCover, "3 Zodiac Signs That Value Emotional Consistency | AI Zodiac");
+
+  const altSign = generateSlideAltText({ type: "sign", sign: "Taurus", headline: "Steady and Dependable" });
+  assert.equal(altSign, "Taurus — Steady and Dependable | AI Zodiac");
+
+  const altCta = generateSlideAltText({ type: "cta", headline: "Discover more with AI Zodiac" });
+  assert.equal(altCta, "Discover more with AI Zodiac | AI Zodiac");
+
+  // 5. Text wrapping test with very long sentence
   const longText = "This is an extraordinarily long sentence designed to test whether the SVG word wrapping algorithm safely splits sentences without ever overflowing the 900px content box margins.";
   const wrappedLines = wrapTextToLines(longText, 36);
   assert.ok(wrappedLines.length >= 4);
@@ -598,14 +647,14 @@ function createSampleAiContent(overrides = {}) {
     assert.ok(line.length <= 45, `Line exceeded safe wrapping length: ${line}`);
   });
 
-  // 3. XML escaping test
+  // 6. XML escaping test
   const dangerousText = `Signs that value "trust" & <loyalty> > everything else`;
   const escaped = escapeXml(dangerousText);
   assert.ok(!escaped.includes("<loyalty>"));
   assert.ok(escaped.includes("&amp;"));
   assert.ok(escaped.includes("&lt;loyalty&gt;"));
 
-  // 4. Production-like Glyph Rendering & Text Bounding Box Pixel Variance Verification
+  // 7. Production-like Glyph Rendering & Text Bounding Box Pixel Variance Verification
   // Test slide containing all required strings:
   // "AI Zodiac", "Taurus", "Emotional consistency", "Discover more with AI Zodiac", "Free on Google Play", "1234567890"
   const glyphTestSlide = {
@@ -655,11 +704,11 @@ function createSampleAiContent(overrides = {}) {
   // Verify Header Brand region ("AI Zodiac")
   await assertRegionHasTextGlyphs(glyphSlideBuffer, { left: 95, top: 88, width: 170, height: 26 }, "Header AI Zodiac");
   // Verify Taurus Sign Badge region ("Taurus")
-  await assertRegionHasTextGlyphs(glyphSlideBuffer, { left: 390, top: 334, width: 300, height: 36 }, "Taurus Sign Badge");
+  await assertRegionHasTextGlyphs(glyphSlideBuffer, { left: 390, top: 420, width: 300, height: 36 }, "Taurus Sign Badge");
   // Verify Headline region ("Emotional consistency")
-  await assertRegionHasTextGlyphs(glyphSlideBuffer, { left: 200, top: 460, width: 680, height: 40 }, "Headline 'Emotional consistency'");
+  await assertRegionHasTextGlyphs(glyphSlideBuffer, { left: 200, top: 520, width: 680, height: 40 }, "Headline 'Emotional consistency'");
   // Verify Body region with numbers ("1234567890")
-  await assertRegionHasTextGlyphs(glyphSlideBuffer, { left: 200, top: 670, width: 680, height: 80 }, "Body with 1234567890 numbers");
+  await assertRegionHasTextGlyphs(glyphSlideBuffer, { left: 200, top: 700, width: 680, height: 80 }, "Body with 1234567890 numbers");
 
   // Also verify CTA slide text regions ("Discover more with AI Zodiac", "Free on Google Play")
   const ctaTestSlide = {
@@ -674,34 +723,67 @@ function createSampleAiContent(overrides = {}) {
     category: "self_discovery",
     categoryTitle: "Self-Discovery",
   });
-  await assertRegionHasTextGlyphs(ctaSlideBuffer, { left: 200, top: 430, width: 680, height: 50 }, "CTA Headline 'Discover more with AI Zodiac'");
-  await assertRegionHasTextGlyphs(ctaSlideBuffer, { left: 200, top: 670, width: 680, height: 50 }, "CTA Body 'Free on Google Play'");
+  await assertRegionHasTextGlyphs(ctaSlideBuffer, { left: 220, top: 410, width: 640, height: 40 }, "CTA Headline 'Discover more with AI Zodiac'");
+  await assertRegionHasTextGlyphs(ctaSlideBuffer, { left: 240, top: 625, width: 600, height: 40 }, "CTA Body Copy");
 
-  // 5. Render 5-slide sample carousel to PNG and save to local verification directory (tmp/social-render-check/)
-  const sample = createSampleAiContent();
-  const outputDir = path.resolve("./tmp/social-render-check");
-  const rendered = await renderCarouselSlides(sample, { outputDir });
+  // 8. Render Representative 5-Slide Design Review Carousel to tmp/social-design-review/
+  const reviewCarousel = {
+    publishDate: "2026-09-01",
+    category: "personality",
+    topic: "3 Zodiac Signs That Value Emotional Consistency",
+    slides: [
+      {
+        type: "cover",
+        headline: "3 Zodiac Signs That Value Emotional Consistency",
+      },
+      {
+        type: "sign",
+        sign: "Taurus",
+        headline: "Steady and Dependable",
+        body: "Grounded and patient, Taurus builds trust through unwavering reliability and thoughtful presence.",
+      },
+      {
+        type: "sign",
+        sign: "Cancer",
+        headline: "Devoted and Intuitive",
+        body: "Deeply loyal to their inner circle, Cancer offers profound emotional depth and heartfelt protection.",
+      },
+      {
+        type: "sign",
+        sign: "Pisces",
+        headline: "Empathetic and Genuine",
+        body: "Guided by compassion and gentle understanding, Pisces nurtures authentic lifelong connections.",
+      },
+      {
+        type: "cta",
+        headline: "Discover more with AI Zodiac",
+        body: "Your zodiac insights, compatibility and daily astrology in one app.",
+      },
+    ],
+  };
 
-  assert.equal(rendered.length, 5);
+  const reviewOutputDir = path.resolve("./tmp/social-design-review");
+  const reviewRendered = await renderCarouselSlides(reviewCarousel, { outputDir: reviewOutputDir });
 
-  for (let i = 0; i < rendered.length; i++) {
-    const slide = rendered[i];
+  assert.equal(reviewRendered.length, 5);
+  for (let i = 0; i < reviewRendered.length; i++) {
+    const slide = reviewRendered[i];
     assert.equal(slide.slideNumber, i + 1);
     assert.equal(slide.key, `social/2026/09/01/slide-0${i + 1}.png`);
     assert.equal(slide.mimeType, "image/png");
     assert.ok(slide.buffer.length > 50000, "PNG buffer should be substantial");
 
-    // Verify sharp metadata
     const meta = await sharp(slide.buffer).metadata();
-    assert.equal(meta.width, 1080, "Width must be exactly 1080px");
-    assert.equal(meta.height, 1350, "Height must be exactly 1350px");
+    assert.equal(meta.width, 1080);
+    assert.equal(meta.height, 1350);
     assert.equal(meta.format, "png");
   }
 
   console.log("  ✓ Bundled Noto Sans TTF font files verified on disk");
-  console.log("  ✓ Text wrapping safely controls lines without margin overflow");
+  console.log("  ✓ All 12 zodiac configurations & element accents validated in ZODIAC_DATA");
+  console.log("  ✓ Adaptive typography and meaningful alt text generation verified");
   console.log("  ✓ Production-like glyph test confirmed actual foreground text pixel variation in all regions");
-  console.log("  ✓ All 5 carousel slides render to deterministic 1080x1350 PNG images in tmp/social-render-check/");
+  console.log("  ✓ Representative 5-slide design review rendered to tmp/social-design-review/");
 }
 
 // ============================================================================
