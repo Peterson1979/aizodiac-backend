@@ -1,0 +1,75 @@
+[
+  {
+    "date": "2026-09-01",
+    "id": "manifest_2026_09_01_virgo_overview",
+    "type": "single_image",
+    "media": [
+      {
+        "url": "https://media.example.invalid/social/2026-09-01/virgo_overview.png",
+        "altText": "Virgo Season Grounding Energy Overview",
+        "aspectRatio": "1:1"
+      }
+    ],
+    "captions": {
+      "instagram": "✨ Virgo Season Alignment: September 1, 2026 ✨\n\nTake a grounded breath and align your daily intentions with clarity and discernment.\n.\n.\n#astrology #virgoseason #dailyhoroscope #zodiacalignment #mindfulness",
+      "facebook": "✨ Today's Celestial Guidance for Virgo Season! Discover the planetary transit energies shaping your focus and clarity today: https://aizodiac.app",
+      "pinterest": {
+        "title": "Virgo Season Grounding Alignment & Daily Focus",
+        "description": "Discover today's celestial energies and planetary transit insights for Virgo season. Find daily clarity and practical alignment.",
+        "link": "https://aizodiac.app"
+      }
+    }
+  },
+  {
+    "date": "2026-09-02",
+    "id": "manifest_2026_09_02_transit_carousel",
+    "type": "carousel",
+    "media": [
+      {
+        "url": "https://media.example.invalid/social/2026-09-02/slide1.png",
+        "altText": "Mercury Transit in Virgo Slide 1",
+        "aspectRatio": "1:1"
+      },
+      {
+        "url": "https://media.example.invalid/social/2026-09-02/slide2.png",
+        "altText": "Elemental Balance Insights Slide 2",
+        "aspectRatio": "1:1"
+      },
+      {
+        "url": "https://media.example.invalid/social/2026-09-02/slide3.png",
+        "altText": "Daily Action Points Slide 3",
+        "aspectRatio": "1:1"
+      }
+    ],
+    "captions": {
+      "instagram": "✨ 3 Steps to Channel Today's Mercury Transit ✨\n\nSwipe through for practical steps to navigate today's celestial flow ➡️\n.\n.\n#astrologycarousel #mercurytransit #horoscopeguide #virgoinsights",
+      "facebook": "✨ Swipe through for 3 key insights on navigating today's astrological transits with confidence: https://aizodiac.app",
+      "pinterest": {
+        "title": "3 Steps to Master Today's Planetary Transit Energies",
+        "description": "Swipe through for comprehensive transit insights, elemental balance tips, and practical alignment guidance.",
+        "link": "https://aizodiac.app"
+      }
+    }
+  },
+  {
+    "date": "2026-09-03",
+    "id": "manifest_2026_09_03_lunar_harmony",
+    "type": "single_image",
+    "media": [
+      {
+        "url": "https://media.example.invalid/social/2026-09-03/lunar_harmony.png",
+        "altText": "Moon in Taurus Harmony Illustration",
+        "aspectRatio": "1:1"
+      }
+    ],
+    "captions": {
+      "instagram": "🌙 Moon in Taurus: Grounded Harmony ✨\n\nSavor sensory beauty and cultivate quiet stability today.\n.\n.\n#taurusmoon #lunarastrology #dailycalm #astrologywisdom",
+      "facebook": "🌙 The Moon shifts into Taurus today, bringing sensory grounding and peaceful stability. Explore your full natal chart at https://aizodiac.app",
+      "pinterest": {
+        "title": "Moon in Taurus: Cultivating Sensory Grounding and Peace",
+        "description": "Embrace the stabilizing energy of the Taurus Moon. Insights into grounding, comfort, and mindful peace.",
+        "link": "https://aizodiac.app"
+      }
+    }
+  }
+]

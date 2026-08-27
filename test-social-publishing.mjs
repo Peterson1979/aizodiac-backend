@@ -706,7 +706,7 @@ class MockRedis {
 
   console.log("  ✓ Partial success handled with complete platform fault isolation");
   console.log("  ✓ Confirmed PUBLISHED platforms strictly skipped on subsequent retry");
-  console.log("  ✓ Only failed destinations re-attempted, guaranteeing zero duplicates");
+  console.log("  ✓ Only unconfirmed/failed destinations re-attempted; ambiguous writes require reconciliation");
 }
 
 // ============================================================================
