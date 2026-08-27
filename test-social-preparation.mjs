@@ -761,8 +761,8 @@ function createSampleAiContent(overrides = {}) {
   await assertRegionHasTextGlyphs(ctaSlideBuffer, { left: 240, top: 655, width: 600, height: 50 }, "CTA Body Copy");
   await assertRegionHasTextGlyphs(ctaSlideBuffer, { left: 380, top: 852, width: 320, height: 35 }, "CTA Button Text 'DOWNLOAD FREE'");
 
-  // 9. Generate All 5 Visual Review Slides to tmp/social-final-review-v2/ (slide-01 through slide-05)
-  const reviewLayoutDir = path.resolve("./tmp/social-final-review-v2");
+  // 9. Generate All 5 Visual Review Slides to tmp/social-final-review-v3/ (slide-01 through slide-05)
+  const reviewLayoutDir = path.resolve("./tmp/social-final-review-v3");
   if (!fs.existsSync(reviewLayoutDir)) fs.mkdirSync(reviewLayoutDir, { recursive: true });
 
   const reviewCarousel = {
@@ -821,7 +821,7 @@ function createSampleAiContent(overrides = {}) {
   console.log("  ✓ Non-overlapping vertical layout zones & minimum gaps verified");
   console.log("  ✓ Bounding-box fitting (renderTextToFit) and button text containment verified");
   console.log("  ✓ Production-like glyph test confirmed actual foreground text pixel variation in all regions");
-  console.log("  ✓ All 5 final review slides rendered to tmp/social-final-review-v2/");
+  console.log("  ✓ All 5 final review slides rendered to tmp/social-final-review-v3/");
 }
 
 // ============================================================================
