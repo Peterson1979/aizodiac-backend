@@ -281,14 +281,19 @@ class MockRedis {
     metaGraphApiVersion: "v26.0",
   });
 
-  // 1. Single Image Success Flow
+  // 1. Single Image Success Flow (with Container Readiness Check)
   let createCalled = false;
   let publishCalled = false;
+  let singleReadyCalled = false;
   const mockFetchSingle = async (url, options) => {
     if (url.includes("/media_publish")) {
       publishCalled = true;
       assert.ok(options.body.includes("creation_id=ig_container_111"));
       return new Response(JSON.stringify({ id: "ig_post_999999" }), { status: 200 });
+    }
+    if (url.includes("fields=status_code")) {
+      singleReadyCalled = true;
+      return new Response(JSON.stringify({ status_code: "FINISHED", id: "ig_container_111" }), { status: 200 });
     }
     if (url.includes("/media")) {
       createCalled = true;
@@ -310,20 +315,32 @@ class MockRedis {
     manifest: singleManifest,
     config,
     fetchFn: mockFetchSingle,
+    pollOptions: { pollIntervalMs: 0, sleepFn: async () => {} },
   });
 
   assert.equal(resSingle.success, true);
   assert.equal(resSingle.status, PUBLISH_STATUS.PUBLISHED);
   assert.equal(resSingle.postId, "ig_post_999999");
   assert.equal(createCalled, true);
+  assert.equal(singleReadyCalled, true);
   assert.equal(publishCalled, true);
 
-  // 2. Carousel Success Flow (3 slides)
+  // 2. Carousel Success Flow (3 slides with child + parent readiness checks)
   let childCount = 0;
+  let childStatusChecks = 0;
   let parentCreated = false;
+  let parentStatusCheck = false;
   const mockFetchCarousel = async (url, options) => {
     if (url.includes("/media_publish")) {
       return new Response(JSON.stringify({ id: "ig_carousel_post_777" }), { status: 200 });
+    }
+    if (url.includes("fields=status_code")) {
+      if (url.includes("ig_parent_container_333")) {
+        parentStatusCheck = true;
+      } else {
+        childStatusChecks++;
+      }
+      return new Response(JSON.stringify({ status_code: "FINISHED" }), { status: 200 });
     }
     if (url.includes("/media")) {
       if (options.body.includes("media_type=CAROUSEL")) {
@@ -354,15 +371,18 @@ class MockRedis {
     manifest: carouselManifest,
     config,
     fetchFn: mockFetchCarousel,
+    pollOptions: { pollIntervalMs: 0, sleepFn: async () => {} },
   });
 
   assert.equal(resCarousel.success, true);
   assert.equal(resCarousel.status, PUBLISH_STATUS.PUBLISHED);
   assert.equal(resCarousel.postId, "ig_carousel_post_777");
   assert.equal(childCount, 3, "Should have created 3 child containers concurrently");
+  assert.equal(childStatusChecks, 3, "Should have verified readiness for all 3 child containers");
   assert.equal(parentCreated, true);
+  assert.equal(parentStatusCheck, true, "Should have verified readiness for parent carousel container");
 
-  // 3. Provider Error Preservation (Meta 400 rejection)
+  // 3. Provider Error Preservation (Meta 400 rejection on container creation)
   const mockFetchError = async () => {
     return new Response(
       JSON.stringify({
@@ -382,6 +402,7 @@ class MockRedis {
     manifest: singleManifest,
     config,
     fetchFn: mockFetchError,
+    pollOptions: { pollIntervalMs: 0, sleepFn: async () => {} },
   });
   assert.equal(resError.success, false);
   assert.equal(resError.status, PUBLISH_STATUS.FAILED);
@@ -389,10 +410,13 @@ class MockRedis {
   assert.equal(resError.error.subcode, 2207001);
   assert.equal(resError.error.fbtrace_id, "TraceId12345");
 
-  // 4. Ambiguous Post-Write Transport Failure Guard
+  // 4. Ambiguous Post-Write Transport Failure Guard (Unchanged)
   const mockFetchAmbiguous = async (url) => {
     if (url.includes("/media_publish")) {
       throw new Error("Connection reset by peer after sending publish command");
+    }
+    if (url.includes("fields=status_code")) {
+      return new Response(JSON.stringify({ status_code: "FINISHED" }), { status: 200 });
     }
     return new Response(JSON.stringify({ id: "ig_container_ambig" }), { status: 200 });
   };
@@ -401,11 +425,236 @@ class MockRedis {
     manifest: singleManifest,
     config,
     fetchFn: mockFetchAmbiguous,
+    pollOptions: { pollIntervalMs: 0, sleepFn: async () => {} },
   });
   assert.equal(resAmbig.success, false);
   assert.equal(resAmbig.status, PUBLISH_STATUS.RECONCILIATION_REQUIRED);
   assert.equal(resAmbig.reconciliationData.reason, "AMBIGUOUS_PUBLISH_TRANSPORT_FAILURE");
   assert.equal(resAmbig.containerId, "ig_container_ambig");
+
+  // 5. Explicit Readiness Scenario 1: IN_PROGRESS -> FINISHED -> publish succeeds
+  {
+    let statusChecks = 0;
+    let publishDone = false;
+    const mockFetchPollSuccess = async (url) => {
+      if (url.includes("/media_publish")) {
+        publishDone = true;
+        return new Response(JSON.stringify({ id: "ig_post_polled_101" }), { status: 200 });
+      }
+      if (url.includes("fields=status_code")) {
+        statusChecks++;
+        if (statusChecks < 3) {
+          return new Response(JSON.stringify({ status_code: "IN_PROGRESS", id: "ig_cnt_poll" }), { status: 200 });
+        }
+        return new Response(JSON.stringify({ status_code: "FINISHED", id: "ig_cnt_poll" }), { status: 200 });
+      }
+      if (url.includes("/media")) {
+        return new Response(JSON.stringify({ id: "ig_cnt_poll" }), { status: 200 });
+      }
+      return new Response("Not found", { status: 404 });
+    };
+
+    const res = await adapter.publish({
+      manifest: singleManifest,
+      config,
+      fetchFn: mockFetchPollSuccess,
+      pollOptions: { pollIntervalMs: 0, sleepFn: async () => {} },
+    });
+
+    assert.equal(res.success, true);
+    assert.equal(res.status, PUBLISH_STATUS.PUBLISHED);
+    assert.equal(res.postId, "ig_post_polled_101");
+    assert.equal(statusChecks, 3, "Must poll 2 IN_PROGRESS before reaching FINISHED");
+    assert.equal(publishDone, true);
+    console.log("  ✓ Readiness Scenario 1: IN_PROGRESS -> FINISHED -> publish succeeds");
+  }
+
+  // 6. Explicit Readiness Scenario 2: Carousel children become FINISHED before parent creation
+  {
+    const trace = [];
+    const mockFetchOrder = async (url, options) => {
+      if (url.includes("/media_publish")) {
+        trace.push("PUBLISH_CAROUSEL");
+        return new Response(JSON.stringify({ id: "ig_carousel_order_post" }), { status: 200 });
+      }
+      if (url.includes("fields=status_code")) {
+        if (url.includes("ig_parent_cnt")) {
+          trace.push("POLL_PARENT");
+        } else {
+          trace.push("POLL_CHILD");
+        }
+        return new Response(JSON.stringify({ status_code: "FINISHED" }), { status: 200 });
+      }
+      if (url.includes("/media")) {
+        if (options.body.includes("media_type=CAROUSEL")) {
+          trace.push("CREATE_PARENT");
+          return new Response(JSON.stringify({ id: "ig_parent_cnt" }), { status: 200 });
+        }
+        if (options.body.includes("is_carousel_item=true")) {
+          trace.push("CREATE_CHILD");
+          return new Response(JSON.stringify({ id: `ig_child_${trace.length}` }), { status: 200 });
+        }
+      }
+      return new Response("Not found", { status: 404 });
+    };
+
+    const res = await adapter.publish({
+      manifest: carouselManifest,
+      config,
+      fetchFn: mockFetchOrder,
+      pollOptions: { pollIntervalMs: 0, sleepFn: async () => {} },
+    });
+
+    assert.equal(res.success, true);
+    const parentCreateIdx = trace.indexOf("CREATE_PARENT");
+    assert.ok(parentCreateIdx > 0, "CREATE_PARENT must exist in trace");
+    const preParentEvents = trace.slice(0, parentCreateIdx);
+    assert.equal(preParentEvents.filter(e => e === "CREATE_CHILD").length, 3, "3 child containers created before parent");
+    assert.equal(preParentEvents.filter(e => e === "POLL_CHILD").length, 3, "3 child containers polled FINISHED before parent");
+
+    const parentPollIdx = trace.indexOf("POLL_PARENT");
+    const publishIdx = trace.indexOf("PUBLISH_CAROUSEL");
+    assert.ok(parentPollIdx > parentCreateIdx, "Parent must be polled after parent creation");
+    assert.ok(publishIdx > parentPollIdx, "Publish must occur after parent is FINISHED");
+    console.log("  ✓ Readiness Scenario 2: Carousel children become FINISHED before parent creation");
+  }
+
+  // 7. Explicit Readiness Scenario 3: Parent becomes FINISHED before media_publish
+  {
+    const singleTrace = [];
+    const mockFetchSingleTrace = async (url) => {
+      if (url.includes("/media_publish")) {
+        singleTrace.push("MEDIA_PUBLISH");
+        return new Response(JSON.stringify({ id: "ig_single_trace_post" }), { status: 200 });
+      }
+      if (url.includes("fields=status_code")) {
+        singleTrace.push("POLL_CONTAINER");
+        return new Response(JSON.stringify({ status_code: "FINISHED" }), { status: 200 });
+      }
+      if (url.includes("/media")) {
+        singleTrace.push("CREATE_CONTAINER");
+        return new Response(JSON.stringify({ id: "ig_single_cnt" }), { status: 200 });
+      }
+      return new Response("Not found", { status: 404 });
+    };
+
+    const res = await adapter.publish({
+      manifest: singleManifest,
+      config,
+      fetchFn: mockFetchSingleTrace,
+      pollOptions: { pollIntervalMs: 0, sleepFn: async () => {} },
+    });
+
+    assert.equal(res.success, true);
+    assert.deepEqual(singleTrace, ["CREATE_CONTAINER", "POLL_CONTAINER", "MEDIA_PUBLISH"]);
+    console.log("  ✓ Readiness Scenario 3: Parent container becomes FINISHED before media_publish");
+  }
+
+  // 8. Explicit Readiness Scenario 4: ERROR fails without media_publish
+  {
+    let mediaPublishHit = false;
+    const mockFetchErrorStatus = async (url) => {
+      if (url.includes("/media_publish")) {
+        mediaPublishHit = true;
+        return new Response(JSON.stringify({ id: "should_not_publish" }), { status: 200 });
+      }
+      if (url.includes("fields=status_code")) {
+        return new Response(
+          JSON.stringify({ status_code: "ERROR", status: "Media failed to process on server" }),
+          { status: 200 }
+        );
+      }
+      if (url.includes("/media")) {
+        return new Response(JSON.stringify({ id: "ig_err_cnt" }), { status: 200 });
+      }
+      return new Response("Not found", { status: 404 });
+    };
+
+    const res = await adapter.publish({
+      manifest: singleManifest,
+      config,
+      fetchFn: mockFetchErrorStatus,
+      pollOptions: { pollIntervalMs: 0, sleepFn: async () => {} },
+    });
+
+    assert.equal(res.success, false);
+    assert.equal(res.status, PUBLISH_STATUS.FAILED);
+    assert.equal(mediaPublishHit, false, "media_publish MUST NOT be called when container status is ERROR");
+    assert.ok(res.error.message.includes("Media failed to process"));
+    console.log("  ✓ Readiness Scenario 4: ERROR status fails cleanly without media_publish");
+  }
+
+  // 9. Explicit Readiness Scenario 5: EXPIRED fails without media_publish
+  {
+    let mediaPublishHitExpired = false;
+    const mockFetchExpired = async (url) => {
+      if (url.includes("/media_publish")) {
+        mediaPublishHitExpired = true;
+        return new Response(JSON.stringify({ id: "should_not_publish" }), { status: 200 });
+      }
+      if (url.includes("fields=status_code")) {
+        return new Response(
+          JSON.stringify({ status_code: "EXPIRED", status: "Container expired before publishing" }),
+          { status: 200 }
+        );
+      }
+      if (url.includes("/media")) {
+        return new Response(JSON.stringify({ id: "ig_exp_cnt" }), { status: 200 });
+      }
+      return new Response("Not found", { status: 404 });
+    };
+
+    const res = await adapter.publish({
+      manifest: singleManifest,
+      config,
+      fetchFn: mockFetchExpired,
+      pollOptions: { pollIntervalMs: 0, sleepFn: async () => {} },
+    });
+
+    assert.equal(res.success, false);
+    assert.equal(res.status, PUBLISH_STATUS.FAILED);
+    assert.equal(mediaPublishHitExpired, false, "media_publish MUST NOT be called when container status is EXPIRED");
+    assert.ok(res.error.message.includes("expired"));
+    console.log("  ✓ Readiness Scenario 5: EXPIRED status fails cleanly without media_publish");
+  }
+
+  // 10. Explicit Readiness Scenario 6: Readiness timeout fails closed without media_publish
+  {
+    let mediaPublishHitTimeout = false;
+    let timeoutAttempts = 0;
+    const mockFetchTimeout = async (url) => {
+      if (url.includes("/media_publish")) {
+        mediaPublishHitTimeout = true;
+        return new Response(JSON.stringify({ id: "should_not_publish" }), { status: 200 });
+      }
+      if (url.includes("fields=status_code")) {
+        timeoutAttempts++;
+        return new Response(JSON.stringify({ status_code: "IN_PROGRESS" }), { status: 200 });
+      }
+      if (url.includes("/media")) {
+        return new Response(JSON.stringify({ id: "ig_timeout_cnt" }), { status: 200 });
+      }
+      return new Response("Not found", { status: 404 });
+    };
+
+    const res = await adapter.publish({
+      manifest: singleManifest,
+      config,
+      fetchFn: mockFetchTimeout,
+      pollOptions: {
+        maxAttempts: 3,
+        pollIntervalMs: 0,
+        sleepFn: async () => {},
+      },
+    });
+
+    assert.equal(res.success, false);
+    assert.equal(res.status, PUBLISH_STATUS.FAILED);
+    assert.equal(mediaPublishHitTimeout, false, "media_publish MUST NOT be called on readiness timeout");
+    assert.equal(timeoutAttempts, 3, "Should poll maxAttempts times before failing closed");
+    assert.ok(res.error.message.includes("readiness timeout"));
+    console.log("  ✓ Readiness Scenario 6: Readiness timeout fails closed without media_publish");
+  }
 
   console.log("  ✓ Single image & concurrent carousel publishing verified on Graph API v26.0");
   console.log("  ✓ Meta error code/subcode/trace ID properly preserved without secret leak");
