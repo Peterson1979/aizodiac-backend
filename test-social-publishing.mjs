@@ -36,6 +36,7 @@ import { VideoAdapterStub } from "./lib/social/adapters/videoAdapter.stub.js";
 import { executeSocialPublishing } from "./lib/social/publishCoordinator.js";
 import { savePrepareState, PREPARE_STAGES } from "./lib/social/prepareStateHelper.js";
 import { QUALITY_GATE_STATUS } from "./lib/social/quality/socialQualityGate.js";
+import { DEFAULT_APP_PLAY_STORE_URL, ensureFacebookGooglePlayLink } from "./lib/social/content/dailyContentGenerator.js";
 import cronHandler from "./api/cron/publishDailySocial.js";
 import canaryHandler from "./api/cron/canarySocialPublish.js";
 
@@ -673,9 +674,12 @@ class MockRedis {
     metaPageId: "1002938472918",
   });
 
-  // Single Photo Success
+  // 1. Single Photo Success & Automatic Google Play Link Appending
+  let receivedMessage = null;
   const mockFetchFb = async (url, options) => {
     assert.ok(url.includes("/1002938472918/photos"));
+    const bodyParams = new URLSearchParams(options.body);
+    receivedMessage = bodyParams.get("message");
     return new Response(JSON.stringify({ id: "photo_123", post_id: "feed_story_456" }), { status: 200 });
   };
 
@@ -684,7 +688,15 @@ class MockRedis {
     id: "m1",
     type: MEDIA_TYPES.SINGLE_IMAGE,
     media: [{ url: "https://cdn.aizodiac.app/pic1.png" }],
-    captions: { facebook: "FB copy" },
+    captions: {
+      instagram: "Original IG Caption #astrology",
+      facebook: "FB copy without store link",
+      pinterest: {
+        title: "Original Pin Title",
+        description: "Original Pin Description",
+        link: "https://aizodiac.app",
+      },
+    },
   };
 
   const res = await adapter.publish({
@@ -696,8 +708,31 @@ class MockRedis {
   assert.equal(res.success, true);
   assert.equal(res.status, PUBLISH_STATUS.PUBLISHED);
   assert.equal(res.postId, "feed_story_456");
+  assert.ok(receivedMessage.includes(DEFAULT_APP_PLAY_STORE_URL), "Facebook message must contain mandatory Google Play URL");
+  assert.equal(receivedMessage, `FB copy without store link\n\n${DEFAULT_APP_PLAY_STORE_URL}`);
+  assert.equal(singleManifest.captions.instagram, "Original IG Caption #astrology", "Instagram caption must remain unaffected");
+  assert.equal(singleManifest.captions.pinterest.title, "Original Pin Title", "Pinterest caption must remain unaffected");
 
-  // Ambiguous write handling
+  // 2. Facebook Post with Pre-existing Google Play Link (No Duplication)
+  const manifestWithLink = {
+    ...singleManifest,
+    captions: {
+      ...singleManifest.captions,
+      facebook: `Check this out! Download: ${DEFAULT_APP_PLAY_STORE_URL}`,
+    },
+  };
+
+  await adapter.publish({
+    manifest: manifestWithLink,
+    config,
+    fetchFn: mockFetchFb,
+  });
+
+  assert.equal(receivedMessage, `Check this out! Download: ${DEFAULT_APP_PLAY_STORE_URL}`, "Must not duplicate existing Google Play URL");
+  const linkOccurrences = receivedMessage.split(DEFAULT_APP_PLAY_STORE_URL).length - 1;
+  assert.equal(linkOccurrences, 1, "Must contain exactly 1 occurrence of Google Play URL");
+
+  // 3. Ambiguous write handling
   const mockFetchFbAmbig = async () => {
     throw new Error("ETIMEDOUT while waiting for Facebook Page confirmation");
   };
@@ -711,6 +746,8 @@ class MockRedis {
   assert.equal(resAmbig.status, PUBLISH_STATUS.RECONCILIATION_REQUIRED);
 
   console.log("  ✓ Facebook single photo publishing confirmed with post_id capture");
+  console.log("  ✓ Facebook caption deterministically includes Google Play URL without duplication");
+  console.log("  ✓ Instagram and Pinterest captions remain completely unaffected");
   console.log("  ✓ Facebook network timeout flagged as RECONCILIATION_REQUIRED");
 }
 
@@ -1014,12 +1051,118 @@ class MockRedis {
   assert.equal(jsonResponse.action, "tokenHealth");
   assert.ok(jsonResponse.configView);
 
+  // 3. canarySocialPublish single platform execution (Facebook PUBLISHED -> outer success=true, status=PUBLISHED)
+  const canaryRedis = new MockRedis();
+  const canaryDate = "2026-08-28";
+  const canaryManifest = {
+    date: canaryDate,
+    id: `social-${canaryDate}`,
+    type: MEDIA_TYPES.CAROUSEL,
+    media: [
+      { url: "https://cdn.aizodiac.app/s1.png", altText: "Slide 1 | AI Zodiac" },
+      { url: "https://cdn.aizodiac.app/s2.png", altText: "Slide 2 | AI Zodiac" },
+      { url: "https://cdn.aizodiac.app/s3.png", altText: "Slide 3 | AI Zodiac" },
+      { url: "https://cdn.aizodiac.app/s4.png", altText: "Slide 4 | AI Zodiac" },
+      { url: "https://cdn.aizodiac.app/s5.png", altText: "Slide 5 | AI Zodiac" },
+    ],
+    metadata: {
+      qualityGate: QUALITY_GATE_STATUS.PASS,
+    },
+    captions: {
+      instagram: "Canary IG caption #aizodiac",
+      facebook: `Canary FB caption\n\n${DEFAULT_APP_PLAY_STORE_URL}`,
+      pinterest: {
+        title: "Canary Pin Title",
+        description: "Canary Pin Description",
+        link: DEFAULT_APP_PLAY_STORE_URL,
+      },
+    },
+  };
+
+  // Seed Redis with manifest and QUALITY_GATE_PASS prepare state
+  await canaryRedis.set(`aiz:social:manifest:${canaryDate}`, JSON.stringify(canaryManifest));
+  await savePrepareState(canaryRedis, canaryDate, {
+    stage: PREPARE_STAGES.QUALITY_GATE_PASS,
+  });
+
+  // Inject Facebook adapter mock via executeSocialPublishing directly or canaryHandler
+  const canaryResSuccess = await executeSocialPublishing({
+    redis: canaryRedis,
+    targetDate: canaryDate,
+    platforms: ["facebook"],
+    isCanary: true,
+    adapters: {
+      [PLATFORMS.FACEBOOK]: {
+        publish: async () => ({
+          success: true,
+          status: PUBLISH_STATUS.PUBLISHED,
+          postId: "canary_fb_post_999",
+          publishedAt: new Date().toISOString(),
+          error: null,
+        }),
+        sanitizeError: (err) => ({ message: String(err) }),
+      },
+    },
+  });
+
+  assert.equal(canaryResSuccess.success, true, "Single requested platform PUBLISHED must yield outer success=true");
+  assert.equal(canaryResSuccess.status, PUBLISH_STATUS.PUBLISHED, "Single requested platform PUBLISHED must yield outer status=PUBLISHED");
+  assert.equal(canaryResSuccess.results.facebook.status, PUBLISH_STATUS.PUBLISHED);
+
+  // 4. canarySocialPublish single platform failure -> outer success=false, status=FAILED
+  const canaryResFail = await executeSocialPublishing({
+    redis: canaryRedis,
+    targetDate: "2026-08-29",
+    manifest: { ...canaryManifest, date: "2026-08-29", id: "social-2026-08-29" },
+    platforms: ["instagram"],
+    isCanary: true,
+    adapters: {
+      [PLATFORMS.INSTAGRAM]: {
+        publish: async () => ({
+          success: false,
+          status: PUBLISH_STATUS.FAILED,
+          error: { message: "Instagram container timed out" },
+        }),
+        sanitizeError: (err) => ({ message: String(err) }),
+      },
+    },
+  });
+  // Note: 2026-08-29 has no prep state in Redis so it will be QUALITY_GATE_BLOCKED
+  assert.equal(canaryResFail.success, false);
+  assert.equal(canaryResFail.status, "QUALITY_GATE_BLOCKED");
+
+  // With valid QUALITY_GATE_PASS state but adapter failure:
+  await savePrepareState(canaryRedis, "2026-08-29", {
+    stage: PREPARE_STAGES.QUALITY_GATE_PASS,
+  });
+  const canaryResAdapterFail = await executeSocialPublishing({
+    redis: canaryRedis,
+    targetDate: "2026-08-29",
+    manifest: { ...canaryManifest, date: "2026-08-29", id: "social-2026-08-29" },
+    platforms: ["instagram"],
+    isCanary: true,
+    adapters: {
+      [PLATFORMS.INSTAGRAM]: {
+        publish: async () => ({
+          success: false,
+          status: PUBLISH_STATUS.FAILED,
+          error: { message: "Instagram container timed out" },
+        }),
+        sanitizeError: (err) => ({ message: String(err) }),
+      },
+    },
+  });
+  assert.equal(canaryResAdapterFail.success, false, "Failed canary platform must yield outer success=false");
+  assert.equal(canaryResAdapterFail.status, PUBLISH_STATUS.FAILED, "Failed canary platform must yield outer status=FAILED");
+
   // Clean up test env
   delete process.env.CRON_SECRET;
   delete process.env.SOCIAL_AUTO_PUBLISH_ENABLED;
 
   console.log("  ✓ publishDailySocial cron endpoint enforces CRON_SECRET and fail-closed kill-switch");
   console.log("  ✓ canarySocialPublish endpoint supports authenticated diagnostic inspection");
+  console.log("  ✓ canary outer success/status correctly reflects single-platform PUBLISHED result");
+  console.log("  ✓ failed/blocked canary states strictly remain fail-closed non-success");
 }
 
 // ============================================================================

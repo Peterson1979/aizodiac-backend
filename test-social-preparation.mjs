@@ -22,6 +22,7 @@ import {
   generateDailySocialContent,
   VALID_ZODIAC_SIGNS,
   DEFAULT_APP_PLAY_STORE_URL,
+  ensureFacebookGooglePlayLink,
 } from "./lib/social/content/dailyContentGenerator.js";
 import { getSocialConfig } from "./lib/social/config.js";
 import {
@@ -628,9 +629,25 @@ function createSampleAiContent(overrides = {}) {
   assert.equal(scopeMismatchIg.valid, false);
   assert.ok(scopeMismatchIg.errors.some(e => e.includes("scope-mismatch")));
 
-  // 2. Deterministic Assembly & Canonical Validation
+  // 2. Google Play Link Helper Determinism
+  assert.equal(ensureFacebookGooglePlayLink(""), DEFAULT_APP_PLAY_STORE_URL);
+  assert.equal(
+    ensureFacebookGooglePlayLink("Daily Zodiac insights for Taurus and Scorpio!"),
+    `Daily Zodiac insights for Taurus and Scorpio!\n\n${DEFAULT_APP_PLAY_STORE_URL}`
+  );
+  assert.equal(
+    ensureFacebookGooglePlayLink(`Already has link: ${DEFAULT_APP_PLAY_STORE_URL}`),
+    `Already has link: ${DEFAULT_APP_PLAY_STORE_URL}`
+  );
+
+  // 3. Deterministic Assembly & Canonical Validation
+  const creativeWithoutLink = {
+    ...validCreative,
+    facebookCaption: "Loyalty runs deep in these 3 zodiac signs. Do you agree?",
+  };
+
   const canonical = assembleCanonicalSocialContent({
-    creative: validCreative,
+    creative: creativeWithoutLink,
     publishDate: "2026-09-01",
     category: "personality",
   });
@@ -647,17 +664,35 @@ function createSampleAiContent(overrides = {}) {
   assert.equal(canonical.slides[4].headline, "Discover more with AI Zodiac");
   assert.equal(canonical.slides[4].body, "Free on Google Play");
 
+  // Mandatory Facebook Google Play link guaranteed
+  assert.ok(canonical.facebookCaption.includes(DEFAULT_APP_PLAY_STORE_URL));
+  assert.equal(
+    canonical.facebookCaption,
+    `Loyalty runs deep in these 3 zodiac signs. Do you agree?\n\n${DEFAULT_APP_PLAY_STORE_URL}`
+  );
+  // Instagram & Pinterest captions unaffected
+  assert.equal(canonical.instagramCaption, validCreative.instagramCaption);
+  assert.equal(canonical.pinterestTitle, validCreative.pinterestTitle);
+  assert.equal(canonical.pinterestDescription, validCreative.pinterestDescription);
+
   const canonicalCheck = validateSocialContent(canonical);
   assert.equal(canonicalCheck.valid, true);
+
+  // Rejects canonical if facebookCaption does not contain Google Play link
+  const canonicalNoLink = {
+    ...canonical,
+    facebookCaption: "Caption without Google Play link",
+  };
+  const checkNoLink = validateSocialContent(canonicalNoLink);
+  assert.equal(checkNoLink.valid, false);
+  assert.ok(checkNoLink.errors.some(e => e.includes("mandatory Google Play link")));
 
   console.log("  ✓ SOCIAL_AI_CREATIVE_SCHEMA satisfies all strict Groq Structured Outputs requirements");
   console.log("  ✓ Creative output validator enforces 3 items, valid signs, required headlines != sign, and no hashtags");
   console.log("  ✓ Placeholder content and Unicode replacement characters strictly rejected");
   console.log("  ✓ Scope mismatch language (every zodiac, all elements, etc.) strictly rejected");
   console.log("  ✓ Deterministic assembly builds canonical 5-slide object with guaranteed metadata");
-  console.log("  ✓ Resulting canonical object passes validateSocialContent");
-  console.log("  ✓ Scope mismatch language (every zodiac, all elements, etc.) strictly rejected");
-  console.log("  ✓ Deterministic assembly builds canonical 5-slide object with guaranteed metadata");
+  console.log("  ✓ Facebook caption deterministically enforced with Google Play URL (IG & Pinterest unaffected)");
   console.log("  ✓ Resulting canonical object passes validateSocialContent");
 }
 
@@ -1397,7 +1432,20 @@ function createSampleAiContent(overrides = {}) {
   assert.equal(badDimGate.passed, false);
   assert.ok(badDimGate.errors.some(e => e.includes("Render set must contain exactly 5 slides")));
 
+  // 4. Reject if manifest.captions.facebook lacks Google Play link
+  const badFbManifest = {
+    ...validManifest,
+    captions: {
+      ...validManifest.captions,
+      facebook: "Manifest caption without Google Play link",
+    },
+  };
+  const badFbGate = await evaluateQualityGate({ manifest: badFbManifest });
+  assert.equal(badFbGate.passed, false);
+  assert.ok(badFbGate.errors.some(e => e.includes("mandatory Google Play link")));
+
   console.log("  ✓ evaluateQualityGate returns QUALITY_GATE_PASS for valid end-to-end package");
+  console.log("  ✓ Facebook caption Google Play link strictly enforced by Quality Gate");
   console.log("  ✓ Alt-text length and branding rules strictly enforced on manifest");
   console.log("  ✓ Render dimension and buffer validation catches malformed images");
 }
@@ -1764,7 +1812,7 @@ function createSampleAiContent(overrides = {}) {
       },
     ],
     instagramCaption: "Do you do your best thinking at midnight? 🌙✨ Gemini, Virgo, and Pisces thrive in the quiet hours. Explore your cosmic archetype with AI Zodiac. #astrology #zodiac #horoscope #aizodiac",
-    facebookCaption: "Midnight thinkers of the zodiac: Gemini, Virgo, and Pisces! Discover personalized insights with AI Zodiac on Google Play.",
+    facebookCaption: ensureFacebookGooglePlayLink("Midnight thinkers of the zodiac: Gemini, Virgo, and Pisces! Discover personalized insights with AI Zodiac on Google Play."),
     pinterestTitle: "3 Zodiac Signs That Are Midnight Thinkers | AI Zodiac",
     pinterestDescription: "Discover why Gemini, Virgo, and Pisces do their deepest thinking late at night. Download AI Zodiac free.",
     pinterestLink: DEFAULT_APP_PLAY_STORE_URL,
