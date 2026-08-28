@@ -2,6 +2,7 @@
 import { Redis } from "@upstash/redis";
 import { executeSocialPublishing } from "../../lib/social/publishCoordinator.js";
 import { getSocialConfig, redactSecrets } from "../../lib/social/config.js";
+import { PLATFORMS } from "../../lib/social/types.js";
 
 export const maxDuration = 60;
 
@@ -50,11 +51,12 @@ export default async function handler(req, res) {
     });
   }
 
-  // 3. Execute Social Publishing Pipeline
+  // 3. Execute Social Publishing Pipeline (Production cron targets Instagram & Facebook only)
   try {
     const redis = getRedisClient();
     const result = await executeSocialPublishing({
       redis,
+      platforms: [PLATFORMS.INSTAGRAM, PLATFORMS.FACEBOOK],
       isCanary: false,
       dryRun: false,
     });
