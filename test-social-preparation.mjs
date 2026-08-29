@@ -843,6 +843,7 @@ function createSampleAiContent(overrides = {}) {
   async function assertRegionHasTextGlyphs(buffer, cropRect, regionName) {
     const rawPixels = await sharp(buffer)
       .extract(cropRect)
+      .ensureAlpha()
       .raw()
       .toBuffer();
 
@@ -955,7 +956,44 @@ function createSampleAiContent(overrides = {}) {
 }
 
 // ============================================================================
-// TEST 6: Cloudflare R2 Upload Mocking, Deterministic Keys & Public URLs
+// TEST 6: Actual Production Render Regression Fixture
+// ============================================================================
+{
+  console.log("\n[TEST 6] Actual Production Render Regression Fixture");
+  const reviewDir = path.resolve("./tmp/social-production-regression-review");
+  const regressionCarousel = {
+    publishDate: "2026-08-29",
+    category: "personality",
+    topic: "Top 3 Most Naturally Witty Zodiac Signs",
+    slides: [
+      { type: "cover", headline: "Top 3 Most Naturally Witty Zodiac Signs" },
+      { type: "sign", sign: "Gemini", headline: "Wordplay Wizards", body: "Gemini turns quick observations into clever, memorable moments." },
+      { type: "sign", sign: "Libra", headline: "Charm & Quips", body: "Libra keeps every conversation bright, balanced and effortlessly funny." },
+      { type: "sign", sign: "Aquarius", headline: "Future-Funky Gags", body: "Aquarius brings an original angle and a delightfully unexpected punchline." },
+      { type: "cta", headline: "Discover more with AI Zodiac", body: "Daily astrology, compatibility and zodiac insights in one app." },
+    ],
+  };
+  const rendered = await renderCarouselSlides(regressionCarousel, { outputDir: reviewDir });
+  assert.deepEqual(rendered.slice(1, 4).map(s => [s.sign, regressionCarousel.slides[s.slideNumber - 1].headline]), [
+    ["Gemini", "Wordplay Wizards"], ["Libra", "Charm & Quips"], ["Aquarius", "Future-Funky Gags"],
+  ]);
+  for (const slideNumber of [2, 3, 4]) {
+    const meta = await sharp(rendered[slideNumber - 1].buffer).metadata();
+    assert.equal(meta.width, 1080);
+    assert.equal(meta.height, 1350);
+    const emblemPixels = await sharp(rendered[slideNumber - 1].buffer).extract({ left: 450, top: 165, width: 180, height: 180 }).raw().toBuffer();
+    assert.ok(emblemPixels.some((value, index) => index % 4 < 3 && value > 160), "Actual feature renderer must composite a visible vector emblem");
+  }
+  const arrowPixels = await sharp(rendered[0].buffer).extract({ left: 680, top: 1160, width: 80, height: 60 }).raw().toBuffer();
+  assert.ok(arrowPixels.some((value, index) => index % 4 < 3 && value > 160), "Actual cover renderer must composite the vector swipe arrow");
+  assert.ok(!fs.readFileSync(path.resolve("./lib/social/render/zodiacVectors.js"), "utf8").match(/[→➜➤›»]/), "Vector helper must not contain Unicode arrows");
+  for (let i = 1; i <= 5; i++) assert.ok(fs.existsSync(path.join(reviewDir, `slide-0${i}.png`)));
+  console.log("  ✓ Actual production renderer binds distinct sign/headline values and composites emblem/arrow vectors");
+  console.log("  ✓ Review package written to tmp/social-production-regression-review/");
+}
+
+// ============================================================================
+// TEST 7: Cloudflare R2 Upload Mocking, Deterministic Keys & Public URLs
 // ============================================================================
 {
   console.log("\n[TEST 6] Cloudflare R2 Transport (Mocked, Deterministic Keys)");
@@ -1044,6 +1082,7 @@ function createSampleAiContent(overrides = {}) {
         link: "https://play.google.com/store/apps/details?id=com.oberon.aizodiac",
       },
     },
+    metadata: { source: "manual_override" },
   };
 
   await redis.set(`aiz:social:manifest:${date}`, JSON.stringify(manualManifest));
@@ -1179,7 +1218,45 @@ function createSampleAiContent(overrides = {}) {
 }
 
 // ============================================================================
-// TEST 10: Dry-Run Mode Performs Zero Writes
+// TEST 10: Legacy Manifest Recovery & Valid Package Idempotency
+// ============================================================================
+{
+  console.log("\n[TEST 10] Legacy Manifest Recovery & Valid Package Idempotency");
+  const date = "2026-09-04";
+  const redis = new MockRedis();
+  const mockS3 = new MockS3Client();
+  const cachedContent = createSampleAiContent({ publishDate: date, contentId: `social-${date}` });
+  const legacyManifest = {
+    date,
+    id: `social-${date}`,
+    type: MEDIA_TYPES.CAROUSEL,
+    media: [{ url: "https://pub.r2.dev/old-1.png" }, { url: "https://pub.r2.dev/old-2.png" }],
+    captions: { instagram: "legacy", facebook: "legacy", pinterest: { title: "legacy", description: "legacy", link: DEFAULT_APP_PLAY_STORE_URL } },
+  };
+  await redis.set(`aiz:social:manifest:${date}`, JSON.stringify(legacyManifest));
+  await savePrepareState(redis, date, { publishDate: date, stage: PREPARE_STAGES.MANIFEST_READY, generatedContent: cachedContent });
+  let aiCalls = 0;
+  const recovered = await executeDailyPreparation({
+    redis, targetDate: date, generateFn: async () => { aiCalls++; return cachedContent; }, s3Client: mockS3,
+  });
+  assert.equal(recovered.status, QUALITY_GATE_STATUS.PASS);
+  assert.equal(aiCalls, 0, "Legacy manifest recovery should reuse sufficient current generated content");
+  assert.equal((await getPrepareState(redis, date)).stage, PREPARE_STAGES.QUALITY_GATE_PASS);
+
+  const validDate = "2026-09-05";
+  const validRedis = new MockRedis();
+  const validContent = createSampleAiContent({ publishDate: validDate, contentId: `social-${validDate}` });
+  await savePrepareState(validRedis, validDate, { publishDate: validDate, stage: PREPARE_STAGES.QUALITY_GATE_PASS, manifest: { metadata: { qualityGate: QUALITY_GATE_STATUS.PASS } } });
+  await validRedis.set(`aiz:social:manifest:${validDate}`, JSON.stringify({ ...legacyManifest, date: validDate, id: `social-${validDate}`, metadata: { qualityGate: QUALITY_GATE_STATUS.PASS } }));
+  let validAiCalls = 0;
+  const reused = await executeDailyPreparation({ redis: validRedis, targetDate: validDate, generateFn: async () => { validAiCalls++; return validContent; } });
+  assert.equal(reused.source, "generated_existing");
+  assert.equal(validAiCalls, 0);
+  console.log("  ✓ Legacy MANIFEST_READY data re-enters current validation and valid PASS packages are reused");
+}
+
+// ============================================================================
+// TEST 11: Dry-Run Mode Performs Zero Writes
 // ============================================================================
 {
   console.log("\n[TEST 10] Dry-Run Mode Performs Zero Writes");
