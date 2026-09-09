@@ -2,6 +2,12 @@
 import assert from "node:assert/strict";
 import {
   PLATFORMS,
+  ALL_PLATFORMS,
+  DESTINATIONS,
+  ALL_DESTINATIONS,
+  ALL_CONFIGURED_DESTINATIONS,
+  canonicalizeDestination,
+  canonicalizeDestinations,
   PUBLISH_STATUS,
   MEDIA_TYPES,
   createDefaultPostState,
@@ -33,7 +39,7 @@ import { InstagramAdapter } from "./lib/social/adapters/instagramAdapter.js";
 import { FacebookAdapter } from "./lib/social/adapters/facebookAdapter.js";
 import { PinterestAdapter } from "./lib/social/adapters/pinterestAdapter.js";
 import { VideoAdapterStub } from "./lib/social/adapters/videoAdapter.stub.js";
-import { executeSocialPublishing } from "./lib/social/publishCoordinator.js";
+import { executeSocialPublishing, createDefaultAdapters } from "./lib/social/publishCoordinator.js";
 import { savePrepareState, PREPARE_STAGES } from "./lib/social/prepareStateHelper.js";
 import { QUALITY_GATE_STATUS } from "./lib/social/quality/socialQualityGate.js";
 import { DEFAULT_APP_PLAY_STORE_URL, ensureFacebookGooglePlayLink } from "./lib/social/content/dailyContentGenerator.js";
@@ -97,10 +103,10 @@ class MockRedis {
 }
 
 // ============================================================================
-// TEST 1: Config Validation & Secret Redaction
+// TEST 1: Config Validation & Secret Redaction (Primary + LifeMode)
 // ============================================================================
 {
-  console.log("\n[TEST 1] Configuration Validation & Secret Redaction");
+  console.log("\n[TEST 1] Configuration Validation & Secret Redaction (Primary + LifeMode)");
 
   const emptyConfig = getSocialConfig({});
   const validation = validateSocialConfig(emptyConfig);
@@ -111,27 +117,33 @@ class MockRedis {
     metaPageAccessToken: "EAAB_test_token_12345",
     metaPageId: "1002938472918",
     instagramAccountId: "17841400123456789",
+    lifemodeMetaPageAccessToken: "EAAB_lifemode_token_67890",
+    lifemodeMetaPageId: "2009876543210",
+    lifemodeInstagramAccountId: "17841400987654321",
     pinterestAccessToken: "pina_test_access_token_123",
     pinterestRefreshToken: "pinr_test_refresh_token_456",
     pinterestBoardId: "9876543210",
   });
-  const validCheck = validateSocialConfig(validConfig);
-  assert.equal(validCheck.valid, true, "Fully populated config should pass validation");
+  const validCheck = validateSocialConfig(validConfig, ALL_CONFIGURED_DESTINATIONS);
+  assert.equal(validCheck.valid, true, "Fully populated multi-destination config should pass validation");
 
-  // Secret redaction test
-  const rawSecretString = "Error with EAAB1234567890abcdef and pina_secret999 and Bearer my_cron_secret";
+  // Secret redaction test covering LifeMode and primary tokens
+  const rawSecretString = "Error with EAAB1234567890abcdef and EAAB_lifemode_token_67890 and pina_secret999 and Bearer my_cron_secret";
   const redactedString = redactSecrets(rawSecretString);
-  assert.ok(!redactedString.includes("EAAB1234567890abcdef"), "Meta token must be redacted");
+  assert.ok(!redactedString.includes("EAAB1234567890abcdef"), "Primary Meta token must be redacted");
+  assert.ok(!redactedString.includes("EAAB_lifemode_token_67890"), "LifeMode Meta token must be redacted");
   assert.ok(!redactedString.includes("pina_secret999"), "Pinterest token must be redacted");
   assert.ok(!redactedString.includes("my_cron_secret"), "Bearer auth must be redacted");
 
   const secretObj = {
     metaPageAccessToken: "EAABsecret",
+    lifemodeMetaPageAccessToken: "EAABlifemodesecret",
     cronSecret: "super_secret_cron",
     nested: { password: "pass", status: "OK", token: "xyz" },
   };
   const redactedObj = redactSecrets(secretObj);
   assert.equal(redactedObj.metaPageAccessToken, "[REDACTED]");
+  assert.equal(redactedObj.lifemodeMetaPageAccessToken, "[REDACTED]");
   assert.equal(redactedObj.cronSecret, "[REDACTED]");
   assert.equal(redactedObj.nested.password, "[REDACTED]");
   assert.equal(redactedObj.nested.token, "[REDACTED]");
@@ -139,11 +151,16 @@ class MockRedis {
 
   const sanitizedView = getSanitizedConfigView(validConfig);
   assert.equal(sanitizedView.metaTokenConfigured, true);
+  assert.equal(sanitizedView.lifemodeMetaTokenConfigured, true);
   assert.equal(sanitizedView.pinterestTokenConfigured, true);
-  assert.ok(sanitizedView.metaPageId.startsWith("***"), "Page ID should be masked");
+  assert.ok(sanitizedView.metaPageId.startsWith("***"), "Primary Page ID should be masked");
+  assert.ok(sanitizedView.lifemodeMetaPageId.startsWith("***"), "LifeMode Page ID should be masked");
+  assert.ok(sanitizedView.instagramAccountId.startsWith("***"), "Primary IG Account ID should be masked");
+  assert.ok(sanitizedView.lifemodeInstagramAccountId.startsWith("***"), "LifeMode IG Account ID should be masked");
 
-  console.log("  ✓ Config validation properly enforces required platform keys");
-  console.log("  ✓ Secret redaction reliably scrubs tokens from strings and deep objects");
+  console.log("  ✓ Config validation properly enforces required destination keys for Primary and LifeMode");
+  console.log("  ✓ Secret redaction reliably scrubs primary and LifeMode tokens from strings and deep objects");
+  console.log("  ✓ Sanitized diagnostic view properly masks LifeMode IDs");
 }
 
 // ============================================================================
@@ -1382,6 +1399,475 @@ class MockRedis {
   }
 }
 
+// ============================================================================
+// TEST 11: Multi-Destination Extension (AI Zodiac + LifeMode Comprehensive Matrix)
+// ============================================================================
+{
+  console.log("\n[TEST 11] Multi-Destination Extension (AI Zodiac + LifeMode Matrix)");
+
+  const multiConfig = getSocialConfig({
+    autoPublishEnabled: true,
+    metaPageAccessToken: "EAAB_primary_token",
+    metaPageId: "primary_fb_123",
+    instagramAccountId: "primary_ig_456",
+    lifemodeMetaPageAccessToken: "EAAB_lifemode_token",
+    lifemodeMetaPageId: "lifemode_fb_789",
+    lifemodeInstagramAccountId: "lifemode_ig_012",
+  });
+
+  const createManifest = (date) => ({
+    date,
+    id: `social-${date}`,
+    type: MEDIA_TYPES.CAROUSEL,
+    media: [
+      { url: "https://pub.aizodiac.app/slide1.png" },
+      { url: "https://pub.aizodiac.app/slide2.png" },
+    ],
+    metadata: {
+      qualityGate: QUALITY_GATE_STATUS.PASS,
+    },
+    captions: {
+      instagram: "Multi-destination IG copy",
+      facebook: "Multi-destination FB copy https://play.google.com/store/apps/details?id=com.oberon.aizodiac",
+      pinterest: {
+        title: "Multi-destination Pin",
+        description: "Multi-destination Pin Description",
+        link: "https://play.google.com/store/apps/details?id=com.oberon.aizodiac",
+      },
+    },
+  });
+
+  // Scenario 1: All four Meta destinations succeed
+  {
+    const date = "2026-10-01";
+    const redis = new MockRedis();
+    await savePrepareState(redis, date, { publishDate: date, stage: PREPARE_STAGES.QUALITY_GATE_PASS });
+    const manifest = createManifest(date);
+
+    const callCounts = {
+      [DESTINATIONS.INSTAGRAM_PRIMARY]: 0,
+      [DESTINATIONS.FACEBOOK_PRIMARY]: 0,
+      [DESTINATIONS.INSTAGRAM_SECONDARY]: 0,
+      [DESTINATIONS.FACEBOOK_SECONDARY]: 0,
+    };
+
+    const adapters = {
+      [DESTINATIONS.INSTAGRAM_PRIMARY]: {
+        publish: async () => {
+          callCounts[DESTINATIONS.INSTAGRAM_PRIMARY]++;
+          return { success: true, status: PUBLISH_STATUS.PUBLISHED, postId: "post_ig_prim_1" };
+        },
+      },
+      [DESTINATIONS.FACEBOOK_PRIMARY]: {
+        publish: async () => {
+          callCounts[DESTINATIONS.FACEBOOK_PRIMARY]++;
+          return { success: true, status: PUBLISH_STATUS.PUBLISHED, postId: "post_fb_prim_1" };
+        },
+      },
+      [DESTINATIONS.INSTAGRAM_SECONDARY]: {
+        publish: async () => {
+          callCounts[DESTINATIONS.INSTAGRAM_SECONDARY]++;
+          return { success: true, status: PUBLISH_STATUS.PUBLISHED, postId: "post_ig_sec_1" };
+        },
+      },
+      [DESTINATIONS.FACEBOOK_SECONDARY]: {
+        publish: async () => {
+          callCounts[DESTINATIONS.FACEBOOK_SECONDARY]++;
+          return { success: true, status: PUBLISH_STATUS.PUBLISHED, postId: "post_fb_sec_1" };
+        },
+      },
+    };
+
+    const res = await executeSocialPublishing({
+      redis,
+      config: multiConfig,
+      targetDate: date,
+      manifest,
+      adapters,
+      platforms: ALL_DESTINATIONS,
+    });
+
+    assert.equal(res.success, true);
+    assert.equal(res.status, PUBLISH_STATUS.PUBLISHED);
+    assert.equal(res.results[DESTINATIONS.INSTAGRAM_PRIMARY].postId, "post_ig_prim_1");
+    assert.equal(res.results[DESTINATIONS.FACEBOOK_PRIMARY].postId, "post_fb_prim_1");
+    assert.equal(res.results[DESTINATIONS.INSTAGRAM_SECONDARY].postId, "post_ig_sec_1");
+    assert.equal(res.results[DESTINATIONS.FACEBOOK_SECONDARY].postId, "post_fb_sec_1");
+
+    assert.equal(callCounts[DESTINATIONS.INSTAGRAM_PRIMARY], 1);
+    assert.equal(callCounts[DESTINATIONS.FACEBOOK_PRIMARY], 1);
+    assert.equal(callCounts[DESTINATIONS.INSTAGRAM_SECONDARY], 1);
+    assert.equal(callCounts[DESTINATIONS.FACEBOOK_SECONDARY], 1);
+
+    const postState = await getPostState(redis, date);
+    assert.equal(postState.platforms[DESTINATIONS.INSTAGRAM_PRIMARY].status, PUBLISH_STATUS.PUBLISHED);
+    assert.equal(postState.platforms[DESTINATIONS.FACEBOOK_PRIMARY].status, PUBLISH_STATUS.PUBLISHED);
+    assert.equal(postState.platforms[DESTINATIONS.INSTAGRAM_SECONDARY].status, PUBLISH_STATUS.PUBLISHED);
+    assert.equal(postState.platforms[DESTINATIONS.FACEBOOK_SECONDARY].status, PUBLISH_STATUS.PUBLISHED);
+    assert.equal(postState.overallStatus, PUBLISH_STATUS.PUBLISHED);
+
+    console.log("  ✓ Scenario 1: All four Meta destinations succeed with independent states & post IDs");
+  }
+
+  // Scenario 2: Primary-only configuration (LifeMode credentials omitted)
+  {
+    const date = "2026-10-02";
+    const redis = new MockRedis();
+    await savePrepareState(redis, date, { publishDate: date, stage: PREPARE_STAGES.QUALITY_GATE_PASS });
+    const manifest = createManifest(date);
+
+    const primaryOnlyConfig = getSocialConfig({
+      autoPublishEnabled: true,
+      metaPageAccessToken: "EAAB_primary_token",
+      metaPageId: "primary_fb_123",
+      instagramAccountId: "primary_ig_456",
+      // LifeMode omitted
+    });
+
+    let primaryIgCalled = 0;
+    let primaryFbCalled = 0;
+
+    const adapters = {
+      [DESTINATIONS.INSTAGRAM_PRIMARY]: {
+        publish: async () => {
+          primaryIgCalled++;
+          return { success: true, status: PUBLISH_STATUS.PUBLISHED, postId: "prim_ig_only" };
+        },
+      },
+      [DESTINATIONS.FACEBOOK_PRIMARY]: {
+        publish: async () => {
+          primaryFbCalled++;
+          return { success: true, status: PUBLISH_STATUS.PUBLISHED, postId: "prim_fb_only" };
+        },
+      },
+    };
+
+    const res = await executeSocialPublishing({
+      redis,
+      config: primaryOnlyConfig,
+      targetDate: date,
+      manifest,
+      adapters,
+      platforms: [DESTINATIONS.INSTAGRAM_PRIMARY, DESTINATIONS.FACEBOOK_PRIMARY],
+    });
+
+    assert.equal(res.success, true);
+    assert.equal(res.status, PUBLISH_STATUS.PUBLISHED);
+    assert.equal(primaryIgCalled, 1);
+    assert.equal(primaryFbCalled, 1);
+    console.log("  ✓ Scenario 2: Primary-only configuration publishes cleanly without LifeMode requirement");
+  }
+
+  // Scenario 3: Targeted secondary execution
+  {
+    const date = "2026-10-03";
+    const redis = new MockRedis();
+    await savePrepareState(redis, date, { publishDate: date, stage: PREPARE_STAGES.QUALITY_GATE_PASS });
+    const manifest = createManifest(date);
+
+    let primCalled = 0;
+    let secCalled = 0;
+
+    const adapters = {
+      [DESTINATIONS.FACEBOOK_PRIMARY]: {
+        publish: async () => {
+          primCalled++;
+          return { success: true, status: PUBLISH_STATUS.PUBLISHED, postId: "prim_fb" };
+        },
+      },
+      [DESTINATIONS.FACEBOOK_SECONDARY]: {
+        publish: async () => {
+          secCalled++;
+          return { success: true, status: PUBLISH_STATUS.PUBLISHED, postId: "sec_fb" };
+        },
+      },
+    };
+
+    const res = await executeSocialPublishing({
+      redis,
+      config: multiConfig,
+      targetDate: date,
+      manifest,
+      adapters,
+      platforms: [DESTINATIONS.FACEBOOK_SECONDARY],
+    });
+
+    assert.equal(res.success, true);
+    assert.equal(secCalled, 1);
+    assert.equal(primCalled, 0, "Primary Facebook MUST NOT have received provider writes in targeted secondary run");
+    console.log("  ✓ Scenario 3: Targeted secondary execution isolates writes to requested secondary destination");
+  }
+
+  // Scenario 4 & 5: Partial Success & Retry after partial failure
+  {
+    const date = "2026-10-04";
+    const redis = new MockRedis();
+    await savePrepareState(redis, date, { publishDate: date, stage: PREPARE_STAGES.QUALITY_GATE_PASS });
+    const manifest = createManifest(date);
+
+    const callCounts = {
+      [DESTINATIONS.INSTAGRAM_PRIMARY]: 0,
+      [DESTINATIONS.FACEBOOK_PRIMARY]: 0,
+      [DESTINATIONS.INSTAGRAM_SECONDARY]: 0,
+      [DESTINATIONS.FACEBOOK_SECONDARY]: 0,
+    };
+
+    const adapters = {
+      [DESTINATIONS.INSTAGRAM_PRIMARY]: {
+        publish: async () => {
+          callCounts[DESTINATIONS.INSTAGRAM_PRIMARY]++;
+          return { success: true, status: PUBLISH_STATUS.PUBLISHED, postId: "ig_p_1" };
+        },
+      },
+      [DESTINATIONS.FACEBOOK_PRIMARY]: {
+        publish: async () => {
+          callCounts[DESTINATIONS.FACEBOOK_PRIMARY]++;
+          return { success: true, status: PUBLISH_STATUS.PUBLISHED, postId: "fb_p_1" };
+        },
+      },
+      [DESTINATIONS.INSTAGRAM_SECONDARY]: {
+        publish: async () => {
+          callCounts[DESTINATIONS.INSTAGRAM_SECONDARY]++;
+          return { success: true, status: PUBLISH_STATUS.PUBLISHED, postId: "ig_s_1" };
+        },
+      },
+      [DESTINATIONS.FACEBOOK_SECONDARY]: {
+        publish: async () => {
+          callCounts[DESTINATIONS.FACEBOOK_SECONDARY]++;
+          return { success: false, status: PUBLISH_STATUS.FAILED, error: { message: "LifeMode FB Graph API rate limit", status: 500 } };
+        },
+      },
+    };
+
+    // Run 1: Initial partial failure
+    const run1 = await executeSocialPublishing({
+      redis,
+      config: multiConfig,
+      targetDate: date,
+      manifest,
+      adapters,
+      platforms: ALL_DESTINATIONS,
+    });
+
+    assert.equal(run1.success, true);
+    assert.equal(run1.status, "PARTIAL_SUCCESS");
+    assert.equal(run1.results[DESTINATIONS.FACEBOOK_PRIMARY].status, PUBLISH_STATUS.PUBLISHED);
+    assert.equal(run1.results[DESTINATIONS.INSTAGRAM_PRIMARY].status, PUBLISH_STATUS.PUBLISHED);
+    assert.equal(run1.results[DESTINATIONS.INSTAGRAM_SECONDARY].status, PUBLISH_STATUS.PUBLISHED);
+    assert.equal(run1.results[DESTINATIONS.FACEBOOK_SECONDARY].status, PUBLISH_STATUS.FAILED);
+
+    assert.equal(callCounts[DESTINATIONS.FACEBOOK_PRIMARY], 1);
+    assert.equal(callCounts[DESTINATIONS.INSTAGRAM_PRIMARY], 1);
+    assert.equal(callCounts[DESTINATIONS.INSTAGRAM_SECONDARY], 1);
+    assert.equal(callCounts[DESTINATIONS.FACEBOOK_SECONDARY], 1);
+    console.log("  ✓ Scenario 4: Partial success records exact per-destination state with overall PARTIAL_SUCCESS");
+
+    // Run 2: Second attempt (Retry after fixing LifeMode FB)
+    adapters[DESTINATIONS.FACEBOOK_SECONDARY] = {
+      publish: async () => {
+        callCounts[DESTINATIONS.FACEBOOK_SECONDARY]++;
+        return { success: true, status: PUBLISH_STATUS.PUBLISHED, postId: "fb_s_retry_1" };
+      },
+    };
+
+    const run2 = await executeSocialPublishing({
+      redis,
+      config: multiConfig,
+      targetDate: date,
+      manifest,
+      adapters,
+      platforms: ALL_DESTINATIONS,
+    });
+
+    assert.equal(run2.success, true);
+    assert.equal(run2.status, PUBLISH_STATUS.PUBLISHED);
+    assert.equal(run2.skipped[DESTINATIONS.FACEBOOK_PRIMARY].reason, "ALREADY_PUBLISHED");
+    assert.equal(run2.skipped[DESTINATIONS.INSTAGRAM_PRIMARY].reason, "ALREADY_PUBLISHED");
+    assert.equal(run2.skipped[DESTINATIONS.INSTAGRAM_SECONDARY].reason, "ALREADY_PUBLISHED");
+    assert.equal(run2.results[DESTINATIONS.FACEBOOK_SECONDARY].status, PUBLISH_STATUS.PUBLISHED);
+
+    // CRITICAL IDEMPOTENCY CHECK:
+    assert.equal(callCounts[DESTINATIONS.FACEBOOK_PRIMARY], 1, "Primary Facebook MUST NOT be called again on retry!");
+    assert.equal(callCounts[DESTINATIONS.INSTAGRAM_PRIMARY], 1, "Primary Instagram MUST NOT be called again on retry!");
+    assert.equal(callCounts[DESTINATIONS.INSTAGRAM_SECONDARY], 1, "Secondary Instagram MUST NOT be called again on retry!");
+    assert.equal(callCounts[DESTINATIONS.FACEBOOK_SECONDARY], 2, "Secondary Facebook was the ONLY destination retried!");
+
+    const postStateAfterRetry = await getPostState(redis, date);
+    assert.equal(postStateAfterRetry.platforms[DESTINATIONS.FACEBOOK_PRIMARY].postId, "fb_p_1");
+    assert.equal(postStateAfterRetry.platforms[DESTINATIONS.INSTAGRAM_PRIMARY].postId, "ig_p_1");
+    assert.equal(postStateAfterRetry.platforms[DESTINATIONS.INSTAGRAM_SECONDARY].postId, "ig_s_1");
+    assert.equal(postStateAfterRetry.platforms[DESTINATIONS.FACEBOOK_SECONDARY].postId, "fb_s_retry_1");
+    assert.equal(postStateAfterRetry.overallStatus, PUBLISH_STATUS.PUBLISHED);
+
+    console.log("  ✓ Scenario 5: Retry after partial failure re-attempts ONLY the failed destination without duplicating successful primary/secondary publications");
+
+    // Scenario 6: All destinations already published
+    const run3 = await executeSocialPublishing({
+      redis,
+      config: multiConfig,
+      targetDate: date,
+      manifest,
+      adapters,
+      platforms: ALL_DESTINATIONS,
+    });
+
+    assert.equal(run3.success, true);
+    assert.equal(run3.status, "ALL_PLATFORMS_SKIPPED");
+    assert.equal(callCounts[DESTINATIONS.FACEBOOK_PRIMARY], 1);
+    assert.equal(callCounts[DESTINATIONS.INSTAGRAM_PRIMARY], 1);
+    assert.equal(callCounts[DESTINATIONS.INSTAGRAM_SECONDARY], 1);
+    assert.equal(callCounts[DESTINATIONS.FACEBOOK_SECONDARY], 2);
+    console.log("  ✓ Scenario 6: Repeated run on completely published date skips all destinations with 0 writes");
+  }
+
+  // Scenario 7: Ambiguous secondary write guard
+  {
+    const date = "2026-10-05";
+    const redis = new MockRedis();
+    await savePrepareState(redis, date, { publishDate: date, stage: PREPARE_STAGES.QUALITY_GATE_PASS });
+    const manifest = createManifest(date);
+
+    let secIgCalls = 0;
+    const adapters = {
+      [DESTINATIONS.INSTAGRAM_SECONDARY]: {
+        publish: async () => {
+          secIgCalls++;
+          return {
+            success: false,
+            status: PUBLISH_STATUS.RECONCILIATION_REQUIRED,
+            error: { message: "Network socket dropped during media_publish" },
+            reconciliationData: { containerId: "cnt_ambiguous_99" },
+          };
+        },
+      },
+    };
+
+    const res = await executeSocialPublishing({
+      redis,
+      config: multiConfig,
+      targetDate: date,
+      manifest,
+      adapters,
+      platforms: [DESTINATIONS.INSTAGRAM_SECONDARY],
+    });
+
+    assert.equal(res.status, PUBLISH_STATUS.RECONCILIATION_REQUIRED);
+
+    // Subsequent retry must be blocked
+    const retryRes = await executeSocialPublishing({
+      redis,
+      config: multiConfig,
+      targetDate: date,
+      manifest,
+      adapters,
+      platforms: [DESTINATIONS.INSTAGRAM_SECONDARY],
+    });
+
+    assert.equal(retryRes.status, "ALL_PLATFORMS_SKIPPED");
+    assert.equal(retryRes.skipped[DESTINATIONS.INSTAGRAM_SECONDARY].status, PUBLISH_STATUS.RECONCILIATION_REQUIRED);
+    assert.equal(secIgCalls, 1, "Ambiguous write MUST NOT be automatically retried without reconciliation");
+    console.log("  ✓ Scenario 7: Ambiguous transport failure on secondary destination sets RECONCILIATION_REQUIRED and blocks automatic duplication");
+  }
+
+  // Scenario 8: Invalid LifeMode credentials
+  {
+    const date = "2026-10-06";
+    const redis = new MockRedis();
+    await savePrepareState(redis, date, { publishDate: date, stage: PREPARE_STAGES.QUALITY_GATE_PASS });
+    const manifest = createManifest(date);
+
+    const adapters = {
+      [DESTINATIONS.FACEBOOK_PRIMARY]: {
+        publish: async () => ({ success: true, status: PUBLISH_STATUS.PUBLISHED, postId: "fb_p_valid" }),
+      },
+      [DESTINATIONS.FACEBOOK_SECONDARY]: {
+        publish: async () => ({ success: false, status: PUBLISH_STATUS.AUTH_FAILED, error: { message: "Invalid OAuth token for LifeMode Page", status: 401 } }),
+      },
+    };
+
+    const res = await executeSocialPublishing({
+      redis,
+      config: multiConfig,
+      targetDate: date,
+      manifest,
+      adapters,
+      platforms: [DESTINATIONS.FACEBOOK_PRIMARY, DESTINATIONS.FACEBOOK_SECONDARY],
+    });
+
+    assert.equal(res.results[DESTINATIONS.FACEBOOK_PRIMARY].status, PUBLISH_STATUS.PUBLISHED);
+    assert.equal(res.results[DESTINATIONS.FACEBOOK_SECONDARY].status, PUBLISH_STATUS.AUTH_FAILED);
+    console.log("  ✓ Scenario 8: LifeMode auth failure is completely isolated from Primary success");
+  }
+
+  // Scenario 9: Backward compatibility with legacy platform names
+  {
+    const date = "2026-10-07";
+    const redis = new MockRedis();
+    await savePrepareState(redis, date, { publishDate: date, stage: PREPARE_STAGES.QUALITY_GATE_PASS });
+    const manifest = createManifest(date);
+
+    let primIgCalls = 0;
+    let primFbCalls = 0;
+
+    const adapters = {
+      [DESTINATIONS.INSTAGRAM_PRIMARY]: {
+        publish: async () => {
+          primIgCalls++;
+          return { success: true, status: PUBLISH_STATUS.PUBLISHED, postId: "legacy_ig" };
+        },
+      },
+      [DESTINATIONS.FACEBOOK_PRIMARY]: {
+        publish: async () => {
+          primFbCalls++;
+          return { success: true, status: PUBLISH_STATUS.PUBLISHED, postId: "legacy_fb" };
+        },
+      },
+    };
+
+    const res = await executeSocialPublishing({
+      redis,
+      config: multiConfig,
+      targetDate: date,
+      manifest,
+      adapters,
+      platforms: ["instagram", "facebook"], // Legacy platform names
+    });
+
+    assert.equal(res.success, true);
+    assert.equal(primIgCalls, 1);
+    assert.equal(primFbCalls, 1);
+
+    const state = await getPostState(redis, date);
+    assert.equal(state.platforms[DESTINATIONS.INSTAGRAM_PRIMARY].status, PUBLISH_STATUS.PUBLISHED);
+    assert.equal(state.platforms[DESTINATIONS.FACEBOOK_PRIMARY].status, PUBLISH_STATUS.PUBLISHED);
+    console.log("  ✓ Scenario 9: Legacy platform names (instagram, facebook) map cleanly to primary destinations");
+  }
+
+  // Scenario 10: Concurrent execution safety with date lock
+  {
+    const date = "2026-10-08";
+    const redis = new MockRedis();
+    await savePrepareState(redis, date, { publishDate: date, stage: PREPARE_STAGES.QUALITY_GATE_PASS });
+    const manifest = createManifest(date);
+
+    // Pre-acquire lock to simulate in-flight execution
+    await acquireDistributedLock(redis, date);
+
+    const res = await executeSocialPublishing({
+      redis,
+      config: multiConfig,
+      targetDate: date,
+      manifest,
+      platforms: ALL_DESTINATIONS,
+    });
+
+    assert.equal(res.success, false);
+    assert.equal(res.status, "LOCK_CONTENTION");
+    console.log("  ✓ Scenario 10: Date-level distributed Redis lock prevents concurrent social runs");
+  }
+}
+
 console.log("\n==================================================");
 console.log("ALL SOCIAL PUBLISHING TESTS PASSED SUCCESSFULLY! 🎉");
 console.log("==================================================");
+

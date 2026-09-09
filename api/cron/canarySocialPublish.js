@@ -3,7 +3,15 @@ import { Redis } from "@upstash/redis";
 import { executeSocialPublishing, createDefaultAdapters } from "../../lib/social/publishCoordinator.js";
 import { getSocialConfig, getSanitizedConfigView, redactSecrets } from "../../lib/social/config.js";
 import { getPinterestTokenState } from "../../lib/social/stateHelper.js";
-import { PLATFORMS, ALL_PLATFORMS } from "../../lib/social/types.js";
+import {
+  PLATFORMS,
+  ALL_PLATFORMS,
+  DESTINATIONS,
+  ALL_DESTINATIONS,
+  ALL_CONFIGURED_DESTINATIONS,
+  canonicalizeDestination,
+  canonicalizeDestinations,
+} from "../../lib/social/types.js";
 
 export const maxDuration = 60;
 
@@ -47,11 +55,11 @@ export default async function handler(req, res) {
       const adapters = createDefaultAdapters();
       const healthResults = {};
 
-      for (const platform of ALL_PLATFORMS) {
-        const adapter = adapters[platform];
+      for (const destination of ALL_CONFIGURED_DESTINATIONS) {
+        const adapter = adapters[destination];
         if (adapter && typeof adapter.checkHealth === "function") {
           const health = await adapter.checkHealth({ config, redis });
-          healthResults[platform] = {
+          healthResults[destination] = {
             healthy: health.healthy,
             details: health.details || null,
             error: health.error ? redactSecrets(health.error) : null,
@@ -75,6 +83,7 @@ export default async function handler(req, res) {
         action: "tokenHealth",
         configView: getSanitizedConfigView(config),
         platforms: healthResults,
+        destinations: healthResults,
         pinterestTokenInfo: pinTokenInfo,
         timestamp: new Date().toISOString(),
       });
@@ -89,11 +98,12 @@ export default async function handler(req, res) {
   // 3. Handle Publishing / Dry-Run Invocations
   const isDryRun = query.dryRun === "true" || query.dryRun === true;
   const targetDate = query.date ? String(query.date).trim() : null;
-  const requestedPlatform = query.platform ? String(query.platform).trim().toLowerCase() : null;
+  const requestedParam = query.destination || query.platform;
+  const requestedDestination = requestedParam ? String(requestedParam).trim().toLowerCase() : null;
 
-  const platforms = requestedPlatform && ALL_PLATFORMS.includes(requestedPlatform)
-    ? [requestedPlatform]
-    : ALL_PLATFORMS;
+  const platforms = requestedDestination
+    ? [canonicalizeDestination(requestedDestination)]
+    : ALL_DESTINATIONS;
 
   try {
     const result = await executeSocialPublishing({
@@ -114,3 +124,4 @@ export default async function handler(req, res) {
     });
   }
 }
+
