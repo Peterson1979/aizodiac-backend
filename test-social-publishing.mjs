@@ -762,10 +762,84 @@ class MockRedis {
   assert.equal(resAmbig.success, false);
   assert.equal(resAmbig.status, PUBLISH_STATUS.RECONCILIATION_REQUIRED);
 
+  // 4. LifeMode System User Token -> Page Access Token Resolution & Carousel Publishing
+  const secondaryAdapter = new FacebookAdapter({
+    destinationKey: "facebook_secondary",
+    getPageId: (c) => c.lifemodeMetaPageId,
+    getAccessToken: (c) => c.lifemodeMetaPageAccessToken,
+  });
+
+  const secondaryConfig = getSocialConfig({
+    metaPageAccessToken: "EAAB_primary_page_token",
+    metaPageId: "1000599443130047",
+    lifemodeMetaPageAccessToken: "EAAB_system_user_token",
+    lifemodeMetaPageId: "226949230493910",
+  });
+
+  const carouselManifest = {
+    date: "2026-08-31",
+    id: "m_carousel",
+    type: MEDIA_TYPES.CAROUSEL,
+    media: [
+      { url: "https://pub.dev/slide1.png" },
+      { url: "https://pub.dev/slide2.png" },
+    ],
+    captions: {
+      facebook: "LifeMode Astrology Post",
+    },
+  };
+
+  const tokensUsedInCalls = [];
+  const mockFetchSecondary = async (url, options) => {
+    // Identity & Page Token Resolution
+    if (url.includes("/226949230493910?fields=id,name,access_token")) {
+      assert.ok(url.includes("access_token=EAAB_system_user_token"), "Must query Graph API using configured System User token");
+      return new Response(JSON.stringify({
+        id: "226949230493910",
+        name: "LifeMode",
+        access_token: "EAAB_resolved_page_token_999",
+      }), { status: 200 });
+    }
+
+    // Photo uploads
+    if (url.includes("/226949230493910/photos")) {
+      const bodyParams = new URLSearchParams(options.body);
+      const usedToken = bodyParams.get("access_token");
+      tokensUsedInCalls.push(usedToken);
+      assert.equal(bodyParams.get("published"), "false");
+      assert.equal(usedToken, "EAAB_resolved_page_token_999", "Unpublished photo upload MUST use resolved Page Access Token, NOT System User token");
+      return new Response(JSON.stringify({ id: `photo_${tokensUsedInCalls.length}` }), { status: 200 });
+    }
+
+    // Feed post
+    if (url.includes("/226949230493910/feed")) {
+      const bodyParams = new URLSearchParams(options.body);
+      const usedToken = bodyParams.get("access_token");
+      tokensUsedInCalls.push(usedToken);
+      assert.equal(usedToken, "EAAB_resolved_page_token_999", "Feed post MUST use resolved Page Access Token");
+      return new Response(JSON.stringify({ id: "226949230493910_feed_99999" }), { status: 200 });
+    }
+
+    throw new Error(`Unexpected URL in mockFetchSecondary: ${url}`);
+  };
+
+  const resSec = await secondaryAdapter.publish({
+    manifest: carouselManifest,
+    config: secondaryConfig,
+    fetchFn: mockFetchSecondary,
+  });
+
+  assert.equal(resSec.success, true);
+  assert.equal(resSec.status, PUBLISH_STATUS.PUBLISHED);
+  assert.equal(resSec.postId, "226949230493910_feed_99999");
+  assert.equal(tokensUsedInCalls.length, 3, "2 photo uploads + 1 feed post");
+  assert.ok(tokensUsedInCalls.every(t => t === "EAAB_resolved_page_token_999"));
+
   console.log("  ✓ Facebook single photo publishing confirmed with post_id capture");
   console.log("  ✓ Facebook caption deterministically includes Google Play URL without duplication");
   console.log("  ✓ Instagram and Pinterest captions remain completely unaffected");
   console.log("  ✓ Facebook network timeout flagged as RECONCILIATION_REQUIRED");
+  console.log("  ✓ LifeMode System User Token properly resolves to Page Access Token for unpublished photo uploads");
 }
 
 // ============================================================================
