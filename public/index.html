@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Zodiac — Personalized Horoscope &amp; Astrology Insights</title>
+  <meta name="description" content="AI Zodiac is a mobile astrology and zodiac app providing personalized horoscopes, ascendant calculations, Chinese zodiac, numerology, love compatibility, and astrological guidance.">
+  <link rel="canonical" href="https://aizodiac-backend-new.vercel.app/">
+
+  <!-- Open Graph / Social Media Meta -->
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://aizodiac-backend-new.vercel.app/">
+  <meta property="og:title" content="AI Zodiac — Personalized Horoscope &amp; Astrology Insights">
+  <meta property="og:description" content="Discover personalized daily horoscopes, ascendant calculations, Chinese zodiac, numerology, and love compatibility with AI Zodiac for Android.">
+  <meta property="og:site_name" content="AI Zodiac">
+
+  <style>
+    :root {
+      --bg-color: #0f111a;
+      --card-bg: #181b28;
+      --card-border: #2e344e;
+      --card-hover-border: #4f46e5;
+      --text-color: #e2e8f0;
+      --heading-color: #f8fafc;
+      --muted-color: #94a3b8;
+      --accent-color: #7c3aed;
+      --accent-light: #a78bfa;
+      --accent-gradient: linear-gradient(135deg, #7c3aed 0%, #3b82f6 100%);
+      --btn-bg: #7c3aed;
+      --btn-hover: #6d28d9;
+      --btn-text: #ffffff;
+      --border-color: #2e344e;
+      --link-color: #a78bfa;
+      --link-hover: #c4b5fd;
+      --shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+    }
+
+    @media (prefers-color-scheme: light) {
+      :root {
+        --bg-color: #f8fafc;
+        --card-bg: #ffffff;
+        --card-border: #e2e8f0;
+        --card-hover-border: #7c3aed;
+        --text-color: #334155;
+        --heading-color: #0f172a;
+        --muted-color: #64748b;
+        --accent-color: #6d28d9;
+        --accent-light: #7c3aed;
+        --accent-gradient: linear-gradient(135deg, #6d28d9 0%, #2563eb 100%);
+        --btn-bg: #6d28d9;
+        --btn-hover: #5b21b6;
+        --btn-text: #ffffff;
+        --border-color: #e2e8f0;
+        --link-color: #6d28d9;
+        --link-hover: #4c1d95;
+        --shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+      }
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      line-height: 1.65;
+      padding: 0;
+      margin: 0;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .container {
+      max-width: 1040px;
+      margin: 0 auto;
+      padding: 0 1.5rem;
+    }
+
+    /* Navigation */
+    header {
+      border-bottom: 1px solid var(--border-color);
+      background-color: var(--bg-color);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      backdrop-filter: blur(8px);
+    }
+
+    nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1rem 0;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--heading-color);
+      text-decoration: none;
+      letter-spacing: -0.02em;
+    }
+
+    .brand-icon {
+      width: 28px;
+      height: 28px;
+      fill: var(--accent-light);
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 1.25rem;
+      list-style: none;
+    }
+
+    .nav-links a {
+      color: var(--muted-color);
+      text-decoration: none;
+      font-size: 0.95rem;
+      font-weight: 500;
+      transition: color 0.2s ease;
+    }
+
+    .nav-links a:hover {
+      color: var(--heading-color);
+    }
+
+    /* Hero Section */
+    .hero {
+      padding: 4.5rem 0 3rem;
+      text-align: center;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.35rem 0.85rem;
+      border-radius: 9999px;
+      background-color: var(--card-bg);
+      border: 1px solid var(--card-border);
+      color: var(--accent-light);
+      font-size: 0.85rem;
+      font-weight: 600;
+      margin-bottom: 1.5rem;
+    }
+
+    .hero h1 {
+      font-size: clamp(2.2rem, 5vw, 3.4rem);
+      font-weight: 800;
+      color: var(--heading-color);
+      line-height: 1.15;
+      letter-spacing: -0.03em;
+      margin-bottom: 1.25rem;
+    }
+
+    .hero h1 .gradient-text {
+      background: var(--accent-gradient);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .hero p {
+      font-size: 1.15rem;
+      color: var(--muted-color);
+      max-width: 680px;
+      margin: 0 auto 2.25rem;
+      line-height: 1.7;
+    }
+
+    .hero-actions {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.6rem;
+      padding: 0.85rem 1.6rem;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 600;
+      text-decoration: none;
+      transition: all 0.2s ease;
+      cursor: pointer;
+    }
+
+    .btn-primary {
+      background: var(--btn-bg);
+      color: var(--btn-text);
+      box-shadow: 0 4px 14px rgba(124, 58, 237, 0.35);
+    }
+
+    .btn-primary:hover {
+      background: var(--btn-hover);
+      transform: translateY(-1px);
+    }
+
+    .btn-secondary {
+      background-color: var(--card-bg);
+      color: var(--heading-color);
+      border: 1px solid var(--card-border);
+    }
+
+    .btn-secondary:hover {
+      border-color: var(--accent-light);
+      color: var(--accent-light);
+    }
+
+    .btn-icon {
+      width: 20px;
+      height: 20px;
+      fill: currentColor;
+    }
+
+    /* Features Section */
+    .section {
+      padding: 4rem 0;
+    }
+
+    .section-header {
+      text-align: center;
+      max-width: 640px;
+      margin: 0 auto 3rem;
+    }
+
+    .section-header h2 {
+      font-size: 2rem;
+      color: var(--heading-color);
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 0.75rem;
+    }
+
+    .section-header p {
+      color: var(--muted-color);
+      font-size: 1.05rem;
+    }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+      gap: 1.25rem;
+    }
+
+    .feature-card {
+      background-color: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 1.5rem;
+      transition: border-color 0.2s ease, transform 0.2s ease;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .feature-card:hover {
+      border-color: var(--card-hover-border);
+      transform: translateY(-2px);
+    }
+
+    .feature-icon-wrapper {
+      width: 44px;
+      height: 44px;
+      border-radius: 8px;
+      background: rgba(124, 58, 237, 0.12);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 1rem;
+    }
+
+    .feature-icon {
+      width: 22px;
+      height: 22px;
+      fill: var(--accent-light);
+    }
+
+    .feature-card h3 {
+      font-size: 1.15rem;
+      font-weight: 600;
+      color: var(--heading-color);
+      margin-bottom: 0.5rem;
+    }
+
+    .feature-card p {
+      color: var(--muted-color);
+      font-size: 0.92rem;
+      line-height: 1.55;
+    }
+
+    /* Privacy & Architecture Highlight */
+    .highlight-card {
+      background-color: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 2.25rem;
+      margin: 1rem 0;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .highlight-card h3 {
+      font-size: 1.35rem;
+      color: var(--heading-color);
+      font-weight: 600;
+    }
+
+    .highlight-card p {
+      color: var(--muted-color);
+      font-size: 0.98rem;
+    }
+
+    .highlight-points {
+      list-style: none;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 0.75rem;
+      margin: 0.5rem 0;
+    }
+
+    .highlight-points li {
+      color: var(--text-color);
+      font-size: 0.92rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .highlight-points li::before {
+      content: "✓";
+      color: var(--accent-light);
+      font-weight: 700;
+    }
+
+    /* CTA Banner */
+    .cta-banner {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 3rem 2rem;
+      text-align: center;
+      margin: 3rem 0;
+      box-shadow: var(--shadow);
+    }
+
+    .cta-banner h2 {
+      font-size: 1.85rem;
+      color: var(--heading-color);
+      margin-bottom: 0.75rem;
+    }
+
+    .cta-banner p {
+      color: var(--muted-color);
+      max-width: 540px;
+      margin: 0 auto 1.75rem;
+      font-size: 1rem;
+    }
+
+    /* Footer */
+    footer {
+      border-top: 1px solid var(--border-color);
+      padding: 2.5rem 0;
+      margin-top: 3rem;
+      text-align: center;
+      font-size: 0.9rem;
+      color: var(--muted-color);
+    }
+
+    .footer-links {
+      display: flex;
+      justify-content: center;
+      gap: 1.5rem;
+      margin-bottom: 1rem;
+      list-style: none;
+    }
+
+    .footer-links a {
+      color: var(--link-color);
+      text-decoration: none;
+    }
+
+    .footer-links a:hover {
+      color: var(--link-hover);
+      text-decoration: underline;
+    }
+
+    @media (max-width: 640px) {
+      .hero {
+        padding: 3rem 0 2rem;
+      }
+      .nav-links {
+        gap: 0.85rem;
+      }
+      .highlight-card {
+        padding: 1.5rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="container">
+      <nav>
+        <a href="/" class="brand">
+          <svg class="brand-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 2L14.3 8.7L21 11L14.3 13.3L12 20L9.7 13.3L3 11L9.7 8.7L12 2Z"/>
+          </svg>
+          <span>AI Zodiac</span>
+        </a>
+        <ul class="nav-links">
+          <li><a href="#features">Features</a></li>
+          <li><a href="/privacy-policy">Privacy Policy</a></li>
+          <li><a href="https://play.google.com/store/apps/details?id=com.oberon.aizodiac" target="_blank" rel="noopener noreferrer">Get App</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <!-- Hero -->
+    <section class="hero">
+      <div class="container">
+        <div class="badge">
+          <span>✨ Mobile Astrology &amp; Celestial Insights</span>
+        </div>
+        <h1>Personalized Astrology Powered by <span class="gradient-text">AI Zodiac</span></h1>
+        <p>
+          AI Zodiac is a mobile astrology application providing personalized horoscope calculations, natal interpretations, and celestial guidance directly on your Android device.
+        </p>
+        <div class="hero-actions">
+          <a href="https://play.google.com/store/apps/details?id=com.oberon.aizodiac" class="btn btn-primary" target="_blank" rel="noopener noreferrer">
+            <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M3.609 1.814L13.792 12 3.61 22.186a2.38 2.38 0 0 1-.61-.735V2.55c.18-.286.39-.536.61-.736zm11.24 11.24l2.58 2.58-12.04 6.95 9.46-9.53zm0-2.108L5.39 1.417l12.04 6.95-2.58 2.58zM18.8 11.21l3.18 1.83a1.59 1.59 0 0 1 0 2.76l-3.18 1.83-2.11-2.11 2.11-2.31z"/>
+            </svg>
+            <span>Get on Google Play</span>
+          </a>
+          <a href="/privacy-policy" class="btn btn-secondary">
+            <span>Privacy Policy</span>
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <!-- Features -->
+    <section class="section" id="features">
+      <div class="container">
+        <div class="section-header">
+          <h2>Comprehensive Astrological Features</h2>
+          <p>Explore a full suite of personalized astrology and horoscope tools built into AI Zodiac.</p>
+        </div>
+
+        <div class="features-grid">
+          <!-- 1. Daily Horoscope -->
+          <article class="feature-card">
+            <div class="feature-icon-wrapper">
+              <svg class="feature-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="12" cy="12" r="5"/>
+                <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+              </svg>
+            </div>
+            <h3>Daily Horoscope</h3>
+            <p>Daily astrological guidance and forecasts tailored to your zodiac sign, covering emotional balance, focus areas, and daily energy.</p>
+          </article>
+
+          <!-- 2. Personal Horoscope -->
+          <article class="feature-card">
+            <div class="feature-icon-wrapper">
+              <svg class="feature-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 2a5 5 0 1 0 5 5 5 5 0 0 0-5-5zm0 12c-4.42 0-8 2.24-8 5v3h16v-3c0-2.76-3.58-5-8-5z"/>
+              </svg>
+            </div>
+            <h3>Personal Horoscope</h3>
+            <p>In-depth personal readings calculated from your birth profile, examining planetary alignments across distinct life periods.</p>
+          </article>
+
+          <!-- 3. Ascendant -->
+          <article class="feature-card">
+            <div class="feature-icon-wrapper">
+              <svg class="feature-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 3L2 12h3v8h6v-6h2v6h6v-8h3L12 3z"/>
+              </svg>
+            </div>
+            <h3>Ascendant</h3>
+            <p>Precise Rising Sign calculations based on your exact birth time, city, and geographic coordinates to reveal your outward persona.</p>
+          </article>
+
+          <!-- 4. Chinese Horoscope -->
+          <article class="feature-card">
+            <div class="feature-icon-wrapper">
+              <svg class="feature-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+              </svg>
+            </div>
+            <h3>Chinese Horoscope</h3>
+            <p>Chinese zodiac animal sign insights, element analysis (Wood, Fire, Earth, Metal, Water), and lunar cycle influences.</p>
+          </article>
+
+          <!-- 5. Numerology -->
+          <article class="feature-card">
+            <div class="feature-icon-wrapper">
+              <svg class="feature-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 14h-2v-4H8v-2h2V9h2v2h2v2h-2v4z"/>
+              </svg>
+            </div>
+            <h3>Numerology</h3>
+            <p>Life Path number calculations and name vibration analysis revealing core personality attributes and recurring life themes.</p>
+          </article>
+
+          <!-- 6. Love Compatibility -->
+          <article class="feature-card">
+            <div class="feature-icon-wrapper">
+              <svg class="feature-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+              </svg>
+            </div>
+            <h3>Love Compatibility</h3>
+            <p>Detailed synastry comparisons between zodiac signs and birth profiles, highlighting relational strengths and harmony points.</p>
+          </article>
+
+          <!-- 7. Personal Astro Calendar -->
+          <article class="feature-card">
+            <div class="feature-icon-wrapper">
+              <svg class="feature-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V10h14v10zm0-12H5V6h14v2z"/>
+              </svg>
+            </div>
+            <h3>Personal Astro Calendar</h3>
+            <p>Personal astrological calendar tracking planetary transits, moon phases, retrogrades, and favorable timing for personal initiatives.</p>
+          </article>
+
+          <!-- 8. Ask the Stars -->
+          <article class="feature-card">
+            <div class="feature-icon-wrapper">
+              <svg class="feature-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-7 12h-2v-2h2v2zm0-4h-2V6h2v4z"/>
+              </svg>
+            </div>
+            <h3>Ask the Stars</h3>
+            <p>Interactive astrological interpretations allowing you to submit questions and receive context-aware astrological guidance.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- Privacy & Local Data Architecture -->
+    <section class="section">
+      <div class="container">
+        <div class="highlight-card">
+          <h3>Local-First &amp; Privacy-Conscious Design</h3>
+          <p>
+            AI Zodiac is built with user privacy and data minimization at its core:
+          </p>
+          <ul class="highlight-points">
+            <li>Profile details are stored locally on your Android device (no cloud user accounts)</li>
+            <li>No fine location or GPS permissions required</li>
+            <li>Encrypted HTTPS communication with backend services</li>
+            <li>Direct control to edit or erase your data at any time</li>
+          </ul>
+          <div>
+            <a href="/privacy-policy" style="color: var(--link-color); font-weight: 600; text-decoration: underline;">
+              Read the complete AI Zodiac Privacy Policy &rarr;
+            </a>
+          </div>
+        </div>
+
+        <!-- CTA Callout -->
+        <div class="cta-banner">
+          <h2>Experience AI Zodiac on Android</h2>
+          <p>Download the official mobile app on Google Play and start exploring your personalized daily horoscope and astrological readings.</p>
+          <a href="https://play.google.com/store/apps/details?id=com.oberon.aizodiac" class="btn btn-primary" target="_blank" rel="noopener noreferrer">
+            <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M3.609 1.814L13.792 12 3.61 22.186a2.38 2.38 0 0 1-.61-.735V2.55c.18-.286.39-.536.61-.736zm11.24 11.24l2.58 2.58-12.04 6.95 9.46-9.53zm0-2.108L5.39 1.417l12.04 6.95-2.58 2.58zM18.8 11.21l3.18 1.83a1.59 1.59 0 0 1 0 2.76l-3.18 1.83-2.11-2.11 2.11-2.31z"/>
+            </svg>
+            <span>Download on Google Play</span>
+          </a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="container">
+      <ul class="footer-links">
+        <li><a href="/">Home</a></li>
+        <li><a href="/privacy-policy">Privacy Policy</a></li>
+        <li><a href="https://play.google.com/store/apps/details?id=com.oberon.aizodiac" target="_blank" rel="noopener noreferrer">Google Play Store</a></li>
+      </ul>
+      <p>&copy; 2026 AI Zodiac. All rights reserved.</p>
+    </div>
+  </footer>
+</body>
+</html>

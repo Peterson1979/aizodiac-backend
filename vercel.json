@@ -2,6 +2,14 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "rewrites": [
     {
+      "source": "/privacy-policy",
+      "destination": "/api/privacyPolicy"
+    },
+    {
+      "source": "/privacy-policy/",
+      "destination": "/api/privacyPolicy"
+    },
+    {
       "source": "/ai-zodiac-forray-gyongyi/privacy-policy",
       "destination": "/api/privacyPolicy"
     },
