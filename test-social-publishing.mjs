@@ -42,7 +42,7 @@ import { VideoAdapterStub } from "./lib/social/adapters/videoAdapter.stub.js";
 import { executeSocialPublishing, createDefaultAdapters } from "./lib/social/publishCoordinator.js";
 import { savePrepareState, PREPARE_STAGES } from "./lib/social/prepareStateHelper.js";
 import { QUALITY_GATE_STATUS } from "./lib/social/quality/socialQualityGate.js";
-import { DEFAULT_APP_PLAY_STORE_URL, ensureFacebookGooglePlayLink } from "./lib/social/content/dailyContentGenerator.js";
+import { DEFAULT_APP_PLAY_STORE_URL, FACEBOOK_TRACKING_PLAY_STORE_URL, ensureFacebookGooglePlayLink } from "./lib/social/content/dailyContentGenerator.js";
 import cronHandler from "./api/cron/publishDailySocial.js";
 import canaryHandler from "./api/cron/canarySocialPublish.js";
 
@@ -726,11 +726,12 @@ class MockRedis {
   assert.equal(res.status, PUBLISH_STATUS.PUBLISHED);
   assert.equal(res.postId, "feed_story_456");
   assert.ok(receivedMessage.includes(DEFAULT_APP_PLAY_STORE_URL), "Facebook message must contain mandatory Google Play URL");
-  assert.equal(receivedMessage, `FB copy without store link\n\n${DEFAULT_APP_PLAY_STORE_URL}`);
+  assert.ok(receivedMessage.includes(FACEBOOK_TRACKING_PLAY_STORE_URL), "Facebook message must contain UTM-tagged Google Play URL");
+  assert.equal(receivedMessage, `FB copy without store link\n\n${FACEBOOK_TRACKING_PLAY_STORE_URL}`);
   assert.equal(singleManifest.captions.instagram, "Original IG Caption #astrology", "Instagram caption must remain unaffected");
   assert.equal(singleManifest.captions.pinterest.title, "Original Pin Title", "Pinterest caption must remain unaffected");
 
-  // 2. Facebook Post with Pre-existing Google Play Link (No Duplication)
+  // 2. Facebook Post with Pre-existing Google Play Link (Upgraded / No Duplication)
   const manifestWithLink = {
     ...singleManifest,
     captions: {
@@ -745,7 +746,7 @@ class MockRedis {
     fetchFn: mockFetchFb,
   });
 
-  assert.equal(receivedMessage, `Check this out! Download: ${DEFAULT_APP_PLAY_STORE_URL}`, "Must not duplicate existing Google Play URL");
+  assert.equal(receivedMessage, `Check this out! Download: ${FACEBOOK_TRACKING_PLAY_STORE_URL}`, "Must upgrade untracked link without duplication");
   const linkOccurrences = receivedMessage.split(DEFAULT_APP_PLAY_STORE_URL).length - 1;
   assert.equal(linkOccurrences, 1, "Must contain exactly 1 occurrence of Google Play URL");
 

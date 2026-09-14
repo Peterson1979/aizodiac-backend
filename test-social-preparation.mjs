@@ -22,6 +22,7 @@ import {
   generateDailySocialContent,
   VALID_ZODIAC_SIGNS,
   DEFAULT_APP_PLAY_STORE_URL,
+  FACEBOOK_TRACKING_PLAY_STORE_URL,
   ensureFacebookGooglePlayLink,
 } from "./lib/social/content/dailyContentGenerator.js";
 import { getSocialConfig } from "./lib/social/config.js";
@@ -630,14 +631,18 @@ function createSampleAiContent(overrides = {}) {
   assert.ok(scopeMismatchIg.errors.some(e => e.includes("scope-mismatch")));
 
   // 2. Google Play Link Helper Determinism
-  assert.equal(ensureFacebookGooglePlayLink(""), DEFAULT_APP_PLAY_STORE_URL);
+  assert.equal(ensureFacebookGooglePlayLink(""), FACEBOOK_TRACKING_PLAY_STORE_URL);
   assert.equal(
     ensureFacebookGooglePlayLink("Daily Zodiac insights for Taurus and Scorpio!"),
-    `Daily Zodiac insights for Taurus and Scorpio!\n\n${DEFAULT_APP_PLAY_STORE_URL}`
+    `Daily Zodiac insights for Taurus and Scorpio!\n\n${FACEBOOK_TRACKING_PLAY_STORE_URL}`
   );
   assert.equal(
     ensureFacebookGooglePlayLink(`Already has link: ${DEFAULT_APP_PLAY_STORE_URL}`),
-    `Already has link: ${DEFAULT_APP_PLAY_STORE_URL}`
+    `Already has link: ${FACEBOOK_TRACKING_PLAY_STORE_URL}`
+  );
+  assert.equal(
+    ensureFacebookGooglePlayLink(`Already has tagged link: ${FACEBOOK_TRACKING_PLAY_STORE_URL}`),
+    `Already has tagged link: ${FACEBOOK_TRACKING_PLAY_STORE_URL}`
   );
 
   // 3. Deterministic Assembly & Canonical Validation
@@ -664,11 +669,12 @@ function createSampleAiContent(overrides = {}) {
   assert.equal(canonical.slides[4].headline, "Discover more with AI Zodiac");
   assert.equal(canonical.slides[4].body, "Free on Google Play");
 
-  // Mandatory Facebook Google Play link guaranteed
+  // Mandatory Facebook Google Play link guaranteed with UTM tracking
   assert.ok(canonical.facebookCaption.includes(DEFAULT_APP_PLAY_STORE_URL));
+  assert.ok(canonical.facebookCaption.includes(FACEBOOK_TRACKING_PLAY_STORE_URL));
   assert.equal(
     canonical.facebookCaption,
-    `Loyalty runs deep in these 3 zodiac signs. Do you agree?\n\n${DEFAULT_APP_PLAY_STORE_URL}`
+    `Loyalty runs deep in these 3 zodiac signs. Do you agree?\n\n${FACEBOOK_TRACKING_PLAY_STORE_URL}`
   );
   // Instagram & Pinterest captions unaffected
   assert.equal(canonical.instagramCaption, validCreative.instagramCaption);
