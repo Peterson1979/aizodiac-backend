@@ -29,6 +29,7 @@ import {
   KNOWN_WEBSITE_ROUTES,
   CATEGORY_DESTINATIONS_MAP,
   WEBSITE_PRODUCTION_BASE_URL,
+  DEFAULT_INSTAGRAM_CTA,
   resolveWebsitePath,
   buildWebsiteDestinationUrl,
   validateWebsiteDestinationUrl,
@@ -688,8 +689,19 @@ function createSampleAiContent(overrides = {}) {
   assert.ok(canonical.facebookCaption.includes(FACEBOOK_TRACKING_PLAY_STORE_URL));
   assert.ok(canonical.facebookCaption.includes(WEBSITE_PRODUCTION_BASE_URL));
   assert.ok(canonical.facebookCaption.includes("utm_source=facebook"));
-  assert.ok(canonical.instagramCaption.includes(WEBSITE_PRODUCTION_BASE_URL));
-  assert.ok(canonical.instagramCaption.includes("utm_source=instagram"));
+
+  // Instagram caption uses clean bio-link CTA without raw website URL
+  assert.ok(canonical.instagramCaption.includes(DEFAULT_INSTAGRAM_CTA));
+  assert.ok(!canonical.instagramCaption.includes(WEBSITE_PRODUCTION_BASE_URL));
+  assert.ok(!/\bxplore/i.test(canonical.instagramCaption));
+
+  // Destination URLs with full UTM parameters still preserved in structured destinations object
+  assert.ok(canonical.destinations.instagram.includes(WEBSITE_PRODUCTION_BASE_URL));
+  assert.ok(canonical.destinations.instagram.includes("utm_source=instagram"));
+  assert.ok(canonical.destinations.instagram.includes("utm_medium=social"));
+  assert.ok(canonical.destinations.facebook.includes("utm_source=facebook"));
+  assert.ok(canonical.destinations.pinterest.includes("utm_source=pinterest"));
+
   assert.equal(canonical.pinterestTitle, validCreative.pinterestTitle);
   assert.equal(canonical.pinterestDescription, validCreative.pinterestDescription);
 
@@ -1938,7 +1950,6 @@ function createSampleAiContent(overrides = {}) {
     ],
     instagramCaption: formatInstagramCaption({
       baseCaption: "Do you do your best thinking at midnight? 🌙✨ Gemini, Virgo, and Pisces thrive in the quiet hours. Explore your cosmic archetype with AI Zodiac. #astrology #zodiac #horoscope #aizodiac",
-      websiteUrl: canaryIgLink,
     }),
     facebookCaption: formatFacebookCaption({
       baseCaption: "Midnight thinkers of the zodiac: Gemini, Virgo, and Pisces! Discover personalized insights with AI Zodiac on Google Play.",
@@ -2049,14 +2060,29 @@ function createSampleAiContent(overrides = {}) {
   assert.ok(fbCaption.includes("utm_source=facebook"));
   assert.ok(fbCaption.includes(DEFAULT_APP_PLAY_STORE_URL));
 
-  // 4. Instagram caption receives website destination URL
+  // 4. Instagram caption uses clean profile/bio CTA without raw URL
   const igCaption = formatInstagramCaption({
     baseCaption: "3 signs with deep connection. #astrology #zodiac",
-    websiteUrl: "https://aizodiac-web.appaizodiac.workers.dev/tools/compatibility?utm_source=instagram&utm_medium=social&utm_campaign=love_compatibility&utm_content=social-2026-09-16",
   });
-  assert.ok(igCaption.includes("https://aizodiac-web.appaizodiac.workers.dev/tools/compatibility"));
-  assert.ok(igCaption.includes("utm_source=instagram"));
+  assert.ok(igCaption.includes("Explore more with AI Zodiac — link in bio."));
+  assert.ok(!igCaption.includes("https://aizodiac-web.appaizodiac.workers.dev/"));
+  assert.ok(!/\bxplore/i.test(igCaption));
   assert.ok(igCaption.includes("#astrology #zodiac"));
+
+  // Instagram destination URL still exists in structured data and contains correct UTMs
+  const igDestUrl = buildWebsiteDestinationUrl({
+    path: "/tools/compatibility",
+    platform: "instagram",
+    campaign: "love_compatibility",
+    contentId: "social-2026-09-16",
+  });
+  assert.ok(igDestUrl.includes(WEBSITE_PRODUCTION_BASE_URL));
+  assert.ok(igDestUrl.includes("utm_source=instagram"));
+  assert.ok(igDestUrl.includes("utm_medium=social"));
+  assert.ok(igDestUrl.includes("utm_campaign=love_compatibility"));
+  assert.ok(igDestUrl.includes("utm_content=social-2026-09-16"));
+  const igValidCheck = validateWebsiteDestinationUrl(igDestUrl, { expectedPlatform: "instagram" });
+  assert.equal(igValidCheck.valid, true);
 
   // 5. Unknown/foreign destination URLs fail closed
   const foreignUrl = "https://malicious-site.com/tools/compatibility?utm_source=pinterest&utm_medium=social&utm_campaign=c&utm_content=1";
@@ -2091,7 +2117,7 @@ function createSampleAiContent(overrides = {}) {
   console.log("  ✓ Every supported topic category maps to verified routes in known website routes catalog");
   console.log("  ✓ Deterministic UTM parameters (utm_source, utm_medium, utm_campaign, utm_content) strictly verified");
   console.log("  ✓ Facebook caption contains both website destination URL and mandatory Google Play link");
-  console.log("  ✓ Instagram caption includes website destination URL");
+  console.log("  ✓ Instagram caption uses clean bio-link CTA without raw website URL");
   console.log("  ✓ Unknown routes, foreign domains, and missing UTM params fail closed");
   console.log("  ✓ Purely deterministic date-based rotation verified with zero AI-generated URLs");
 }
