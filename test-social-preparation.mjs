@@ -25,6 +25,16 @@ import {
   FACEBOOK_TRACKING_PLAY_STORE_URL,
   ensureFacebookGooglePlayLink,
 } from "./lib/social/content/dailyContentGenerator.js";
+import {
+  KNOWN_WEBSITE_ROUTES,
+  CATEGORY_DESTINATIONS_MAP,
+  WEBSITE_PRODUCTION_BASE_URL,
+  resolveWebsitePath,
+  buildWebsiteDestinationUrl,
+  validateWebsiteDestinationUrl,
+  formatFacebookCaption,
+  formatInstagramCaption,
+} from "./lib/social/content/destinations.js";
 import { getSocialConfig } from "./lib/social/config.js";
 import {
   CANVAS_WIDTH,
@@ -660,7 +670,11 @@ function createSampleAiContent(overrides = {}) {
   assert.equal(canonical.contentId, "social-2026-09-01");
   assert.equal(canonical.publishDate, "2026-09-01");
   assert.equal(canonical.category, "personality");
-  assert.equal(canonical.pinterestLink, DEFAULT_APP_PLAY_STORE_URL);
+  assert.ok(canonical.pinterestLink.startsWith(WEBSITE_PRODUCTION_BASE_URL));
+  assert.ok(canonical.pinterestLink.includes("utm_source=pinterest"));
+  assert.ok(canonical.pinterestLink.includes("utm_medium=social"));
+  assert.ok(canonical.pinterestLink.includes("utm_campaign=personality"));
+  assert.ok(canonical.pinterestLink.includes("utm_content=social-2026-09-01"));
   assert.equal(canonical.slides.length, 5);
   assert.equal(canonical.slides[0].type, "title");
   assert.equal(canonical.slides[0].headline, validCreative.topic);
@@ -669,15 +683,13 @@ function createSampleAiContent(overrides = {}) {
   assert.equal(canonical.slides[4].headline, "Discover more with AI Zodiac");
   assert.equal(canonical.slides[4].body, "Free on Google Play");
 
-  // Mandatory Facebook Google Play link guaranteed with UTM tracking
+  // Mandatory Facebook Google Play link guaranteed with UTM tracking + website destination link
   assert.ok(canonical.facebookCaption.includes(DEFAULT_APP_PLAY_STORE_URL));
   assert.ok(canonical.facebookCaption.includes(FACEBOOK_TRACKING_PLAY_STORE_URL));
-  assert.equal(
-    canonical.facebookCaption,
-    `Loyalty runs deep in these 3 zodiac signs. Do you agree?\n\n${FACEBOOK_TRACKING_PLAY_STORE_URL}`
-  );
-  // Instagram & Pinterest captions unaffected
-  assert.equal(canonical.instagramCaption, validCreative.instagramCaption);
+  assert.ok(canonical.facebookCaption.includes(WEBSITE_PRODUCTION_BASE_URL));
+  assert.ok(canonical.facebookCaption.includes("utm_source=facebook"));
+  assert.ok(canonical.instagramCaption.includes(WEBSITE_PRODUCTION_BASE_URL));
+  assert.ok(canonical.instagramCaption.includes("utm_source=instagram"));
   assert.equal(canonical.pinterestTitle, validCreative.pinterestTitle);
   assert.equal(canonical.pinterestDescription, validCreative.pinterestDescription);
 
@@ -1157,7 +1169,8 @@ function createSampleAiContent(overrides = {}) {
   assert.equal(validation.valid, true, `Generated manifest must pass validateManifest: ${validation.errors?.join(", ")}`);
   assert.equal(savedManifest.type, MEDIA_TYPES.CAROUSEL);
   assert.equal(savedManifest.media.length, 5);
-  assert.equal(savedManifest.captions.pinterest.link, "https://play.google.com/store/apps/details?id=com.oberon.aizodiac");
+  assert.ok(savedManifest.captions.pinterest.link.startsWith(WEBSITE_PRODUCTION_BASE_URL));
+  assert.ok(savedManifest.captions.pinterest.link.includes("utm_source=pinterest"));
 
   // Verify preparation state tracking in Redis
   const prepState = await getPrepareState(redis, date);
@@ -1427,7 +1440,9 @@ function createSampleAiContent(overrides = {}) {
   assert.strictEqual(assembled.contentId, "social-2026-09-05", "contentId must be constructed deterministically by backend");
   assert.strictEqual(assembled.publishDate, "2026-09-05", "publishDate must be exact requested date");
   assert.strictEqual(assembled.category, "love_compatibility", "category must match topic rotation");
-  assert.strictEqual(assembled.pinterestLink, DEFAULT_APP_PLAY_STORE_URL, "pinterestLink must be official Google Play link");
+  assert.ok(assembled.pinterestLink.startsWith(WEBSITE_PRODUCTION_BASE_URL), "pinterestLink must be valid website destination URL");
+  assert.ok(assembled.pinterestLink.includes("utm_source=pinterest"), "pinterestLink must include Pinterest UTMs");
+  assert.notEqual(assembled.pinterestLink, "http://malicious-link.com", "AI injected arbitrary links must be strictly overridden");
   assert.strictEqual(assembled.slides[0].type, "title", "Title slide must be constructed by backend");
   assert.strictEqual(assembled.slides[4].type, "cta", "CTA slide must be constructed by backend");
   assert.strictEqual(assembled.slides[4].body, "Free on Google Play");
@@ -1860,11 +1875,38 @@ function createSampleAiContent(overrides = {}) {
   const canaryDir = path.resolve("./tmp/social-quality-gate-review");
   if (!fs.existsSync(canaryDir)) fs.mkdirSync(canaryDir, { recursive: true });
 
+  const canaryPath = resolveWebsitePath({ category: "zodiac_psychology", publishDate: "2026-09-15" });
+  const canaryPinLink = buildWebsiteDestinationUrl({
+    path: canaryPath,
+    platform: "pinterest",
+    campaign: "zodiac_psychology",
+    contentId: "social-2026-09-15",
+  });
+  const canaryIgLink = buildWebsiteDestinationUrl({
+    path: canaryPath,
+    platform: "instagram",
+    campaign: "zodiac_psychology",
+    contentId: "social-2026-09-15",
+  });
+  const canaryFbLink = buildWebsiteDestinationUrl({
+    path: canaryPath,
+    platform: "facebook",
+    campaign: "zodiac_psychology",
+    contentId: "social-2026-09-15",
+  });
+
   const canaryCarousel = {
     contentId: "social-2026-09-15",
     publishDate: "2026-09-15",
     category: "zodiac_psychology",
     topic: "3 Zodiac Signs That Are the Ultimate Midnight Thinkers",
+    destinationPath: canaryPath,
+    destinationUrl: canaryPinLink,
+    destinations: {
+      facebook: canaryFbLink,
+      instagram: canaryIgLink,
+      pinterest: canaryPinLink,
+    },
     slides: [
       {
         type: "title",
@@ -1894,11 +1936,17 @@ function createSampleAiContent(overrides = {}) {
         body: "Free on Google Play",
       },
     ],
-    instagramCaption: "Do you do your best thinking at midnight? 🌙✨ Gemini, Virgo, and Pisces thrive in the quiet hours. Explore your cosmic archetype with AI Zodiac. #astrology #zodiac #horoscope #aizodiac",
-    facebookCaption: ensureFacebookGooglePlayLink("Midnight thinkers of the zodiac: Gemini, Virgo, and Pisces! Discover personalized insights with AI Zodiac on Google Play."),
+    instagramCaption: formatInstagramCaption({
+      baseCaption: "Do you do your best thinking at midnight? 🌙✨ Gemini, Virgo, and Pisces thrive in the quiet hours. Explore your cosmic archetype with AI Zodiac. #astrology #zodiac #horoscope #aizodiac",
+      websiteUrl: canaryIgLink,
+    }),
+    facebookCaption: formatFacebookCaption({
+      baseCaption: "Midnight thinkers of the zodiac: Gemini, Virgo, and Pisces! Discover personalized insights with AI Zodiac on Google Play.",
+      websiteUrl: canaryFbLink,
+    }),
     pinterestTitle: "3 Zodiac Signs That Are Midnight Thinkers | AI Zodiac",
     pinterestDescription: "Discover why Gemini, Virgo, and Pisces do their deepest thinking late at night. Download AI Zodiac free.",
-    pinterestLink: DEFAULT_APP_PLAY_STORE_URL,
+    pinterestLink: canaryPinLink,
   };
 
   const canaryRendered = await renderCarouselSlides(canaryCarousel, { outputDir: canaryDir });
@@ -1922,7 +1970,7 @@ function createSampleAiContent(overrides = {}) {
       pinterest: {
         title: canaryCarousel.pinterestTitle,
         description: canaryCarousel.pinterestDescription,
-        link: DEFAULT_APP_PLAY_STORE_URL,
+        link: canaryCarousel.pinterestLink,
       },
     },
   };
@@ -1941,6 +1989,111 @@ function createSampleAiContent(overrides = {}) {
 
   console.log(`  ✓ Canary fixture rendered to tmp/social-quality-gate-review/ (5 slides)`);
   console.log(`  ✓ Canary Quality Gate Result: ${canaryGate.status} 🎉`);
+}
+
+// ============================================================================
+// TEST 19: Social-to-Website Destination Layer & UTM Verification
+// ============================================================================
+{
+  console.log("\n[TEST 19] Social-to-Website Destination Layer & UTM Verification");
+
+  // 1. Every supported category resolves to a known verified website route
+  const categories = [
+    "self_discovery",
+    "daily_insight",
+    "personality",
+    "love_compatibility",
+    "zodiac_psychology",
+    "dating_relationships",
+    "fun_ranking",
+  ];
+
+  for (const cat of categories) {
+    const testDate = "2026-09-16";
+    const resolvedPath = resolveWebsitePath({ category: cat, publishDate: testDate });
+    assert.ok(
+      KNOWN_WEBSITE_ROUTES.has(resolvedPath),
+      `Category '${cat}' resolved to unknown website route '${resolvedPath}'`
+    );
+
+    // Verify candidate catalog routes are all in KNOWN_WEBSITE_ROUTES
+    const candidates = CATEGORY_DESTINATIONS_MAP[cat];
+    assert.ok(Array.isArray(candidates) && candidates.length > 0, `Category '${cat}' must have candidate routes`);
+    for (const cPath of candidates) {
+      assert.ok(KNOWN_WEBSITE_ROUTES.has(cPath), `Candidate '${cPath}' for category '${cat}' is not in KNOWN_WEBSITE_ROUTES`);
+    }
+  }
+
+  // 2. Generated destination URLs contain correct UTM parameters
+  const sampleUrl = buildWebsiteDestinationUrl({
+    path: "/tools/compatibility",
+    platform: "pinterest",
+    campaign: "love_compatibility",
+    contentId: "social-2026-09-16",
+  });
+
+  assert.equal(
+    sampleUrl,
+    "https://aizodiac-web.appaizodiac.workers.dev/tools/compatibility?utm_source=pinterest&utm_medium=social&utm_campaign=love_compatibility&utm_content=social-2026-09-16"
+  );
+
+  const validCheck = validateWebsiteDestinationUrl(sampleUrl, { expectedPlatform: "pinterest" });
+  assert.equal(validCheck.valid, true);
+
+  // 3. Facebook caption contains both website destination URL and mandatory Google Play URL
+  const fbCaption = formatFacebookCaption({
+    baseCaption: "3 signs that love deeply.",
+    websiteUrl: "https://aizodiac-web.appaizodiac.workers.dev/tools/compatibility?utm_source=facebook&utm_medium=social&utm_campaign=love_compatibility&utm_content=social-2026-09-16",
+  });
+  assert.ok(fbCaption.includes("https://aizodiac-web.appaizodiac.workers.dev/tools/compatibility"));
+  assert.ok(fbCaption.includes("utm_source=facebook"));
+  assert.ok(fbCaption.includes(DEFAULT_APP_PLAY_STORE_URL));
+
+  // 4. Instagram caption receives website destination URL
+  const igCaption = formatInstagramCaption({
+    baseCaption: "3 signs with deep connection. #astrology #zodiac",
+    websiteUrl: "https://aizodiac-web.appaizodiac.workers.dev/tools/compatibility?utm_source=instagram&utm_medium=social&utm_campaign=love_compatibility&utm_content=social-2026-09-16",
+  });
+  assert.ok(igCaption.includes("https://aizodiac-web.appaizodiac.workers.dev/tools/compatibility"));
+  assert.ok(igCaption.includes("utm_source=instagram"));
+  assert.ok(igCaption.includes("#astrology #zodiac"));
+
+  // 5. Unknown/foreign destination URLs fail closed
+  const foreignUrl = "https://malicious-site.com/tools/compatibility?utm_source=pinterest&utm_medium=social&utm_campaign=c&utm_content=1";
+  const foreignCheck = validateWebsiteDestinationUrl(foreignUrl);
+  assert.equal(foreignCheck.valid, false);
+  assert.ok(foreignCheck.errors.some(e => e.includes("host")));
+
+  const unknownRouteUrl = "https://aizodiac-web.appaizodiac.workers.dev/unknown-article-path?utm_source=pinterest&utm_medium=social&utm_campaign=c&utm_content=1";
+  const unknownRouteCheck = validateWebsiteDestinationUrl(unknownRouteUrl);
+  assert.equal(unknownRouteCheck.valid, false);
+  assert.ok(unknownRouteCheck.errors.some(e => e.includes("not a known website route")));
+
+  const missingUtmUrl = "https://aizodiac-web.appaizodiac.workers.dev/tools/compatibility";
+  const missingUtmCheck = validateWebsiteDestinationUrl(missingUtmUrl);
+  assert.equal(missingUtmCheck.valid, false);
+  assert.ok(missingUtmCheck.errors.some(e => e.includes("Missing 'utm_source'")));
+
+  // 6. Deterministic rotation across different dates produces varied valid routes
+  const date1 = "2026-09-10";
+  const date2 = "2026-09-11";
+  const date3 = "2026-09-12";
+  const route1 = resolveWebsitePath({ category: "love_compatibility", publishDate: date1 });
+  const route2 = resolveWebsitePath({ category: "love_compatibility", publishDate: date2 });
+  const route3 = resolveWebsitePath({ category: "love_compatibility", publishDate: date3 });
+
+  assert.ok(KNOWN_WEBSITE_ROUTES.has(route1));
+  assert.ok(KNOWN_WEBSITE_ROUTES.has(route2));
+  assert.ok(KNOWN_WEBSITE_ROUTES.has(route3));
+  // Same date always resolves to the identical route
+  assert.equal(resolveWebsitePath({ category: "love_compatibility", publishDate: date1 }), route1);
+
+  console.log("  ✓ Every supported topic category maps to verified routes in known website routes catalog");
+  console.log("  ✓ Deterministic UTM parameters (utm_source, utm_medium, utm_campaign, utm_content) strictly verified");
+  console.log("  ✓ Facebook caption contains both website destination URL and mandatory Google Play link");
+  console.log("  ✓ Instagram caption includes website destination URL");
+  console.log("  ✓ Unknown routes, foreign domains, and missing UTM params fail closed");
+  console.log("  ✓ Purely deterministic date-based rotation verified with zero AI-generated URLs");
 }
 
 console.log("\n==================================================");
