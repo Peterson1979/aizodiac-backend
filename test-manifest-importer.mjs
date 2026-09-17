@@ -60,7 +60,7 @@ const validBatch = [
     captions: {
       instagram: "IG 1",
       facebook: "FB 1",
-      pinterest: { title: "Pin 1", description: "Desc 1", link: "https://aizodiac.app" },
+      pinterest: { title: "Pin 1", description: "Desc 1", link: "https://aizodiac.life" },
     },
   },
   {
@@ -74,7 +74,7 @@ const validBatch = [
     captions: {
       instagram: "IG 2",
       facebook: "FB 2",
-      pinterest: { title: "Pin 2", description: "Desc 2", link: "https://aizodiac.app" },
+      pinterest: { title: "Pin 2", description: "Desc 2", link: "https://aizodiac.life" },
     },
   },
   {
@@ -85,7 +85,7 @@ const validBatch = [
     captions: {
       instagram: "IG 3",
       facebook: "FB 3",
-      pinterest: { title: "Pin 3", description: "Desc 3", link: "https://aizodiac.app" },
+      pinterest: { title: "Pin 3", description: "Desc 3", link: "https://aizodiac.life" },
     },
   },
 ];

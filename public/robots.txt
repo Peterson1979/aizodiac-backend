@@ -2,4 +2,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://aizodiac-backend-new.vercel.app/sitemap.xml
+Sitemap: https://aizodiac.life/sitemap.xml

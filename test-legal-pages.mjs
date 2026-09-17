@@ -109,14 +109,15 @@ async function read(relPath) {
   assert.ok(footerHtml.includes('href="/contact"'), "Footer must link to /contact");
   assert.ok(footerHtml.includes("play.google.com"), "Footer must link to Google Play Store");
 
-  // Developer attribution & copyright
-  assert.ok(footerHtml.includes("Forray Gyöngyi"), "Footer must identify developer 'Forray Gyöngyi'");
+  // Neutral copyright attribution
+  assert.ok(!footerHtml.includes("Forray"), "Footer must NOT contain personal name 'Forray'");
+  assert.ok(!footerHtml.includes("Gyöngyi") && !footerHtml.includes("Gyongyi"), "Footer must NOT contain personal name 'Gyöngyi'");
   assert.ok(footerHtml.includes("AI Zodiac"), "Footer must identify 'AI Zodiac'");
   assert.ok(footerHtml.includes("2026"), "Footer must include current year '2026'");
 
   console.log("  ✓ Homepage footer contains structured Legal column with all 3 legal routes");
   console.log("  ✓ Support/Contact section is available separately");
-  console.log("  ✓ Developer attribution & copyright verified");
+  console.log("  ✓ Neutral copyright attribution verified (zero personal name leak)");
 }
 
 // ============================================================================
@@ -147,8 +148,9 @@ async function read(relPath) {
     assert.ok(html.includes('href="/disclaimer"'), `${page.file} must cross-link /disclaimer`);
     assert.ok(html.includes('href="/contact"'), `${page.file} must cross-link /contact`);
 
-    // Developer attribution
-    assert.ok(html.includes("Forray Gyöngyi"), `${page.file} must attribute Forray Gyöngyi`);
+    // Zero personal name leak
+    assert.ok(!html.includes("Forray"), `${page.file} must NOT contain 'Forray'`);
+    assert.ok(!html.includes("Gyöngyi") && !html.includes("Gyongyi"), `${page.file} must NOT contain 'Gyöngyi'`);
 
     // Viewport & Charset
     assert.ok(html.includes('<meta charset="UTF-8">'), `${page.file} must declare UTF-8 charset`);
@@ -157,7 +159,7 @@ async function read(relPath) {
     // Title tag
     assert.ok(html.includes("<title>"), `${page.file} must have <title> tag`);
 
-    console.log(`  ✓ Subpage ${page.file} (${page.title}) has valid cross-links, nav-back, and metadata`);
+    console.log(`  ✓ Subpage ${page.file} (${page.title}) has valid cross-links, nav-back, and neutral metadata`);
   }
 }
 
@@ -174,11 +176,13 @@ async function read(relPath) {
 
   // Terms of Use specific checks
   assert.ok(termsHtml.includes("Terms of Use"), "Terms of Use title verified");
-  assert.ok(termsHtml.includes("Forray Gyöngyi"), "Developer identified in Terms");
+  assert.ok(termsHtml.includes("AI Zodiac"), "App/Service identified in Terms");
+  assert.ok(!termsHtml.includes("Forray"), "Terms of Use must not contain personal name");
   assert.ok(termsHtml.includes("SharedPreferences"), "Local storage architecture documented");
   assert.ok(termsHtml.includes("Entertainment"), "Entertainment purpose declared");
   assert.ok(termsHtml.includes("Google AdMob"), "Google AdMob disclosed");
   assert.ok(termsHtml.includes("Limitation of Liability"), "Limitation of liability section present");
+  assert.ok(termsHtml.includes("SERVICE INTERRUPTIONS"), "SERVICE INTERRUPTIONS capitalized properly");
 
   // AI & Content Disclaimer specific checks
   assert.ok(disclaimerHtml.includes("AI &amp; Content Disclaimer") || disclaimerHtml.includes("AI & Content Disclaimer"));
@@ -188,11 +192,12 @@ async function read(relPath) {
   assert.ok(disclaimerHtml.includes("financial") || disclaimerHtml.includes("Financial"), "Financial advice disclaimed");
   assert.ok(disclaimerHtml.includes("legal") || disclaimerHtml.includes("Legal"), "Legal advice disclaimed");
   assert.ok(disclaimerHtml.includes("free will") || disclaimerHtml.includes("autonomy") || disclaimerHtml.includes("Personal Responsibility"), "User autonomy affirmed");
+  assert.ok(!disclaimerHtml.includes("Forray"), "Disclaimer must not contain personal name");
 
   // Contact Page specific checks
   assert.ok(contactHtml.includes("Contact &amp; Support") || contactHtml.includes("Contact & Support"));
-  assert.ok(contactHtml.includes("Forray Gyöngyi"), "Developer identified on Contact page");
   assert.ok(contactHtml.includes("Google Play"), "Google Play support channel linked");
+  assert.ok(!contactHtml.includes("Forray"), "Contact page must not contain personal name");
 
   // Zero tracking scripts or secret leaks across all files
   const allHtmls = [termsHtml, disclaimerHtml, privacyHtml, contactHtml];
@@ -203,9 +208,9 @@ async function read(relPath) {
     assert.ok(!html.includes("CRON_SECRET"), "Must not leak CRON_SECRET");
   }
 
-  console.log("  ✓ Terms of Use contains accurate legal scopes and liability limitations");
+  console.log("  ✓ Terms of Use contains accurate legal scopes, neutral attribution, and liability limitations");
   console.log("  ✓ AI & Content Disclaimer explicitly covers Google Gemini, Groq, medical/financial/legal non-reliance");
-  console.log("  ✓ Contact page provides clear developer contact channels and FAQ pointers");
+  console.log("  ✓ Contact page provides clear developer contact channels and FAQ pointers with neutral wording");
   console.log("  ✓ Zero tracking scripts or secret leaks across all HTML files");
 }
 
@@ -220,11 +225,11 @@ async function read(relPath) {
 
   // Sitemap URLs
   const requiredSitemapUrls = [
-    "https://aizodiac-backend-new.vercel.app/",
-    "https://aizodiac-backend-new.vercel.app/privacy-policy",
-    "https://aizodiac-backend-new.vercel.app/terms-of-use",
-    "https://aizodiac-backend-new.vercel.app/disclaimer",
-    "https://aizodiac-backend-new.vercel.app/contact"
+    "https://aizodiac.life/",
+    "https://aizodiac.life/privacy-policy",
+    "https://aizodiac.life/terms-of-use",
+    "https://aizodiac.life/disclaimer",
+    "https://aizodiac.life/contact"
   ];
 
   for (const url of requiredSitemapUrls) {
@@ -237,7 +242,7 @@ async function read(relPath) {
   // Robots.txt
   assert.ok(robotsContent.includes("User-agent: *"), "robots.txt must include User-agent: *");
   assert.ok(robotsContent.includes("Allow: /"), "robots.txt must allow root crawling");
-  assert.ok(robotsContent.includes("Sitemap: https://aizodiac-backend-new.vercel.app/sitemap.xml"), "robots.txt must link to sitemap.xml");
+  assert.ok(robotsContent.includes("Sitemap: https://aizodiac.life/sitemap.xml"), "robots.txt must link to sitemap.xml");
 
   console.log("  ✓ sitemap.xml contains all 5 canonical routes with priorities and lastmod dates");
   console.log("  ✓ robots.txt allows crawling and references the official sitemap URL");

@@ -7,7 +7,7 @@ export const PRIVACY_POLICY_HTML = `<!DOCTYPE html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Privacy Policy for the AI Zodiac mobile application by Forray Gyöngyi.">
+  <meta name="description" content="Privacy Policy for the AI Zodiac mobile application.">
   <title>AI Zodiac Privacy Policy</title>
   <style>
     :root {
@@ -61,6 +61,25 @@ export const PRIVACY_POLICY_HTML = `<!DOCTYPE html>
       border-radius: 12px;
       padding: 2.5rem 2rem;
       box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    }
+
+    .nav-back {
+      margin-bottom: 1.5rem;
+    }
+
+    .nav-back a {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      color: var(--link-color);
+      text-decoration: none;
+      font-size: 0.95rem;
+      font-weight: 500;
+    }
+
+    .nav-back a:hover {
+      color: var(--link-hover);
+      text-decoration: underline;
     }
 
     header {
@@ -127,25 +146,6 @@ export const PRIVACY_POLICY_HTML = `<!DOCTYPE html>
       color: var(--link-hover);
     }
 
-    .nav-back {
-      margin-bottom: 1.5rem;
-    }
-
-    .nav-back a {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.35rem;
-      color: var(--link-color);
-      text-decoration: none;
-      font-size: 0.95rem;
-      font-weight: 500;
-    }
-
-    .nav-back a:hover {
-      color: var(--link-hover);
-      text-decoration: underline;
-    }
-
     footer {
       border-top: 1px solid var(--border-color);
       padding-top: 1.5rem;
@@ -184,7 +184,6 @@ export const PRIVACY_POLICY_HTML = `<!DOCTYPE html>
       <h1>AI Zodiac Privacy Policy</h1>
       <div class="meta-info">
         <span><strong>Application:</strong> AI Zodiac</span>
-        <span><strong>Developer:</strong> Forray Gyöngyi</span>
         <span><strong>Last updated:</strong> August 27, 2026</span>
       </div>
     </header>
@@ -193,7 +192,7 @@ export const PRIVACY_POLICY_HTML = `<!DOCTYPE html>
       <section>
         <h2>1. Introduction</h2>
         <p>
-          This Privacy Policy describes how the <strong>AI Zodiac</strong> mobile application and its associated backend services ("we", "our", or "the app"), developed by <strong>Forray Gyöngyi</strong>, collect, process, and protect information when you use our application.
+          This Privacy Policy describes how the <strong>AI Zodiac</strong> mobile application and its associated backend services ("we", "our", or "the app") collect, process, and protect information when you use our application.
         </p>
         <p>
           We are committed to user privacy, transparency, and data minimization. This policy explains what information is stored on your device, what data is transmitted when requesting astrological insights, how backend processing functions, and how third-party advertising is handled.
@@ -327,7 +326,7 @@ export const PRIVACY_POLICY_HTML = `<!DOCTYPE html>
       <section>
         <h2>13. Contact Information</h2>
         <p>
-          If you have questions, inquiries, or feedback regarding this Privacy Policy or data handling in AI Zodiac, you may contact the developer, <strong>Forray Gyöngyi</strong>, through the official AI Zodiac Google Play app listing and developer support channels.
+          If you have questions, inquiries, or feedback regarding this Privacy Policy or data handling in AI Zodiac, you may contact us through the official AI Zodiac Google Play app listing and developer support channels.
         </p>
       </section>
     </main>
@@ -341,7 +340,7 @@ export const PRIVACY_POLICY_HTML = `<!DOCTYPE html>
         <li><a href="/contact">Contact</a></li>
         <li><a href="https://play.google.com/store/apps/details?id=com.oberon.aizodiac" target="_blank" rel="noopener noreferrer">Google Play Store</a></li>
       </ul>
-      <p>&copy; 2026 AI Zodiac &bull; Developed by Forray Gyöngyi &bull; All rights reserved.</p>
+      <p>&copy; 2026 AI Zodiac &bull; All rights reserved.</p>
     </footer>
   </div>
 </body>

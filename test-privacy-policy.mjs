@@ -66,7 +66,7 @@ function createMockResponse() {
 }
 
 // ============================================================================
-// TEST 2: Required Identity, Google AdMob, and Infrastructure Assertions
+// TEST 2: Identity, Advertising Disclosures & Infrastructure Verification
 // ============================================================================
 {
   console.log("\n[TEST 2] Identity, Advertising Disclosures & Infrastructure Verification");
@@ -81,8 +81,11 @@ function createMockResponse() {
   // Title and Identity
   assert.ok(html.includes("<title>AI Zodiac Privacy Policy</title>"), "Page title must be 'AI Zodiac Privacy Policy'");
   assert.ok(html.includes("AI Zodiac"), "Must clearly identify 'AI Zodiac'");
-  assert.ok(html.includes("Forray Gyöngyi"), "Must clearly identify 'Forray Gyöngyi'");
   assert.ok(html.includes("Last updated:"), "Must include 'Last updated:' date");
+
+  // Negative checks: Must NOT leak developer personal name
+  assert.ok(!html.includes("Forray"), "Must NOT contain personal name 'Forray'");
+  assert.ok(!html.includes("Gyöngyi") && !html.includes("Gyongyi"), "Must NOT contain personal name 'Gyöngyi'");
 
   // Google AdMob & Advertising Disclosures
   assert.ok(html.includes("Google AdMob"), "Must explicitly disclose 'Google AdMob'");
@@ -129,7 +132,7 @@ function createMockResponse() {
   assert.ok(html.includes("Contact Information"), "Must cover contact information");
 
   console.log("  ✓ Page contains 'AI Zodiac Privacy Policy' title");
-  console.log("  ✓ Page clearly identifies 'AI Zodiac' and 'Forray Gyöngyi'");
+  console.log("  ✓ Page clearly identifies 'AI Zodiac' with zero personal name leak");
   console.log("  ✓ Contains accurate Google AdMob & Google LLC disclosures with clickable links");
   console.log("  ✓ Does NOT contain false claims of no advertising");
   console.log("  ✓ Accurately identifies Vercel, Google Gemini, Groq, and Upstash Redis");
@@ -169,18 +172,24 @@ function createMockResponse() {
 
   const staticFilePath = resolve(process.cwd(), "public/ai-zodiac-forray-gyongyi/privacy-policy.html");
   const staticIndexFilePath = resolve(process.cwd(), "public/ai-zodiac-forray-gyongyi/privacy-policy/index.html");
+  const canonicalFilePath = resolve(process.cwd(), "public/privacy-policy/index.html");
 
   const staticContent = await readFile(staticFilePath, "utf8");
   const staticIndexContent = await readFile(staticIndexFilePath, "utf8");
+  const canonicalContent = await readFile(canonicalFilePath, "utf8");
 
   assert.ok(staticContent.includes("AI Zodiac Privacy Policy"));
-  assert.ok(staticContent.includes("Forray Gyöngyi"));
+  assert.ok(!staticContent.includes("Forray"));
   assert.ok(staticContent.includes("Google AdMob"));
   assert.ok(staticContent.includes("Google LLC"));
+
   assert.ok(staticIndexContent.includes("AI Zodiac Privacy Policy"));
-  assert.ok(staticIndexContent.includes("Forray Gyöngyi"));
+  assert.ok(!staticIndexContent.includes("Forray"));
   assert.ok(staticIndexContent.includes("Google AdMob"));
   assert.ok(staticIndexContent.includes("Google LLC"));
+
+  assert.ok(canonicalContent.includes("AI Zodiac Privacy Policy"));
+  assert.ok(!canonicalContent.includes("Forray"));
 
   // Check vercel.json rewrites
   const vercelConfig = JSON.parse(await readFile(resolve(process.cwd(), "vercel.json"), "utf8"));
@@ -191,7 +200,7 @@ function createMockResponse() {
   );
   assert.ok(matchedRewrite, "vercel.json must route /ai-zodiac-forray-gyongyi/privacy-policy to /api/privacyPolicy");
 
-  console.log("  ✓ Static files in public/ are valid and match serverless payload");
+  console.log("  ✓ Static files in public/ are valid and match serverless payload with zero name leaks");
   console.log("  ✓ vercel.json routes exact URL path to privacy policy handler");
 }
 

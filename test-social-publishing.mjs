@@ -188,11 +188,11 @@ class MockRedis {
     media: [{ url: "https://cdn.aizodiac.app/images/virgo.png", altText: "Virgo Daily" }],
     captions: {
       instagram: "✨ Virgo Season ✨",
-      facebook: "✨ Virgo Daily Guidance! https://aizodiac.app",
+      facebook: "✨ Virgo Daily Guidance! https://aizodiac.life",
       pinterest: {
         title: "Virgo Daily Guidance",
         description: "Daily astrological alignment for Virgo.",
-        link: "https://aizodiac.app",
+        link: "https://aizodiac.life",
       },
     },
   };
@@ -215,7 +215,7 @@ class MockRedis {
       pinterest: {
         title: "Pinterest title",
         description: "Pinterest description",
-        link: "https://aizodiac.app",
+        link: "https://aizodiac.life",
       },
     },
   };
@@ -711,7 +711,7 @@ class MockRedis {
       pinterest: {
         title: "Original Pin Title",
         description: "Original Pin Description",
-        link: "https://aizodiac.app",
+        link: "https://aizodiac.life",
       },
     },
   };
@@ -869,7 +869,7 @@ class MockRedis {
       pinterest: {
         title: "Virgo Title",
         description: "Virgo Desc",
-        link: "https://aizodiac.app",
+        link: "https://aizodiac.life",
       },
     },
   };
@@ -979,7 +979,7 @@ class MockRedis {
       pinterest: {
         title: "Pin title",
         description: "Pin desc",
-        link: "https://aizodiac.app",
+        link: "https://aizodiac.life",
       },
     },
   };

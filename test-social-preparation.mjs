@@ -2054,7 +2054,7 @@ function createSampleAiContent(overrides = {}) {
 
   assert.equal(
     sampleUrl,
-    "https://aizodiac-web.appaizodiac.workers.dev/tools/compatibility?utm_source=pinterest&utm_medium=social&utm_campaign=love_compatibility&utm_content=social-2026-09-16"
+    "https://aizodiac.life/tools/compatibility?utm_source=pinterest&utm_medium=social&utm_campaign=love_compatibility&utm_content=social-2026-09-16"
   );
 
   const validCheck = validateWebsiteDestinationUrl(sampleUrl, { expectedPlatform: "pinterest" });
@@ -2063,9 +2063,9 @@ function createSampleAiContent(overrides = {}) {
   // 3. Facebook caption contains both website destination URL and mandatory Google Play URL
   const fbCaption = formatFacebookCaption({
     baseCaption: "3 signs that love deeply.",
-    websiteUrl: "https://aizodiac-web.appaizodiac.workers.dev/tools/compatibility?utm_source=facebook&utm_medium=social&utm_campaign=love_compatibility&utm_content=social-2026-09-16",
+    websiteUrl: "https://aizodiac.life/tools/compatibility?utm_source=facebook&utm_medium=social&utm_campaign=love_compatibility&utm_content=social-2026-09-16",
   });
-  assert.ok(fbCaption.includes("https://aizodiac-web.appaizodiac.workers.dev/tools/compatibility"));
+  assert.ok(fbCaption.includes("https://aizodiac.life/tools/compatibility"));
   assert.ok(fbCaption.includes("utm_source=facebook"));
   assert.ok(fbCaption.includes(DEFAULT_APP_PLAY_STORE_URL));
 
@@ -2074,7 +2074,7 @@ function createSampleAiContent(overrides = {}) {
     baseCaption: "3 signs with deep connection. #astrology #zodiac",
   });
   assert.ok(igCaption.includes("Explore more with AI Zodiac — link in bio."));
-  assert.ok(!igCaption.includes("https://aizodiac-web.appaizodiac.workers.dev/"));
+  assert.ok(!igCaption.includes("https://aizodiac.life/"));
   assert.ok(!/\bxplore/i.test(igCaption));
   assert.ok(igCaption.includes("#astrology #zodiac"));
 
@@ -2099,12 +2099,12 @@ function createSampleAiContent(overrides = {}) {
   assert.equal(foreignCheck.valid, false);
   assert.ok(foreignCheck.errors.some(e => e.includes("host")));
 
-  const unknownRouteUrl = "https://aizodiac-web.appaizodiac.workers.dev/unknown-article-path?utm_source=pinterest&utm_medium=social&utm_campaign=c&utm_content=1";
+  const unknownRouteUrl = "https://aizodiac.life/unknown-article-path?utm_source=pinterest&utm_medium=social&utm_campaign=c&utm_content=1";
   const unknownRouteCheck = validateWebsiteDestinationUrl(unknownRouteUrl);
   assert.equal(unknownRouteCheck.valid, false);
   assert.ok(unknownRouteCheck.errors.some(e => e.includes("not a known website route")));
 
-  const missingUtmUrl = "https://aizodiac-web.appaizodiac.workers.dev/tools/compatibility";
+  const missingUtmUrl = "https://aizodiac.life/tools/compatibility";
   const missingUtmCheck = validateWebsiteDestinationUrl(missingUtmUrl);
   assert.equal(missingUtmCheck.valid, false);
   assert.ok(missingUtmCheck.errors.some(e => e.includes("Missing 'utm_source'")));
