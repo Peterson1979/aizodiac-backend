@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="AI & Content Disclaimer for the AI Zodiac mobile application and astrology services by Forray Gyöngyi.">
+  <title>AI Zodiac — AI &amp; Content Disclaimer</title>
+  <link rel="canonical" href="https://aizodiac-backend-new.vercel.app/disclaimer">
+  <style>
+    :root {
+      --bg-color: #0f111a;
+      --card-bg: #181b28;
+      --text-color: #e2e8f0;
+      --heading-color: #f8fafc;
+      --muted-color: #94a3b8;
+      --accent-color: #7c3aed;
+      --accent-light: #a78bfa;
+      --border-color: #2e344e;
+      --link-color: #a78bfa;
+      --link-hover: #c4b5fd;
+      --line-height: 1.7;
+    }
+
+    @media (prefers-color-scheme: light) {
+      :root {
+        --bg-color: #f8fafc;
+        --card-bg: #ffffff;
+        --text-color: #334155;
+        --heading-color: #0f172a;
+        --muted-color: #64748b;
+        --accent-color: #6d28d9;
+        --accent-light: #7c3aed;
+        --border-color: #e2e8f0;
+        --link-color: #6d28d9;
+        --link-hover: #4c1d95;
+      }
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      line-height: var(--line-height);
+      padding: 2rem 1rem;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background-color: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 2.5rem 2rem;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    }
+
+    .nav-back {
+      margin-bottom: 1.5rem;
+    }
+
+    .nav-back a {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      color: var(--link-color);
+      text-decoration: none;
+      font-size: 0.95rem;
+      font-weight: 500;
+    }
+
+    .nav-back a:hover {
+      color: var(--link-hover);
+      text-decoration: underline;
+    }
+
+    header {
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 1.5rem;
+      margin-bottom: 2rem;
+    }
+
+    h1 {
+      font-size: 2rem;
+      color: var(--heading-color);
+      margin-bottom: 0.5rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .meta-info {
+      color: var(--muted-color);
+      font-size: 0.95rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    .meta-info span {
+      display: inline-block;
+    }
+
+    h2 {
+      font-size: 1.35rem;
+      color: var(--heading-color);
+      margin-top: 2rem;
+      margin-bottom: 0.75rem;
+      font-weight: 600;
+      border-left: 3px solid var(--accent-light);
+      padding-left: 0.75rem;
+    }
+
+    p {
+      margin-bottom: 1rem;
+      color: var(--text-color);
+    }
+
+    ul {
+      margin-left: 1.5rem;
+      margin-bottom: 1.25rem;
+    }
+
+    li {
+      margin-bottom: 0.5rem;
+    }
+
+    strong {
+      color: var(--heading-color);
+    }
+
+    a {
+      color: var(--link-color);
+      text-decoration: underline;
+      word-break: break-all;
+    }
+
+    a:hover {
+      color: var(--link-hover);
+    }
+
+    .notice-box {
+      background-color: rgba(124, 58, 237, 0.08);
+      border: 1px solid var(--accent-light);
+      border-radius: 8px;
+      padding: 1.25rem;
+      margin: 1.5rem 0;
+    }
+
+    .notice-box h3 {
+      font-size: 1.1rem;
+      color: var(--heading-color);
+      margin-bottom: 0.5rem;
+    }
+
+    .notice-box p:last-child {
+      margin-bottom: 0;
+    }
+
+    footer {
+      border-top: 1px solid var(--border-color);
+      padding-top: 1.5rem;
+      margin-top: 2.5rem;
+      font-size: 0.9rem;
+      color: var(--muted-color);
+      text-align: center;
+    }
+
+    .footer-links {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 1.25rem;
+      margin-bottom: 0.75rem;
+      list-style: none;
+    }
+
+    .footer-links a {
+      color: var(--link-color);
+      text-decoration: none;
+    }
+
+    .footer-links a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="nav-back">
+      <a href="/">&larr; Back to AI Zodiac Home</a>
+    </div>
+
+    <header>
+      <h1>AI &amp; Content Disclaimer</h1>
+      <div class="meta-info">
+        <span><strong>Application:</strong> AI Zodiac</span>
+        <span><strong>Developer:</strong> Forray Gyöngyi</span>
+        <span><strong>Last updated:</strong> September 17, 2026</span>
+      </div>
+    </header>
+
+    <main>
+      <div class="notice-box">
+        <h3>Important Notice</h3>
+        <p>
+          AI Zodiac is an entertainment and personal reflection application. The astrological forecasts, natal interpretations, numerology calculations, and celestial readings provided by AI Zodiac are generated using algorithmic calculations and artificial intelligence. They do not constitute professional medical, psychological, psychiatric, legal, financial, or investment advice.
+        </p>
+      </div>
+
+      <section>
+        <h2>1. Purpose of the Service (Entertainment &amp; Personal Reflection)</h2>
+        <p>
+          The <strong>AI Zodiac</strong> mobile application and website are designed exclusively for <strong>entertainment, personal inspiration, self-reflection, and spiritual curiosity</strong>. Astrology is a symbolic tradition and should be enjoyed as a cultural and psychological tool for contemplation rather than an empirical or deterministic science.
+        </p>
+      </section>
+
+      <section>
+        <h2>2. No Professional, Medical, Legal, or Financial Advice</h2>
+        <p>
+          Under no circumstances should any content produced by AI Zodiac be interpreted or utilized as:
+        </p>
+        <ul>
+          <li><strong>Medical or Psychiatric Advice:</strong> AI Zodiac is not a healthcare service and cannot diagnose, treat, prevent, or evaluate physical or mental health conditions. If you are experiencing medical or psychological difficulties, consult a licensed healthcare professional immediately.</li>
+          <li><strong>Financial or Investment Advice:</strong> Astrological trends, lucky numbers, or favorable days must never be used for trading, investments, loans, speculative decisions, or monetary transactions.</li>
+          <li><strong>Legal or Business Advice:</strong> No horoscope or compatibility analysis constitutes legal guidance, contractual assessment, or employment counsel.</li>
+          <li><strong>Life-Critical Decision Making:</strong> Astrological insights should never replace your personal judgment, due diligence, or common sense when making significant life choices regarding relationships, career, relocation, or safety.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>3. Nature of Artificial Intelligence (Google Gemini &amp; Groq APIs)</h2>
+        <p>
+          AI Zodiac utilizes large language models (LLMs) and generative artificial intelligence provided by <strong>Google Gemini</strong> and <strong>Groq</strong> to synthesize natural-language astrological interpretations:
+        </p>
+        <ul>
+          <li><strong>Probabilistic Text Generation:</strong> AI models generate responses based on pattern recognition and probabilistic synthesis. Outputs may vary across requests and may incorporate metaphoric or allegorical expressions.</li>
+          <li><strong>Possibility of Inaccuracies:</strong> While our system employs strict quality filters, subject guards, and schema enforcement, AI models may occasionally produce unexpected, fictional, or imprecise interpretations ("hallucinations").</li>
+          <li><strong>Not a Sentient Entity:</strong> The AI does not possess consciousness, psychic ability, foresight, or supernatural perception. It processes user-supplied query parameters to construct symbolic astrological readings.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>4. Calculation Algorithms &amp; Astrological Systems</h2>
+        <p>
+          AI Zodiac incorporates established astrological and mathematical models:
+        </p>
+        <ul>
+          <li><strong>Western Astrology &amp; Ascendant:</strong> Tropical zodiac positions and Rising Sign calculations based on user-entered birth time, city coordinates, and timezone approximations.</li>
+          <li><strong>Chinese Zodiac:</strong> Lunar calendar animal and element alignments based on historical Chinese New Year boundary tables.</li>
+          <li><strong>Numerology:</strong> Pythagorean Life Path and name vibration calculations.</li>
+        </ul>
+        <p>
+          While we strive for calculation accuracy, astronomical coordinates and calendar conversions are subject to standard algorithmic approximations.
+        </p>
+      </section>
+
+      <section>
+        <h2>5. User Autonomy &amp; Personal Responsibility</h2>
+        <p>
+          You acknowledge and agree that you exercise total free will and autonomy. Any action you take, decision you make, or interpretation you form based on content provided by AI Zodiac is strictly at your own discretion and risk. <strong>Forray Gyöngyi</strong> assumes no responsibility or liability for any consequence arising from the use of or reliance on the application.
+        </p>
+      </section>
+
+      <section>
+        <h2>6. Third-Party Advertising &amp; Commercial Links</h2>
+        <p>
+          Advertisements displayed within the AI Zodiac Android app are served independently by <strong>Google AdMob</strong>. The appearance of third-party advertisements in the app does not imply an endorsement, guarantee, or sponsorship by AI Zodiac or Forray Gyöngyi. AI Zodiac does not contain affiliate marketing or commission referral links.
+        </p>
+      </section>
+
+      <section>
+        <h2>7. Contact &amp; Questions</h2>
+        <p>
+          If you have questions regarding this Disclaimer or the nature of our astrological services, please visit our <a href="/contact">Contact Page</a> or review our <a href="/terms-of-use">Terms of Use</a> and <a href="/privacy-policy">Privacy Policy</a>.
+        </p>
+      </section>
+    </main>
+
+    <footer>
+      <ul class="footer-links">
+        <li><a href="/">Home</a></li>
+        <li><a href="/privacy-policy">Privacy Policy</a></li>
+        <li><a href="/terms-of-use">Terms of Use</a></li>
+        <li><a href="/disclaimer">AI &amp; Content Disclaimer</a></li>
+        <li><a href="/contact">Contact</a></li>
+        <li><a href="https://play.google.com/store/apps/details?id=com.oberon.aizodiac" target="_blank" rel="noopener noreferrer">Google Play Store</a></li>
+      </ul>
+      <p>&copy; 2026 AI Zodiac &bull; Developed by Forray Gyöngyi &bull; All rights reserved.</p>
+    </footer>
+  </div>
+</body>
+</html>

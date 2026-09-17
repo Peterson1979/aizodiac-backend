@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Contact and support information for the AI Zodiac mobile application and website by Forray Gyöngyi.">
+  <title>AI Zodiac — Contact &amp; Support</title>
+  <link rel="canonical" href="https://aizodiac-backend-new.vercel.app/contact">
+  <style>
+    :root {
+      --bg-color: #0f111a;
+      --card-bg: #181b28;
+      --text-color: #e2e8f0;
+      --heading-color: #f8fafc;
+      --muted-color: #94a3b8;
+      --accent-color: #7c3aed;
+      --accent-light: #a78bfa;
+      --border-color: #2e344e;
+      --link-color: #a78bfa;
+      --link-hover: #c4b5fd;
+      --line-height: 1.7;
+    }
+
+    @media (prefers-color-scheme: light) {
+      :root {
+        --bg-color: #f8fafc;
+        --card-bg: #ffffff;
+        --text-color: #334155;
+        --heading-color: #0f172a;
+        --muted-color: #64748b;
+        --accent-color: #6d28d9;
+        --accent-light: #7c3aed;
+        --border-color: #e2e8f0;
+        --link-color: #6d28d9;
+        --link-hover: #4c1d95;
+      }
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      line-height: var(--line-height);
+      padding: 2rem 1rem;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background-color: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 2.5rem 2rem;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    }
+
+    .nav-back {
+      margin-bottom: 1.5rem;
+    }
+
+    .nav-back a {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      color: var(--link-color);
+      text-decoration: none;
+      font-size: 0.95rem;
+      font-weight: 500;
+    }
+
+    .nav-back a:hover {
+      color: var(--link-hover);
+      text-decoration: underline;
+    }
+
+    header {
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 1.5rem;
+      margin-bottom: 2rem;
+    }
+
+    h1 {
+      font-size: 2rem;
+      color: var(--heading-color);
+      margin-bottom: 0.5rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .meta-info {
+      color: var(--muted-color);
+      font-size: 0.95rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    .meta-info span {
+      display: inline-block;
+    }
+
+    h2 {
+      font-size: 1.35rem;
+      color: var(--heading-color);
+      margin-top: 2rem;
+      margin-bottom: 0.75rem;
+      font-weight: 600;
+      border-left: 3px solid var(--accent-light);
+      padding-left: 0.75rem;
+    }
+
+    p {
+      margin-bottom: 1rem;
+      color: var(--text-color);
+    }
+
+    ul {
+      margin-left: 1.5rem;
+      margin-bottom: 1.25rem;
+    }
+
+    li {
+      margin-bottom: 0.5rem;
+    }
+
+    strong {
+      color: var(--heading-color);
+    }
+
+    a {
+      color: var(--link-color);
+      text-decoration: underline;
+      word-break: break-all;
+    }
+
+    a:hover {
+      color: var(--link-hover);
+    }
+
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 1rem;
+      margin: 1.5rem 0;
+    }
+
+    .contact-card {
+      background-color: var(--bg-color);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 1.25rem;
+    }
+
+    .contact-card h3 {
+      font-size: 1.1rem;
+      color: var(--heading-color);
+      margin-bottom: 0.5rem;
+    }
+
+    .contact-card p {
+      font-size: 0.92rem;
+      color: var(--muted-color);
+      margin-bottom: 0.5rem;
+    }
+
+    footer {
+      border-top: 1px solid var(--border-color);
+      padding-top: 1.5rem;
+      margin-top: 2.5rem;
+      font-size: 0.9rem;
+      color: var(--muted-color);
+      text-align: center;
+    }
+
+    .footer-links {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 1.25rem;
+      margin-bottom: 0.75rem;
+      list-style: none;
+    }
+
+    .footer-links a {
+      color: var(--link-color);
+      text-decoration: none;
+    }
+
+    .footer-links a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="nav-back">
+      <a href="/">&larr; Back to AI Zodiac Home</a>
+    </div>
+
+    <header>
+      <h1>Contact &amp; Support</h1>
+      <div class="meta-info">
+        <span><strong>Application:</strong> AI Zodiac</span>
+        <span><strong>Developer:</strong> Forray Gyöngyi</span>
+      </div>
+    </header>
+
+    <main>
+      <section>
+        <h2>Developer &amp; Operator Information</h2>
+        <p>
+          The <strong>AI Zodiac</strong> mobile application and website are developed, operated, and maintained by <strong>Forray Gyöngyi</strong>.
+        </p>
+        <div class="card-grid">
+          <div class="contact-card">
+            <h3>Google Play Support</h3>
+            <p>For app support, updates, reviews, and developer contact:</p>
+            <p><a href="https://play.google.com/store/apps/details?id=com.oberon.aizodiac" target="_blank" rel="noopener noreferrer">AI Zodiac on Google Play</a></p>
+          </div>
+          <div class="contact-card">
+            <h3>Privacy &amp; Data Inquiries</h3>
+            <p>For questions concerning data privacy, security, or legal notices:</p>
+            <p>Reach out through the official Google Play developer contact channels.</p>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h2>Frequently Asked Questions</h2>
+        <p><strong>How do I edit or delete my profile data?</strong></p>
+        <p>
+          AI Zodiac uses decentralized local storage on your Android device (private <code>SharedPreferences</code>). We do not operate cloud user accounts or password databases. You can update or delete your birth parameters directly inside the app's Profile screen at any time, or remove all data via Android Settings &gt; Apps &gt; AI Zodiac &gt; Storage &gt; Clear Storage.
+        </p>
+
+        <p><strong>How do I manage advertising preferences?</strong></p>
+        <p>
+          Advertisements in the Android app are delivered by Google AdMob. You can manage or reset your advertising ID and ad personalization at any time through your Android device settings under <strong>Settings &gt; Google &gt; Ads</strong>.
+        </p>
+
+        <p><strong>Are website cookies used?</strong></p>
+        <p>
+          No. This website and the AI Zodiac backend APIs do not use cookies, web beacons, or third-party web tracking tools.
+        </p>
+      </section>
+
+      <section>
+        <h2>Legal Documentation</h2>
+        <p>
+          Please review our full legal disclosures:
+        </p>
+        <ul>
+          <li><a href="/privacy-policy">Privacy Policy</a> &mdash; Detailed overview of data handling, Google AdMob, and local storage architecture.</li>
+          <li><a href="/terms-of-use">Terms of Use</a> &mdash; Terms and conditions governing the use of the app and website.</li>
+          <li><a href="/disclaimer">AI &amp; Content Disclaimer</a> &mdash; Boundaries of astrological interpretations and AI generative features.</li>
+        </ul>
+      </section>
+    </main>
+
+    <footer>
+      <ul class="footer-links">
+        <li><a href="/">Home</a></li>
+        <li><a href="/privacy-policy">Privacy Policy</a></li>
+        <li><a href="/terms-of-use">Terms of Use</a></li>
+        <li><a href="/disclaimer">AI &amp; Content Disclaimer</a></li>
+        <li><a href="/contact">Contact</a></li>
+        <li><a href="https://play.google.com/store/apps/details?id=com.oberon.aizodiac" target="_blank" rel="noopener noreferrer">Google Play Store</a></li>
+      </ul>
+      <p>&copy; 2026 AI Zodiac &bull; Developed by Forray Gyöngyi &bull; All rights reserved.</p>
+    </footer>
+  </div>
+</body>
+</html>

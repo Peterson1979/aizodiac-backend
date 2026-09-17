@@ -16,6 +16,22 @@
     {
       "source": "/ai-zodiac-forray-gyongyi/privacy-policy/",
       "destination": "/api/privacyPolicy"
+    },
+    {
+      "source": "/terms",
+      "destination": "/terms-of-use"
+    },
+    {
+      "source": "/terms/",
+      "destination": "/terms-of-use"
+    },
+    {
+      "source": "/ai-disclaimer",
+      "destination": "/disclaimer"
+    },
+    {
+      "source": "/ai-disclaimer/",
+      "destination": "/disclaimer"
     }
   ],
   "crons": [

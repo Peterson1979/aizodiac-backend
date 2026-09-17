@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="Privacy Policy for the AI Zodiac mobile application by Forray Gyöngyi.">
   <title>AI Zodiac Privacy Policy</title>
+  <link rel="canonical" href="https://aizodiac-backend-new.vercel.app/privacy-policy">
   <style>
     :root {
       --bg-color: #0f111a;
@@ -57,6 +58,25 @@
       border-radius: 12px;
       padding: 2.5rem 2rem;
       box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    }
+
+    .nav-back {
+      margin-bottom: 1.5rem;
+    }
+
+    .nav-back a {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      color: var(--link-color);
+      text-decoration: none;
+      font-size: 0.95rem;
+      font-weight: 500;
+    }
+
+    .nav-back a:hover {
+      color: var(--link-hover);
+      text-decoration: underline;
     }
 
     header {
@@ -131,10 +151,32 @@
       color: var(--muted-color);
       text-align: center;
     }
+
+    .footer-links {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 1.25rem;
+      margin-bottom: 0.75rem;
+      list-style: none;
+    }
+
+    .footer-links a {
+      color: var(--link-color);
+      text-decoration: none;
+    }
+
+    .footer-links a:hover {
+      text-decoration: underline;
+    }
   </style>
 </head>
 <body>
   <div class="container">
+    <div class="nav-back">
+      <a href="/">&larr; Back to AI Zodiac Home</a>
+    </div>
+
     <header>
       <h1>AI Zodiac Privacy Policy</h1>
       <div class="meta-info">
@@ -288,6 +330,14 @@
     </main>
 
     <footer>
+      <ul class="footer-links">
+        <li><a href="/">Home</a></li>
+        <li><a href="/privacy-policy">Privacy Policy</a></li>
+        <li><a href="/terms-of-use">Terms of Use</a></li>
+        <li><a href="/disclaimer">AI &amp; Content Disclaimer</a></li>
+        <li><a href="/contact">Contact</a></li>
+        <li><a href="https://play.google.com/store/apps/details?id=com.oberon.aizodiac" target="_blank" rel="noopener noreferrer">Google Play Store</a></li>
+      </ul>
       <p>&copy; 2026 AI Zodiac &bull; Developed by Forray Gyöngyi &bull; All rights reserved.</p>
     </footer>
   </div>

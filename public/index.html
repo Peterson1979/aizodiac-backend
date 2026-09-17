@@ -372,29 +372,67 @@
     /* Footer */
     footer {
       border-top: 1px solid var(--border-color);
-      padding: 2.5rem 0;
-      margin-top: 3rem;
-      text-align: center;
+      padding: 3.5rem 0 2rem;
+      margin-top: 4rem;
       font-size: 0.9rem;
+      color: var(--muted-color);
+      background-color: var(--card-bg);
+    }
+
+    .footer-grid {
+      display: grid;
+      grid-template-columns: 2fr 1fr 1fr;
+      gap: 2.5rem;
+      margin-bottom: 2.5rem;
+      text-align: left;
+    }
+
+    .footer-col h4 {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--heading-color);
+      margin-bottom: 1rem;
+      letter-spacing: -0.01em;
+    }
+
+    .footer-col p {
+      font-size: 0.9rem;
+      color: var(--muted-color);
+      line-height: 1.6;
+      margin-bottom: 1rem;
+    }
+
+    .footer-col ul {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+    }
+
+    .footer-col a {
+      color: var(--link-color);
+      text-decoration: none;
+      transition: color 0.2s ease;
+    }
+
+    .footer-col a:hover {
+      color: var(--link-hover);
+      text-decoration: underline;
+    }
+
+    .footer-bottom {
+      border-top: 1px solid var(--border-color);
+      padding-top: 1.75rem;
+      text-align: center;
+      font-size: 0.85rem;
       color: var(--muted-color);
     }
 
-    .footer-links {
-      display: flex;
-      justify-content: center;
-      gap: 1.5rem;
-      margin-bottom: 1rem;
-      list-style: none;
-    }
-
-    .footer-links a {
-      color: var(--link-color);
-      text-decoration: none;
-    }
-
-    .footer-links a:hover {
-      color: var(--link-hover);
-      text-decoration: underline;
+    @media (max-width: 768px) {
+      .footer-grid {
+        grid-template-columns: 1fr;
+        gap: 2rem;
+      }
     }
 
     @media (max-width: 640px) {
@@ -422,7 +460,7 @@
         </a>
         <ul class="nav-links">
           <li><a href="#features">Features</a></li>
-          <li><a href="/privacy-policy">Privacy Policy</a></li>
+          <li><a href="/contact">Contact</a></li>
           <li><a href="https://play.google.com/store/apps/details?id=com.oberon.aizodiac" target="_blank" rel="noopener noreferrer">Get App</a></li>
         </ul>
       </nav>
@@ -590,12 +628,44 @@
 
   <footer>
     <div class="container">
-      <ul class="footer-links">
-        <li><a href="/">Home</a></li>
-        <li><a href="/privacy-policy">Privacy Policy</a></li>
-        <li><a href="https://play.google.com/store/apps/details?id=com.oberon.aizodiac" target="_blank" rel="noopener noreferrer">Google Play Store</a></li>
-      </ul>
-      <p>&copy; 2026 AI Zodiac. All rights reserved.</p>
+      <div class="footer-grid">
+        <div class="footer-col">
+          <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem;">
+            <svg class="brand-icon" viewBox="0 0 24 24" aria-hidden="true" style="width: 22px; height: 22px; fill: var(--accent-light);">
+              <path d="M12 2L14.3 8.7L21 11L14.3 13.3L12 20L9.7 13.3L3 11L9.7 8.7L12 2Z"/>
+            </svg>
+            <span style="font-weight: 700; color: var(--heading-color); font-size: 1.1rem;">AI Zodiac</span>
+          </div>
+          <p>
+            Personalized astrology and daily horoscope application for Android. Powered by modern AI and designed with local-first privacy.
+          </p>
+          <a href="https://play.google.com/store/apps/details?id=com.oberon.aizodiac" target="_blank" rel="noopener noreferrer" style="display: inline-flex; align-items: center; gap: 0.4rem; color: var(--link-color); font-weight: 600;">
+            <span>Get it on Google Play &rarr;</span>
+          </a>
+        </div>
+
+        <div class="footer-col">
+          <h4>Legal</h4>
+          <ul>
+            <li><a href="/privacy-policy">Privacy Policy</a></li>
+            <li><a href="/terms-of-use">Terms of Use</a></li>
+            <li><a href="/disclaimer">AI &amp; Content Disclaimer</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-col">
+          <h4>Support &amp; Links</h4>
+          <ul>
+            <li><a href="/">Home</a></li>
+            <li><a href="/contact">Contact &amp; Support</a></li>
+            <li><a href="https://play.google.com/store/apps/details?id=com.oberon.aizodiac" target="_blank" rel="noopener noreferrer">Google Play Store</a></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="footer-bottom">
+        <p>&copy; 2026 AI Zodiac &bull; Developed by Forray Gyöngyi &bull; All rights reserved.</p>
+      </div>
     </div>
   </footer>
 </body>

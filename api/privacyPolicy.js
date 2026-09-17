@@ -127,6 +127,25 @@ export const PRIVACY_POLICY_HTML = `<!DOCTYPE html>
       color: var(--link-hover);
     }
 
+    .nav-back {
+      margin-bottom: 1.5rem;
+    }
+
+    .nav-back a {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      color: var(--link-color);
+      text-decoration: none;
+      font-size: 0.95rem;
+      font-weight: 500;
+    }
+
+    .nav-back a:hover {
+      color: var(--link-hover);
+      text-decoration: underline;
+    }
+
     footer {
       border-top: 1px solid var(--border-color);
       padding-top: 1.5rem;
@@ -135,10 +154,32 @@ export const PRIVACY_POLICY_HTML = `<!DOCTYPE html>
       color: var(--muted-color);
       text-align: center;
     }
+
+    .footer-links {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 1.25rem;
+      margin-bottom: 0.75rem;
+      list-style: none;
+    }
+
+    .footer-links a {
+      color: var(--link-color);
+      text-decoration: none;
+    }
+
+    .footer-links a:hover {
+      text-decoration: underline;
+    }
   </style>
 </head>
 <body>
   <div class="container">
+    <div class="nav-back">
+      <a href="/">&larr; Back to AI Zodiac Home</a>
+    </div>
+
     <header>
       <h1>AI Zodiac Privacy Policy</h1>
       <div class="meta-info">
@@ -292,6 +333,14 @@ export const PRIVACY_POLICY_HTML = `<!DOCTYPE html>
     </main>
 
     <footer>
+      <ul class="footer-links">
+        <li><a href="/">Home</a></li>
+        <li><a href="/privacy-policy">Privacy Policy</a></li>
+        <li><a href="/terms-of-use">Terms of Use</a></li>
+        <li><a href="/disclaimer">AI &amp; Content Disclaimer</a></li>
+        <li><a href="/contact">Contact</a></li>
+        <li><a href="https://play.google.com/store/apps/details?id=com.oberon.aizodiac" target="_blank" rel="noopener noreferrer">Google Play Store</a></li>
+      </ul>
       <p>&copy; 2026 AI Zodiac &bull; Developed by Forray Gyöngyi &bull; All rights reserved.</p>
     </footer>
   </div>
