@@ -45,6 +45,8 @@ import {
   CATEGORY_DESTINATIONS_MAP,
   WEBSITE_PRODUCTION_BASE_URL,
   DEFAULT_INSTAGRAM_CTA,
+  DEFAULT_FACEBOOK_CTA,
+  DEFAULT_FACEBOOK_WEBSITE_URL,
   resolveWebsitePath,
   buildWebsiteDestinationUrl,
   validateWebsiteDestinationUrl,
@@ -2060,14 +2062,40 @@ function createSampleAiContent(overrides = {}) {
   const validCheck = validateWebsiteDestinationUrl(sampleUrl, { expectedPlatform: "pinterest" });
   assert.equal(validCheck.valid, true);
 
-  // 3. Facebook caption contains both website destination URL and mandatory Google Play URL
-  const fbCaption = formatFacebookCaption({
+  // 3. Facebook caption contains canonical website destination URL (https://aizodiac.life/) and mandatory Google Play URL
+  const fbCaptionWithDest = formatFacebookCaption({
     baseCaption: "3 signs that love deeply.",
     websiteUrl: "https://aizodiac.life/tools/compatibility?utm_source=facebook&utm_medium=social&utm_campaign=love_compatibility&utm_content=social-2026-09-16",
   });
-  assert.ok(fbCaption.includes("https://aizodiac.life/tools/compatibility"));
-  assert.ok(fbCaption.includes("utm_source=facebook"));
-  assert.ok(fbCaption.includes(DEFAULT_APP_PLAY_STORE_URL));
+  assert.ok(fbCaptionWithDest.includes("https://aizodiac.life/"), "Facebook caption must contain https://aizodiac.life/");
+  assert.ok(fbCaptionWithDest.includes("https://aizodiac.life/tools/compatibility"));
+  assert.ok(fbCaptionWithDest.includes("utm_source=facebook"));
+  assert.ok(fbCaptionWithDest.includes(DEFAULT_APP_PLAY_STORE_URL));
+  assert.ok(fbCaptionWithDest.includes(DEFAULT_FACEBOOK_CTA));
+
+  // 3b. Facebook caption without explicit websiteUrl deterministically defaults to canonical production URL (https://aizodiac.life/)
+  const fbCaptionDefault = formatFacebookCaption({
+    baseCaption: "Discover your cosmic alignment.",
+  });
+  assert.ok(fbCaptionDefault.includes("https://aizodiac.life/"), "Facebook caption without websiteUrl must contain https://aizodiac.life/");
+  assert.ok(fbCaptionDefault.includes(`${DEFAULT_FACEBOOK_CTA} https://aizodiac.life/`));
+  assert.ok(fbCaptionDefault.includes(DEFAULT_APP_PLAY_STORE_URL));
+
+  // 3c. Facebook caption with pre-existing canonical URL does not duplicate CTA or URL
+  const fbCaptionExisting = formatFacebookCaption({
+    baseCaption: "Check your natal chart at https://aizodiac.life/ today!",
+  });
+  const aizodiacUrlMatches = (fbCaptionExisting.match(/https:\/\/aizodiac\.life\//g) || []).length;
+  assert.equal(aizodiacUrlMatches, 1, "Must not duplicate canonical website URL");
+  assert.ok(fbCaptionExisting.includes(DEFAULT_APP_PLAY_STORE_URL));
+
+  // 3d. Normalizes legacy/deprecated domains (aizodiac.com, lifemode.com, aizodiac.app) and slashless origin to canonical URL
+  const fbCaptionLegacy = formatFacebookCaption({
+    baseCaption: "Read our articles at https://aizodiac.com and learn on https://lifemode.com or https://aizodiac.life",
+  });
+  assert.ok(!fbCaptionLegacy.includes("aizodiac.com"), "Must not leak aizodiac.com");
+  assert.ok(!fbCaptionLegacy.includes("lifemode.com"), "Must not leak lifemode.com");
+  assert.ok(fbCaptionLegacy.includes("https://aizodiac.life/"));
 
   // 4. Instagram caption uses clean profile/bio CTA without raw URL
   const igCaption = formatInstagramCaption({
