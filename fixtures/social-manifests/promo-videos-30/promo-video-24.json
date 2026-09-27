@@ -4,7 +4,7 @@
   "type": "video",
   "media": [
     {
-      "url": "https://pub-4169b32ebff84de78189ef9a010baa5c.r2.dev/videos/promo/24.mp4",
+      "url": "https://aizodiac-backend-new.vercel.app/videos/promo/24.mp4",
       "type": "video/mp4",
       "duration": 10,
       "aspectRatio": "9:16",
