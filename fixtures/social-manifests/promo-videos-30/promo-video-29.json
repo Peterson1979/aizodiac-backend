@@ -1,0 +1,58 @@
+{
+  "date": "2026-10-25",
+  "id": "promo-video-2026-10-25",
+  "type": "video",
+  "media": [
+    {
+      "url": "https://pub-4169b32ebff84de78189ef9a010baa5c.r2.dev/videos/promo/29.mp4",
+      "type": "video/mp4",
+      "duration": 10,
+      "aspectRatio": "9:16",
+      "altText": "One question can start a whole cosmic journey. | AI Zodiac",
+      "fileName": "29.mp4",
+      "localFilePath": "C:\\Users\\opeti\\APP\\AI Zodiac\\AI Zodiac promo\\1 havi\\Sep 26 - okt 24\\29.mp4"
+    }
+  ],
+  "destinations": [
+    "instagram",
+    "facebook",
+    "youtube"
+  ],
+  "destinationUrl": "https://aizodiac.life/features/ask-ai?utm_source=youtube&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-29",
+  "captions": {
+    "instagram": "✨ One question can start a whole cosmic journey.\n\nAsk about your birth chart, love connections, or daily transits and receive instant personalized answers with AI Zodiac.\n\nExplore more with AI Zodiac — link in bio.\n\n#astrology #aizodiac #cosmicjourney #askai #aiastrologer #astrologyvideo",
+    "facebook": "✨ One question can start a whole cosmic journey.\n\nAsk your most pressing astrology questions to the AI Astrologer on AI Zodiac.\n\nExplore more insights on AI Zodiac:\nhttps://aizodiac.life/features/ask-ai\n\nDownload AI Zodiac on Google Play:\nhttps://play.google.com/store/apps/details?id=com.oberon.aizodiac&referrer=utm_source%3Dfacebook%26utm_medium%3Dsocial%26utm_campaign%3Dvideo_cta",
+    "youtube": {
+      "title": "One Question Can Start a Whole Cosmic Journey 🔮 #Shorts",
+      "description": "One question can start a whole cosmic journey. Start yours with AI Zodiac on Android.\n\nExplore more insights on AI Zodiac:\nhttps://aizodiac.life/features/ask-ai?utm_source=youtube&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-29\n\nDownload AI Zodiac on Google Play:\nhttps://play.google.com/store/apps/details?id=com.oberon.aizodiac&referrer=utm_source%3Dyoutube%26utm_medium%3Dsocial%26utm_campaign%3Dshort_cta\n\n#Shorts #astrology #aizodiac #cosmicjourney #askai #aiastrology #zodiac",
+      "tags": [
+        "AI Zodiac",
+        "astrology",
+        "horoscope",
+        "zodiac",
+        "Shorts",
+        "zodiac signs",
+        "birth chart",
+        "ai_astrology"
+      ]
+    }
+  },
+  "metadata": {
+    "series": "ai_zodiac_promo_30",
+    "sequenceNumber": 29,
+    "videoFileName": "29.mp4",
+    "videoFilePath": "C:\\Users\\opeti\\APP\\AI Zodiac\\AI Zodiac promo\\1 havi\\Sep 26 - okt 24\\29.mp4",
+    "sourceDescriptionNumber": 29,
+    "exactSourceTitle": "One question can start a whole cosmic journey.",
+    "visual": "Someone types a question into AI Zodiac followed by rapid flashes of horoscope, birth chart, compatibility and numerology screens before the logo reveal.",
+    "voiceover": "One question can start a whole cosmic journey. Start yours with AI Zodiac. Download AI Zodiac.",
+    "category": "ai_astrology",
+    "format": "promotional_video",
+    "contentId": "promo-video-29",
+    "destinationPath": "/features/ask-ai",
+    "scheduledPublishTimeUtc": "18:00:00Z",
+    "scheduledPublicationDateTime": "2026-10-25T18:00:00Z",
+    "qualityGate": "QUALITY_GATE_PASS",
+    "generatedAt": "2026-09-27T18:49:03.878Z"
+  }
+}

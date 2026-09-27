@@ -1,0 +1,58 @@
+{
+  "date": "2026-10-18",
+  "id": "promo-video-2026-10-18",
+  "type": "video",
+  "media": [
+    {
+      "url": "https://pub-4169b32ebff84de78189ef9a010baa5c.r2.dev/videos/promo/22.mp4",
+      "type": "video/mp4",
+      "duration": 10,
+      "aspectRatio": "9:16",
+      "altText": "The stars have receipts. | AI Zodiac",
+      "fileName": "22.mp4",
+      "localFilePath": "C:\\Users\\opeti\\APP\\AI Zodiac\\AI Zodiac promo\\1 havi\\Sep 26 - okt 24\\22.mp4"
+    }
+  ],
+  "destinations": [
+    "instagram",
+    "facebook",
+    "youtube"
+  ],
+  "destinationUrl": "https://aizodiac.life/tools/birth-chart?utm_source=youtube&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-22",
+  "captions": {
+    "instagram": "✨ The stars have receipts.\n\nEvery trait, emotional pattern, and relationship tendency is mapped in your chart. Check yours with AI Zodiac.\n\nExplore more with AI Zodiac — link in bio.\n\n#astrology #aizodiac #birthchart #zodiacfacts #cosmicblueprint #astrologyvideo",
+    "facebook": "✨ The stars have receipts.\n\nExplore the precise planetary calculations behind your personality and life timing on AI Zodiac.\n\nExplore more insights on AI Zodiac:\nhttps://aizodiac.life/tools/birth-chart\n\nDownload AI Zodiac on Google Play:\nhttps://play.google.com/store/apps/details?id=com.oberon.aizodiac&referrer=utm_source%3Dfacebook%26utm_medium%3Dsocial%26utm_campaign%3Dvideo_cta",
+    "youtube": {
+      "title": "The Stars Have Receipts 📜✨ #Shorts",
+      "description": "The stars have receipts. Check your complete cosmic profile and birth chart with AI Zodiac.\n\nExplore more insights on AI Zodiac:\nhttps://aizodiac.life/tools/birth-chart?utm_source=youtube&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-22\n\nDownload AI Zodiac on Google Play:\nhttps://play.google.com/store/apps/details?id=com.oberon.aizodiac&referrer=utm_source%3Dyoutube%26utm_medium%3Dsocial%26utm_campaign%3Dshort_cta\n\n#Shorts #astrology #aizodiac #thestarshavereceipts #birthchart #cosmicprofile #zodiac",
+      "tags": [
+        "AI Zodiac",
+        "astrology",
+        "horoscope",
+        "zodiac",
+        "Shorts",
+        "zodiac signs",
+        "birth chart",
+        "self_discovery"
+      ]
+    }
+  },
+  "metadata": {
+    "series": "ai_zodiac_promo_30",
+    "sequenceNumber": 22,
+    "videoFileName": "22.mp4",
+    "videoFilePath": "C:\\Users\\opeti\\APP\\AI Zodiac\\AI Zodiac promo\\1 havi\\Sep 26 - okt 24\\22.mp4",
+    "sourceDescriptionNumber": 22,
+    "exactSourceTitle": "The stars have receipts.",
+    "visual": "A cosmic archive rapidly opens files containing personality, relationships, birth chart and numerology symbols in a playful investigative style.",
+    "voiceover": "The stars have receipts. Check your cosmic profile with AI Zodiac. Download AI Zodiac.",
+    "category": "self_discovery",
+    "format": "promotional_video",
+    "contentId": "promo-video-22",
+    "destinationPath": "/tools/birth-chart",
+    "scheduledPublishTimeUtc": "18:00:00Z",
+    "scheduledPublicationDateTime": "2026-10-18T18:00:00Z",
+    "qualityGate": "QUALITY_GATE_PASS",
+    "generatedAt": "2026-09-27T18:49:03.870Z"
+  }
+}

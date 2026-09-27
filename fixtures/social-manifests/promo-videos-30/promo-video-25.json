@@ -1,0 +1,58 @@
+{
+  "date": "2026-10-21",
+  "id": "promo-video-2026-10-21",
+  "type": "video",
+  "media": [
+    {
+      "url": "https://pub-4169b32ebff84de78189ef9a010baa5c.r2.dev/videos/promo/25.mp4",
+      "type": "video/mp4",
+      "duration": 10,
+      "aspectRatio": "9:16",
+      "altText": "You are more than your sun sign. | AI Zodiac",
+      "fileName": "25.mp4",
+      "localFilePath": "C:\\Users\\opeti\\APP\\AI Zodiac\\AI Zodiac promo\\1 havi\\Sep 26 - okt 24\\25.mp4"
+    }
+  ],
+  "destinations": [
+    "instagram",
+    "facebook",
+    "youtube"
+  ],
+  "destinationUrl": "https://aizodiac.life/articles/the-big-three-sun-moon-rising-signs?utm_source=youtube&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-25",
+  "captions": {
+    "instagram": "✨ You are more than your sun sign.\n\nYour Sun is your core ego, your Moon is your emotional world, and your Rising is your outward persona. Explore all three with AI Zodiac.\n\nExplore more with AI Zodiac — link in bio.\n\n#astrology #aizodiac #bigthree #sunsign #moonsign #astrologyvideo",
+    "facebook": "✨ You are more than your sun sign.\n\nDiscover how your Sun, Moon, and Ascendant work together to create your full astrological identity on AI Zodiac.\n\nExplore more insights on AI Zodiac:\nhttps://aizodiac.life/articles/the-big-three-sun-moon-rising-signs\n\nDownload AI Zodiac on Google Play:\nhttps://play.google.com/store/apps/details?id=com.oberon.aizodiac&referrer=utm_source%3Dfacebook%26utm_medium%3Dsocial%26utm_campaign%3Dvideo_cta",
+    "youtube": {
+      "title": "You Are More Than Your Sun Sign 🔮 #Shorts",
+      "description": "You are more than your sun sign. Explore your Sun, Moon, and Rising signs with AI Zodiac.\n\nExplore more insights on AI Zodiac:\nhttps://aizodiac.life/articles/the-big-three-sun-moon-rising-signs?utm_source=youtube&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-25\n\nDownload AI Zodiac on Google Play:\nhttps://play.google.com/store/apps/details?id=com.oberon.aizodiac&referrer=utm_source%3Dyoutube%26utm_medium%3Dsocial%26utm_campaign%3Dshort_cta\n\n#Shorts #astrology #aizodiac #bigthree #sunsign #moonsign #risingsign",
+      "tags": [
+        "AI Zodiac",
+        "astrology",
+        "horoscope",
+        "zodiac",
+        "Shorts",
+        "zodiac signs",
+        "birth chart",
+        "self_discovery"
+      ]
+    }
+  },
+  "metadata": {
+    "series": "ai_zodiac_promo_30",
+    "sequenceNumber": 25,
+    "videoFileName": "25.mp4",
+    "videoFilePath": "C:\\Users\\opeti\\APP\\AI Zodiac\\AI Zodiac promo\\1 havi\\Sep 26 - okt 24\\25.mp4",
+    "sourceDescriptionNumber": 25,
+    "exactSourceTitle": "You are more than your sun sign.",
+    "visual": "A single zodiac symbol expands into a complete birth chart containing planets, houses and other astrological elements in a sophisticated cinematic sequence.",
+    "voiceover": "You are more than your sun sign. Explore the bigger picture with AI Zodiac. Download AI Zodiac.",
+    "category": "self_discovery",
+    "format": "promotional_video",
+    "contentId": "promo-video-25",
+    "destinationPath": "/articles/the-big-three-sun-moon-rising-signs",
+    "scheduledPublishTimeUtc": "18:00:00Z",
+    "scheduledPublicationDateTime": "2026-10-21T18:00:00Z",
+    "qualityGate": "QUALITY_GATE_PASS",
+    "generatedAt": "2026-09-27T18:49:03.872Z"
+  }
+}

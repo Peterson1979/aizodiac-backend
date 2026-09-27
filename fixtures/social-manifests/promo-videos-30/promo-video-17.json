@@ -1,0 +1,58 @@
+{
+  "date": "2026-10-13",
+  "id": "promo-video-2026-10-13",
+  "type": "video",
+  "media": [
+    {
+      "url": "https://pub-4169b32ebff84de78189ef9a010baa5c.r2.dev/videos/promo/17.mp4",
+      "type": "video/mp4",
+      "duration": 10,
+      "aspectRatio": "9:16",
+      "altText": "Mercury retrograde? Ask AI Zodiac. | AI Zodiac",
+      "fileName": "17.mp4",
+      "localFilePath": "C:\\Users\\opeti\\APP\\AI Zodiac\\AI Zodiac promo\\1 havi\\Sep 26 - okt 24\\17.mp4"
+    }
+  ],
+  "destinations": [
+    "instagram",
+    "facebook",
+    "youtube"
+  ],
+  "destinationUrl": "https://aizodiac.life/features/personal-calendar?utm_source=youtube&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-17",
+  "captions": {
+    "instagram": "✨ Mercury retrograde? Ask AI Zodiac.\n\nTrack retrogrades, planetary transits, and favorable timing windows calibrated to your birth chart.\n\nExplore more with AI Zodiac — link in bio.\n\n#astrology #aizodiac #mercuryretrograde #astrocalendar #dailyhoroscope #astrologyvideo",
+    "facebook": "✨ Mercury retrograde? Ask AI Zodiac.\n\nStay calm and prepared with personalized astrological timing and transit forecasts on AI Zodiac.\n\nExplore more insights on AI Zodiac:\nhttps://aizodiac.life/features/personal-calendar\n\nDownload AI Zodiac on Google Play:\nhttps://play.google.com/store/apps/details?id=com.oberon.aizodiac&referrer=utm_source%3Dfacebook%26utm_medium%3Dsocial%26utm_campaign%3Dvideo_cta",
+    "youtube": {
+      "title": "Mercury Retrograde? Ask AI Zodiac ⏳ #Shorts",
+      "description": "Mercury retrograde? Ask AI Zodiac. Get your personalized astrology insights and transit guidance.\n\nExplore more insights on AI Zodiac:\nhttps://aizodiac.life/features/personal-calendar?utm_source=youtube&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-17\n\nDownload AI Zodiac on Google Play:\nhttps://play.google.com/store/apps/details?id=com.oberon.aizodiac&referrer=utm_source%3Dyoutube%26utm_medium%3Dsocial%26utm_campaign%3Dshort_cta\n\n#Shorts #astrology #aizodiac #mercuryretrograde #cosmictiming #horoscope #zodiac",
+      "tags": [
+        "AI Zodiac",
+        "astrology",
+        "horoscope",
+        "zodiac",
+        "Shorts",
+        "zodiac signs",
+        "birth chart",
+        "daily_insight"
+      ]
+    }
+  },
+  "metadata": {
+    "series": "ai_zodiac_promo_30",
+    "sequenceNumber": 17,
+    "videoFileName": "17.mp4",
+    "videoFilePath": "C:\\Users\\opeti\\APP\\AI Zodiac\\AI Zodiac promo\\1 havi\\Sep 26 - okt 24\\17.mp4",
+    "sourceDescriptionNumber": 17,
+    "exactSourceTitle": "Mercury retrograde? Ask AI Zodiac.",
+    "visual": "Mercury moves backward through a stylized cosmic scene while notifications, messages and everyday chaos appear around it in a humorous sequence.",
+    "voiceover": "Mercury retrograde? Ask AI Zodiac. Get your personalized astrology insights. Download AI Zodiac.",
+    "category": "daily_insight",
+    "format": "promotional_video",
+    "contentId": "promo-video-17",
+    "destinationPath": "/features/personal-calendar",
+    "scheduledPublishTimeUtc": "18:00:00Z",
+    "scheduledPublicationDateTime": "2026-10-13T18:00:00Z",
+    "qualityGate": "QUALITY_GATE_PASS",
+    "generatedAt": "2026-09-27T18:49:03.864Z"
+  }
+}

@@ -111,6 +111,14 @@ import {
   getZodiacSvgGlyph,
   renderVectorArrowSvg,
 } from "./lib/social/render/zodiacVectors.js";
+import {
+  AI_ZODIAC_30_PROMOTIONAL_VIDEOS,
+  getVideoCatalogItemForDate,
+  formatYouTubeVideoDescription,
+  generateDailyVideoManifest,
+  YOUTUBE_TRACKING_PLAY_STORE_URL,
+  PINTEREST_VIDEO_TRACKING_PLAY_STORE_URL,
+} from "./lib/social/content/videoCatalog.js";
 import { executeSocialPublishing } from "./lib/social/publishCoordinator.js";
 import { PLATFORMS, PUBLISH_STATUS } from "./lib/social/types.js";
 
@@ -2389,6 +2397,115 @@ function createSampleAiContent(overrides = {}) {
   console.log("  ✓ Quality Gate and 120-day duplicate prevention active across all new formats");
 }
 
+// ============================================================================
+// TEST 21: AI Zodiac 30 Promotional Video Catalog & Deterministic Manifest Generation
+// ============================================================================
+{
+  console.log("\n[TEST 21] AI Zodiac 30 Promotional Video Catalog & Deterministic Manifest Generation");
+
+  // 1. Verify 30 promotional video definitions
+  assert.equal(AI_ZODIAC_30_PROMOTIONAL_VIDEOS.length, 30, "Catalog must contain exactly 30 promotional videos");
+
+  const seenIds = new Set();
+  const seenFiles = new Set();
+
+  AI_ZODIAC_30_PROMOTIONAL_VIDEOS.forEach((item, idx) => {
+    assert.equal(item.index, idx + 1, `Video item ${idx + 1} must have 1-based index`);
+    assert.ok(item.id && !seenIds.has(item.id), `Video ID '${item.id}' must be unique`);
+    seenIds.add(item.id);
+
+    assert.ok(item.title && typeof item.title === "string", `Video ${item.id} must have a title`);
+    assert.ok(item.topic && typeof item.topic === "string", `Video ${item.id} must have a topic`);
+    assert.ok(item.category && typeof item.category === "string", `Video ${item.id} must have a category`);
+    assert.ok(item.destinationPath && item.destinationPath.startsWith("/"), `Video ${item.id} must have valid destination path`);
+    assert.ok(KNOWN_WEBSITE_ROUTES.has(item.destinationPath), `Video ${item.id} destination path '${item.destinationPath}' must exist in KNOWN_WEBSITE_ROUTES`);
+
+    assert.ok(item.videoFileName && item.videoFileName.endsWith(".mp4"), `Video ${item.id} must specify .mp4 filename`);
+    assert.ok(!seenFiles.has(item.videoFileName), `Video file '${item.videoFileName}' must be unique`);
+    seenFiles.add(item.videoFileName);
+
+    assert.equal(item.duration, 10, `Video ${item.id} duration must be 10 seconds`);
+    assert.equal(item.aspectRatio, "9:16", `Video ${item.id} aspect ratio must be 9:16 vertical`);
+    assert.ok(item.youtubeTitle && item.youtubeTitle.length <= 100, `Video ${item.id} youtubeTitle must be <= 100 chars`);
+    assert.ok(item.pinterestTitle && item.pinterestTitle.length <= 100, `Video ${item.id} pinterestTitle must be <= 100 chars`);
+    assert.ok(item.pinterestDescription && item.pinterestDescription.length <= 500, `Video ${item.id} pinterestDescription must be <= 500 chars`);
+  });
+
+  // 2. Deterministic selection for dates
+  const itemDay1 = getVideoCatalogItemForDate("2026-09-01");
+  const itemDay1Repeat = getVideoCatalogItemForDate("2026-09-01");
+  assert.equal(itemDay1.id, itemDay1Repeat.id, "Date lookup must be purely deterministic");
+
+  // 3. Generate daily video manifest
+  const mediaBaseUrl = "https://media.aizodiac.app";
+  const videoManifest = generateDailyVideoManifest({
+    publishDate: "2026-09-27",
+    mediaBaseUrl,
+  });
+
+  assert.equal(videoManifest.date, "2026-09-27");
+  assert.equal(videoManifest.id, "video-2026-09-27");
+  assert.equal(videoManifest.type, MEDIA_TYPES.VIDEO);
+  assert.equal(videoManifest.media.length, 1);
+  assert.ok(videoManifest.media[0].url.startsWith("https://media.aizodiac.app/videos/"));
+  assert.ok(videoManifest.media[0].url.endsWith(".mp4"));
+  assert.equal(videoManifest.media[0].duration, 10);
+  assert.equal(videoManifest.media[0].aspectRatio, "9:16");
+  assert.ok(videoManifest.media[0].altText.includes("AI Zodiac"));
+
+  assert.deepEqual(videoManifest.destinations, ["youtube", "pinterest"]);
+  assert.ok(videoManifest.captions.youtube.title.includes("#Shorts"));
+  assert.ok(videoManifest.captions.youtube.description.includes(YOUTUBE_TRACKING_PLAY_STORE_URL));
+  assert.ok(videoManifest.captions.pinterest.link.includes("utm_source=pinterest"));
+  assert.ok(videoManifest.captions.pinterest.description.includes(PINTEREST_VIDEO_TRACKING_PLAY_STORE_URL));
+
+  // 4. Validate manifest schema
+  const manifestVal = validateManifest(videoManifest, { mediaBaseUrl });
+  assert.equal(manifestVal.valid, true, `Video manifest validation errors: ${manifestVal.errors.join(", ")}`);
+
+  // 5. Evaluate Quality Gate for Video Manifest
+  const gateRes = await evaluateQualityGate({
+    manifest: videoManifest,
+    expectedDate: "2026-09-27",
+    mediaBaseUrl,
+  });
+  assert.equal(gateRes.passed, true, `Video Quality Gate errors: ${gateRes.errors.join(", ")}`);
+  assert.equal(gateRes.status, QUALITY_GATE_STATUS.PASS);
+
+  // 6. Test executeDailyPreparation with contentType="video"
+  const redis = new MockRedis();
+  const prepRes = await executeDailyPreparation({
+    redis,
+    targetDate: "2026-09-27",
+    contentType: "video",
+    r2ConfigOverrides: { publicBaseUrl: mediaBaseUrl },
+  });
+
+  assert.equal(prepRes.success, true);
+  assert.equal(prepRes.status, QUALITY_GATE_STATUS.PASS);
+  assert.equal(prepRes.contentId, "video-2026-09-27");
+  assert.equal(prepRes.manifest.type, MEDIA_TYPES.VIDEO);
+
+  // Verify stored manifest in Redis
+  const storedManifestRaw = await redis.get("aiz:social:manifest:2026-09-27");
+  assert.ok(storedManifestRaw);
+  const storedManifest = JSON.parse(storedManifestRaw);
+  assert.equal(storedManifest.id, "video-2026-09-27");
+  assert.equal(storedManifest.type, "video");
+  assert.equal(storedManifest.destinations.length, 2);
+
+  const prepState = await getPrepareState(redis, "2026-09-27");
+  assert.equal(prepState.stage, PREPARE_STAGES.QUALITY_GATE_PASS);
+
+  console.log("  ✓ All 30 AI Zodiac promotional videos meet short-form vertical specs (10s, 9:16)");
+  console.log("  ✓ Video destination paths mapped strictly to verified website routes catalog");
+  console.log("  ✓ Deterministic video manifest generation formats YouTube Shorts and Pinterest Video Pins");
+  console.log("  ✓ YouTube description contains clean CTA and Google Play referral tracking");
+  console.log("  ✓ Video manifest passes Content Quality Gate without entering 5-slide carousel path");
+  console.log("  ✓ executeDailyPreparation seamlessly prepares and persists video manifest to Redis");
+}
+
 console.log("\n==================================================");
 console.log("ALL SOCIAL PREPARATION & QUALITY GATE TESTS PASSED! 🎉");
 console.log("==================================================");
+

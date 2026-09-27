@@ -1,0 +1,58 @@
+{
+  "date": "2026-10-02",
+  "id": "promo-video-2026-10-02",
+  "type": "video",
+  "media": [
+    {
+      "url": "https://pub-4169b32ebff84de78189ef9a010baa5c.r2.dev/videos/promo/6.mp4",
+      "type": "video/mp4",
+      "duration": 10,
+      "aspectRatio": "9:16",
+      "altText": "Which zodiac sign is secretly the most intense? | AI Zodiac",
+      "fileName": "6.mp4",
+      "localFilePath": "C:\\Users\\opeti\\APP\\AI Zodiac\\AI Zodiac promo\\1 havi\\Sep 26 - okt 24\\6.mp4"
+    }
+  ],
+  "destinations": [
+    "instagram",
+    "facebook",
+    "youtube"
+  ],
+  "destinationUrl": "https://aizodiac.life/features/zodiac-traits?utm_source=youtube&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-06",
+  "captions": {
+    "instagram": "✨ Which zodiac sign is secretly the most intense?\n\nEvery sign has a powerhouse of hidden emotional and psychological depth waiting to be explored with AI Zodiac.\n\nExplore more with AI Zodiac — link in bio.\n\n#astrology #aizodiac #zodiacsigns #astrologyfacts #zodiacpsychology #astrologyvideo",
+    "facebook": "✨ Which zodiac sign is secretly the most intense?\n\nExplore the profound psychological depths, hidden motivations, and intense traits of every zodiac sign on AI Zodiac.\n\nExplore more insights on AI Zodiac:\nhttps://aizodiac.life/features/zodiac-traits\n\nDownload AI Zodiac on Google Play:\nhttps://play.google.com/store/apps/details?id=com.oberon.aizodiac&referrer=utm_source%3Dfacebook%26utm_medium%3Dsocial%26utm_campaign%3Dvideo_cta",
+    "youtube": {
+      "title": "Which Zodiac Sign Is Secretly The Most Intense? ⚡ #Shorts",
+      "description": "Which zodiac sign is secretly the most intense? Explore the deeper side of your sign with AI Zodiac.\n\nExplore more insights on AI Zodiac:\nhttps://aizodiac.life/features/zodiac-traits?utm_source=youtube&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-06\n\nDownload AI Zodiac on Google Play:\nhttps://play.google.com/store/apps/details?id=com.oberon.aizodiac&referrer=utm_source%3Dyoutube%26utm_medium%3Dsocial%26utm_campaign%3Dshort_cta\n\n#Shorts #astrology #aizodiac #zodiacsigns #intensezodiac #astrologyfacts #zodiac",
+      "tags": [
+        "AI Zodiac",
+        "astrology",
+        "horoscope",
+        "zodiac",
+        "Shorts",
+        "zodiac signs",
+        "birth chart",
+        "zodiac_psychology"
+      ]
+    }
+  },
+  "metadata": {
+    "series": "ai_zodiac_promo_30",
+    "sequenceNumber": 6,
+    "videoFileName": "6.mp4",
+    "videoFilePath": "C:\\Users\\opeti\\APP\\AI Zodiac\\AI Zodiac promo\\1 havi\\Sep 26 - okt 24\\6.mp4",
+    "sourceDescriptionNumber": 6,
+    "exactSourceTitle": "Which zodiac sign is secretly the most intense?",
+    "visual": "Zodiac symbols rapidly cycle with dramatic zooms, flashes and escalating energy without revealing an answer, ending with the AI Zodiac logo.",
+    "voiceover": "Which zodiac sign is secretly the most intense? Explore your sign with AI Zodiac. Download AI Zodiac.",
+    "category": "zodiac_psychology",
+    "format": "promotional_video",
+    "contentId": "promo-video-06",
+    "destinationPath": "/features/zodiac-traits",
+    "scheduledPublishTimeUtc": "18:00:00Z",
+    "scheduledPublicationDateTime": "2026-10-02T18:00:00Z",
+    "qualityGate": "QUALITY_GATE_PASS",
+    "generatedAt": "2026-09-27T18:49:03.851Z"
+  }
+}

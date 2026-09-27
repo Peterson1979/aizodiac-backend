@@ -1,0 +1,58 @@
+{
+  "date": "2026-10-07",
+  "id": "promo-video-2026-10-07",
+  "type": "video",
+  "media": [
+    {
+      "url": "https://pub-4169b32ebff84de78189ef9a010baa5c.r2.dev/videos/promo/11.mp4",
+      "type": "video/mp4",
+      "duration": 10,
+      "aspectRatio": "9:16",
+      "altText": "Your zodiac sign + AI = something different. | AI Zodiac",
+      "fileName": "11.mp4",
+      "localFilePath": "C:\\Users\\opeti\\APP\\AI Zodiac\\AI Zodiac promo\\1 havi\\Sep 26 - okt 24\\11.mp4"
+    }
+  ],
+  "destinations": [
+    "instagram",
+    "facebook",
+    "youtube"
+  ],
+  "destinationUrl": "https://aizodiac.life/articles/how-ai-creates-personalized-astrology-insights?utm_source=youtube&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-11",
+  "captions": {
+    "instagram": "✨ Your zodiac sign + AI = something different.\n\nExperience a responsive, intelligent astrology companion designed specifically for modern life with AI Zodiac.\n\nExplore more with AI Zodiac — link in bio.\n\n#astrology #aizodiac #aiastrology #astrologyapp #horoscope #astrologyvideo",
+    "facebook": "✨ Your zodiac sign + AI = something different.\n\nDiscover how AI Zodiac transforms traditional astrology into personalized, daily conversational guidance.\n\nExplore more insights on AI Zodiac:\nhttps://aizodiac.life/articles/how-ai-creates-personalized-astrology-insights\n\nDownload AI Zodiac on Google Play:\nhttps://play.google.com/store/apps/details?id=com.oberon.aizodiac&referrer=utm_source%3Dfacebook%26utm_medium%3Dsocial%26utm_campaign%3Dvideo_cta",
+    "youtube": {
+      "title": "Your Zodiac Sign + AI = Something Different ⚡ #Shorts",
+      "description": "Your zodiac sign plus AI equals something different. Meet AI Zodiac, your personal AI astrology companion.\n\nExplore more insights on AI Zodiac:\nhttps://aizodiac.life/articles/how-ai-creates-personalized-astrology-insights?utm_source=youtube&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-11\n\nDownload AI Zodiac on Google Play:\nhttps://play.google.com/store/apps/details?id=com.oberon.aizodiac&referrer=utm_source%3Dyoutube%26utm_medium%3Dsocial%26utm_campaign%3Dshort_cta\n\n#Shorts #astrology #aizodiac #aiastrology #horoscope #innovation #zodiac",
+      "tags": [
+        "AI Zodiac",
+        "astrology",
+        "horoscope",
+        "zodiac",
+        "Shorts",
+        "zodiac signs",
+        "birth chart",
+        "ai_astrology"
+      ]
+    }
+  },
+  "metadata": {
+    "series": "ai_zodiac_promo_30",
+    "sequenceNumber": 11,
+    "videoFileName": "11.mp4",
+    "videoFilePath": "C:\\Users\\opeti\\APP\\AI Zodiac\\AI Zodiac promo\\1 havi\\Sep 26 - okt 24\\11.mp4",
+    "sourceDescriptionNumber": 11,
+    "exactSourceTitle": "Your zodiac sign + AI = something different.",
+    "visual": "A glowing zodiac constellation merges with a futuristic AI neural network in a dramatic transformation, ending with the AI Zodiac logo.",
+    "voiceover": "Your zodiac sign plus AI equals something different. Meet AI Zodiac. Download AI Zodiac.",
+    "category": "ai_astrology",
+    "format": "promotional_video",
+    "contentId": "promo-video-11",
+    "destinationPath": "/articles/how-ai-creates-personalized-astrology-insights",
+    "scheduledPublishTimeUtc": "18:00:00Z",
+    "scheduledPublicationDateTime": "2026-10-07T18:00:00Z",
+    "qualityGate": "QUALITY_GATE_PASS",
+    "generatedAt": "2026-09-27T18:49:03.856Z"
+  }
+}

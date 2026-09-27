@@ -1,0 +1,58 @@
+{
+  "date": "2026-10-24",
+  "id": "promo-video-2026-10-24",
+  "type": "video",
+  "media": [
+    {
+      "url": "https://pub-4169b32ebff84de78189ef9a010baa5c.r2.dev/videos/promo/28.mp4",
+      "type": "video/mp4",
+      "duration": 10,
+      "aspectRatio": "9:16",
+      "altText": "Which version of you is written in the stars? | AI Zodiac",
+      "fileName": "28.mp4",
+      "localFilePath": "C:\\Users\\opeti\\APP\\AI Zodiac\\AI Zodiac promo\\1 havi\\Sep 26 - okt 24\\28.mp4"
+    }
+  ],
+  "destinations": [
+    "instagram",
+    "facebook",
+    "youtube"
+  ],
+  "destinationUrl": "https://aizodiac.life/tools/birth-chart?utm_source=youtube&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-28",
+  "captions": {
+    "instagram": "✨ Which version of you is written in the stars?\n\nFrom work and ambition to romance and quiet self-reflection, explore every dimension of your chart with AI Zodiac.\n\nExplore more with AI Zodiac — link in bio.\n\n#astrology #aizodiac #cosmicprofile #selfdiscovery #zodiacsigns #astrologyvideo",
+    "facebook": "✨ Which version of you is written in the stars?\n\nExplore your multi-faceted personality and astrological blueprint on AI Zodiac.\n\nExplore more insights on AI Zodiac:\nhttps://aizodiac.life/tools/birth-chart\n\nDownload AI Zodiac on Google Play:\nhttps://play.google.com/store/apps/details?id=com.oberon.aizodiac&referrer=utm_source%3Dfacebook%26utm_medium%3Dsocial%26utm_campaign%3Dvideo_cta",
+    "youtube": {
+      "title": "Which Version of You Is Written in the Stars? 🌟 #Shorts",
+      "description": "Which version of you is written in the stars? Explore your personal cosmic profile with AI Zodiac.\n\nExplore more insights on AI Zodiac:\nhttps://aizodiac.life/tools/birth-chart?utm_source=youtube&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-28\n\nDownload AI Zodiac on Google Play:\nhttps://play.google.com/store/apps/details?id=com.oberon.aizodiac&referrer=utm_source%3Dyoutube%26utm_medium%3Dsocial%26utm_campaign%3Dshort_cta\n\n#Shorts #astrology #aizodiac #personalprofile #personality #horoscope #zodiac",
+      "tags": [
+        "AI Zodiac",
+        "astrology",
+        "horoscope",
+        "zodiac",
+        "Shorts",
+        "zodiac signs",
+        "birth chart",
+        "self_discovery"
+      ]
+    }
+  },
+  "metadata": {
+    "series": "ai_zodiac_promo_30",
+    "sequenceNumber": 28,
+    "videoFileName": "28.mp4",
+    "videoFilePath": "C:\\Users\\opeti\\APP\\AI Zodiac\\AI Zodiac promo\\1 havi\\Sep 26 - okt 24\\28.mp4",
+    "sourceDescriptionNumber": 28,
+    "exactSourceTitle": "Which version of you is written in the stars?",
+    "visual": "Multiple versions of the same person appear in different cosmic environments, each connected to different zodiac imagery in a cinematic sequence.",
+    "voiceover": "Which version of you is written in the stars? Explore your personal cosmic profile with AI Zodiac. Download AI Zodiac.",
+    "category": "self_discovery",
+    "format": "promotional_video",
+    "contentId": "promo-video-28",
+    "destinationPath": "/tools/birth-chart",
+    "scheduledPublishTimeUtc": "18:00:00Z",
+    "scheduledPublicationDateTime": "2026-10-24T18:00:00Z",
+    "qualityGate": "QUALITY_GATE_PASS",
+    "generatedAt": "2026-09-27T18:49:03.877Z"
+  }
+}

@@ -1,0 +1,58 @@
+{
+  "date": "2026-10-15",
+  "id": "promo-video-2026-10-15",
+  "type": "video",
+  "media": [
+    {
+      "url": "https://pub-4169b32ebff84de78189ef9a010baa5c.r2.dev/videos/promo/19.mp4",
+      "type": "video/mp4",
+      "duration": 10,
+      "aspectRatio": "9:16",
+      "altText": "Your perfect match might be written in the stars. | AI Zodiac",
+      "fileName": "19.mp4",
+      "localFilePath": "C:\\Users\\opeti\\APP\\AI Zodiac\\AI Zodiac promo\\1 havi\\Sep 26 - okt 24\\19.mp4"
+    }
+  ],
+  "destinations": [
+    "instagram",
+    "facebook",
+    "youtube"
+  ],
+  "destinationUrl": "https://aizodiac.life/tools/compatibility?utm_source=youtube&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-19",
+  "captions": {
+    "instagram": "✨ Your perfect match might be written in the stars.\n\nExplore multi-planet relationship dynamics and discover what makes connections truly click with AI Zodiac.\n\nExplore more with AI Zodiac — link in bio.\n\n#astrology #aizodiac #perfectmatch #zodiaccompatibility #lovehoroscope #astrologyvideo",
+    "facebook": "✨ Your perfect match might be written in the stars.\n\nExplore comprehensive zodiac compatibility and synastry insights with AI Zodiac.\n\nExplore more insights on AI Zodiac:\nhttps://aizodiac.life/tools/compatibility\n\nDownload AI Zodiac on Google Play:\nhttps://play.google.com/store/apps/details?id=com.oberon.aizodiac&referrer=utm_source%3Dfacebook%26utm_medium%3Dsocial%26utm_campaign%3Dvideo_cta",
+    "youtube": {
+      "title": "Your Perfect Match Might Be Written in the Stars 💫 #Shorts",
+      "description": "Your perfect match might be written in the stars. Explore zodiac compatibility with AI Zodiac.\n\nExplore more insights on AI Zodiac:\nhttps://aizodiac.life/tools/compatibility?utm_source=youtube&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-19\n\nDownload AI Zodiac on Google Play:\nhttps://play.google.com/store/apps/details?id=com.oberon.aizodiac&referrer=utm_source%3Dyoutube%26utm_medium%3Dsocial%26utm_campaign%3Dshort_cta\n\n#Shorts #astrology #aizodiac #perfectmatch #compatibility #lovehoroscope #zodiac",
+      "tags": [
+        "AI Zodiac",
+        "astrology",
+        "horoscope",
+        "zodiac",
+        "Shorts",
+        "zodiac signs",
+        "birth chart",
+        "love_compatibility"
+      ]
+    }
+  },
+  "metadata": {
+    "series": "ai_zodiac_promo_30",
+    "sequenceNumber": 19,
+    "videoFileName": "19.mp4",
+    "videoFilePath": "C:\\Users\\opeti\\APP\\AI Zodiac\\AI Zodiac promo\\1 havi\\Sep 26 - okt 24\\19.mp4",
+    "sourceDescriptionNumber": 19,
+    "exactSourceTitle": "Your perfect match might be written in the stars.",
+    "visual": "Two constellations move across a night sky until they align, presenting compatibility as exploration rather than a guaranteed romantic outcome.",
+    "voiceover": "Your perfect match might be written in the stars. Explore zodiac compatibility with AI Zodiac. Download AI Zodiac.",
+    "category": "love_compatibility",
+    "format": "promotional_video",
+    "contentId": "promo-video-19",
+    "destinationPath": "/tools/compatibility",
+    "scheduledPublishTimeUtc": "18:00:00Z",
+    "scheduledPublicationDateTime": "2026-10-15T18:00:00Z",
+    "qualityGate": "QUALITY_GATE_PASS",
+    "generatedAt": "2026-09-27T18:49:03.866Z"
+  }
+}

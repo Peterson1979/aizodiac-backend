@@ -1,0 +1,58 @@
+{
+  "date": "2026-09-29",
+  "id": "promo-video-2026-09-29",
+  "type": "video",
+  "media": [
+    {
+      "url": "https://pub-4169b32ebff84de78189ef9a010baa5c.r2.dev/videos/promo/3.mp4",
+      "type": "video/mp4",
+      "duration": 10,
+      "aspectRatio": "9:16",
+      "altText": "What does your sign say about your love life? | AI Zodiac",
+      "fileName": "3.mp4",
+      "localFilePath": "C:\\Users\\opeti\\APP\\AI Zodiac\\AI Zodiac promo\\1 havi\\Sep 26 - okt 24\\3.mp4"
+    }
+  ],
+  "destinations": [
+    "instagram",
+    "facebook",
+    "youtube"
+  ],
+  "destinationUrl": "https://aizodiac.life/tools/compatibility?utm_source=youtube&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-03",
+  "captions": {
+    "instagram": "✨ What does your sign say about your love life?\n\nCheck genuine astrological chemistry and synastry between any two signs in seconds with AI Zodiac.\n\nExplore more with AI Zodiac — link in bio.\n\n#astrology #aizodiac #zodiaccompatibility #lovecompatibility #synastry #astrologyvideo",
+    "facebook": "✨ What does your sign say about your love life?\n\nDecode romantic chemistry, communication dynamics, and emotional harmonies between any two signs on AI Zodiac.\n\nExplore more insights on AI Zodiac:\nhttps://aizodiac.life/tools/compatibility\n\nDownload AI Zodiac on Google Play:\nhttps://play.google.com/store/apps/details?id=com.oberon.aizodiac&referrer=utm_source%3Dfacebook%26utm_medium%3Dsocial%26utm_campaign%3Dvideo_cta",
+    "youtube": {
+      "title": "What Does Your Sign Say About Your Love Life? ❤️ #Shorts",
+      "description": "What does your sign say about your love life? Check your love compatibility and synastry with AI Zodiac.\n\nExplore more insights on AI Zodiac:\nhttps://aizodiac.life/tools/compatibility?utm_source=youtube&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-03\n\nDownload AI Zodiac on Google Play:\nhttps://play.google.com/store/apps/details?id=com.oberon.aizodiac&referrer=utm_source%3Dyoutube%26utm_medium%3Dsocial%26utm_campaign%3Dshort_cta\n\n#Shorts #astrology #aizodiac #zodiaccompatibility #lovecompatibility #synastry #horoscope",
+      "tags": [
+        "AI Zodiac",
+        "astrology",
+        "horoscope",
+        "zodiac",
+        "Shorts",
+        "zodiac signs",
+        "birth chart",
+        "love_compatibility"
+      ]
+    }
+  },
+  "metadata": {
+    "series": "ai_zodiac_promo_30",
+    "sequenceNumber": 3,
+    "videoFileName": "3.mp4",
+    "videoFilePath": "C:\\Users\\opeti\\APP\\AI Zodiac\\AI Zodiac promo\\1 havi\\Sep 26 - okt 24\\3.mp4",
+    "sourceDescriptionNumber": 3,
+    "exactSourceTitle": "What does your sign say about your love life?",
+    "visual": "Two glowing zodiac constellations move toward each other and create a sophisticated cosmic connection before revealing the AI Zodiac logo.",
+    "voiceover": "What does your sign say about your love life? Check your compatibility with AI Zodiac. Download AI Zodiac.",
+    "category": "love_compatibility",
+    "format": "promotional_video",
+    "contentId": "promo-video-03",
+    "destinationPath": "/tools/compatibility",
+    "scheduledPublishTimeUtc": "18:00:00Z",
+    "scheduledPublicationDateTime": "2026-09-29T18:00:00Z",
+    "qualityGate": "QUALITY_GATE_PASS",
+    "generatedAt": "2026-09-27T18:49:03.846Z"
+  }
+}

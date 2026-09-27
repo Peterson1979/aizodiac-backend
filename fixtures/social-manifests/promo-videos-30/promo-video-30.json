@@ -1,0 +1,58 @@
+{
+  "date": "2026-10-26",
+  "id": "promo-video-2026-10-26",
+  "type": "video",
+  "media": [
+    {
+      "url": "https://pub-4169b32ebff84de78189ef9a010baa5c.r2.dev/videos/promo/30.mp4",
+      "type": "video/mp4",
+      "duration": 10,
+      "aspectRatio": "9:16",
+      "altText": "Ready to discover your zodiac story? | AI Zodiac",
+      "fileName": "30.mp4",
+      "localFilePath": "C:\\Users\\opeti\\APP\\AI Zodiac\\AI Zodiac promo\\1 havi\\Sep 26 - okt 24\\30.mp4"
+    }
+  ],
+  "destinations": [
+    "instagram",
+    "facebook",
+    "youtube"
+  ],
+  "destinationUrl": "https://aizodiac.life/?utm_source=youtube&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-30",
+  "captions": {
+    "instagram": "✨ Ready to discover your zodiac story?\n\nHoroscopes, birth charts, compatibility, numerology, and conversational AI astrology — all in one app.\n\nExplore more with AI Zodiac — link in bio.\n\n#astrology #aizodiac #zodiacstory #astrologyapp #dailyhoroscope #astrologyvideo",
+    "facebook": "✨ Ready to discover your zodiac story?\n\nDownload AI Zodiac to experience birth-chart calibrated daily horoscopes, love synastry, and conversational AI astrology.\n\nExplore more insights on AI Zodiac:\nhttps://aizodiac.life/\n\nDownload AI Zodiac on Google Play:\nhttps://play.google.com/store/apps/details?id=com.oberon.aizodiac&referrer=utm_source%3Dfacebook%26utm_medium%3Dsocial%26utm_campaign%3Dvideo_cta",
+    "youtube": {
+      "title": "Ready to Discover Your Zodiac Story? 🌌📱 #Shorts",
+      "description": "Ready to discover your zodiac story? Discover your story with AI Zodiac. Download the app now on Google Play.\n\nExplore more insights on AI Zodiac:\nhttps://aizodiac.life/?utm_source=youtube&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-30\n\nDownload AI Zodiac on Google Play:\nhttps://play.google.com/store/apps/details?id=com.oberon.aizodiac&referrer=utm_source%3Dyoutube%26utm_medium%3Dsocial%26utm_campaign%3Dshort_cta\n\n#Shorts #astrology #aizodiac #zodiacstory #horoscopeapp #birthchart #zodiac",
+      "tags": [
+        "AI Zodiac",
+        "astrology",
+        "horoscope",
+        "zodiac",
+        "Shorts",
+        "zodiac signs",
+        "birth chart",
+        "self_discovery"
+      ]
+    }
+  },
+  "metadata": {
+    "series": "ai_zodiac_promo_30",
+    "sequenceNumber": 30,
+    "videoFileName": "30.mp4",
+    "videoFilePath": "C:\\Users\\opeti\\APP\\AI Zodiac\\AI Zodiac promo\\1 havi\\Sep 26 - okt 24\\30.mp4",
+    "sourceDescriptionNumber": 30,
+    "exactSourceTitle": "Ready to discover your zodiac story?",
+    "visual": "A high-impact montage combines glowing constellations, birth chart, horoscope, compatibility, numerology and AI interaction before a strong AI Zodiac logo ending.",
+    "voiceover": "Ready to discover your zodiac story? Discover your story with AI Zodiac. Download the app now.",
+    "category": "self_discovery",
+    "format": "promotional_video",
+    "contentId": "promo-video-30",
+    "destinationPath": "/",
+    "scheduledPublishTimeUtc": "18:00:00Z",
+    "scheduledPublicationDateTime": "2026-10-26T18:00:00Z",
+    "qualityGate": "QUALITY_GATE_PASS",
+    "generatedAt": "2026-09-27T18:49:03.880Z"
+  }
+}

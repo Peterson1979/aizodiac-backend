@@ -1,0 +1,58 @@
+{
+  "date": "2026-10-17",
+  "id": "promo-video-2026-10-17",
+  "type": "video",
+  "media": [
+    {
+      "url": "https://pub-4169b32ebff84de78189ef9a010baa5c.r2.dev/videos/promo/21.mp4",
+      "type": "video/mp4",
+      "duration": 10,
+      "aspectRatio": "9:16",
+      "altText": "Tell me your sign without telling me your sign. | AI Zodiac",
+      "fileName": "21.mp4",
+      "localFilePath": "C:\\Users\\opeti\\APP\\AI Zodiac\\AI Zodiac promo\\1 havi\\Sep 26 - okt 24\\21.mp4"
+    }
+  ],
+  "destinations": [
+    "instagram",
+    "facebook",
+    "youtube"
+  ],
+  "destinationUrl": "https://aizodiac.life/features/zodiac-traits?utm_source=youtube&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-21",
+  "captions": {
+    "instagram": "✨ Tell me your sign without telling me your sign.\n\nWe all have those unmistakable zodiac quirks. Find out what your sign reveals about your daily habits with AI Zodiac.\n\nExplore more with AI Zodiac — link in bio.\n\n#astrology #aizodiac #zodiacsigns #relatableastrology #zodiactraits #astrologyvideo",
+    "facebook": "✨ Tell me your sign without telling me your sign.\n\nDiscover the relatable personality traits and humorous quirks that make your sign unique on AI Zodiac.\n\nExplore more insights on AI Zodiac:\nhttps://aizodiac.life/features/zodiac-traits\n\nDownload AI Zodiac on Google Play:\nhttps://play.google.com/store/apps/details?id=com.oberon.aizodiac&referrer=utm_source%3Dfacebook%26utm_medium%3Dsocial%26utm_campaign%3Dvideo_cta",
+    "youtube": {
+      "title": "Tell Me Your Sign Without Telling Me Your Sign 😂 #Shorts",
+      "description": "Tell me your sign without telling me your sign. Find out what your sign says about you with AI Zodiac.\n\nExplore more insights on AI Zodiac:\nhttps://aizodiac.life/features/zodiac-traits?utm_source=youtube&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-21\n\nDownload AI Zodiac on Google Play:\nhttps://play.google.com/store/apps/details?id=com.oberon.aizodiac&referrer=utm_source%3Dyoutube%26utm_medium%3Dsocial%26utm_campaign%3Dshort_cta\n\n#Shorts #astrology #aizodiac #tellmeyoursign #zodiacrelatable #personality #zodiac",
+      "tags": [
+        "AI Zodiac",
+        "astrology",
+        "horoscope",
+        "zodiac",
+        "Shorts",
+        "zodiac signs",
+        "birth chart",
+        "personality"
+      ]
+    }
+  },
+  "metadata": {
+    "series": "ai_zodiac_promo_30",
+    "sequenceNumber": 21,
+    "videoFileName": "21.mp4",
+    "videoFilePath": "C:\\Users\\opeti\\APP\\AI Zodiac\\AI Zodiac promo\\1 havi\\Sep 26 - okt 24\\21.mp4",
+    "sourceDescriptionNumber": 21,
+    "exactSourceTitle": "Tell me your sign without telling me your sign.",
+    "visual": "Fast humorous cuts portray exaggerated but relatable zodiac-style personality behaviors without explicitly naming the signs.",
+    "voiceover": "Tell me your sign without telling me your sign. Find out what your sign says about you with AI Zodiac. Download AI Zodiac.",
+    "category": "personality",
+    "format": "promotional_video",
+    "contentId": "promo-video-21",
+    "destinationPath": "/features/zodiac-traits",
+    "scheduledPublishTimeUtc": "18:00:00Z",
+    "scheduledPublicationDateTime": "2026-10-17T18:00:00Z",
+    "qualityGate": "QUALITY_GATE_PASS",
+    "generatedAt": "2026-09-27T18:49:03.868Z"
+  }
+}

@@ -1,0 +1,58 @@
+{
+  "date": "2026-10-03",
+  "id": "promo-video-2026-10-03",
+  "type": "video",
+  "media": [
+    {
+      "url": "https://pub-4169b32ebff84de78189ef9a010baa5c.r2.dev/videos/promo/7.mp4",
+      "type": "video/mp4",
+      "duration": 10,
+      "aspectRatio": "9:16",
+      "altText": "POV: You finally understand your zodiac sign. | AI Zodiac",
+      "fileName": "7.mp4",
+      "localFilePath": "C:\\Users\\opeti\\APP\\AI Zodiac\\AI Zodiac promo\\1 havi\\Sep 26 - okt 24\\7.mp4"
+    }
+  ],
+  "destinations": [
+    "instagram",
+    "facebook",
+    "youtube"
+  ],
+  "destinationUrl": "https://aizodiac.life/features/personal-horoscope?utm_source=youtube&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-07",
+  "captions": {
+    "instagram": "✨ POV: You finally understand your zodiac sign.\n\nNo more generic one-paragraph horoscopes. Get personalized astrological clarity that truly matches your chart.\n\nExplore more with AI Zodiac — link in bio.\n\n#astrology #aizodiac #horoscope #zodiacsigns #dailyhoroscope #astrologyvideo",
+    "facebook": "✨ POV: You finally understand your zodiac sign.\n\nExperience personalized astrology that speaks directly to your unique birth chart placements and daily transits on AI Zodiac.\n\nExplore more insights on AI Zodiac:\nhttps://aizodiac.life/features/personal-horoscope\n\nDownload AI Zodiac on Google Play:\nhttps://play.google.com/store/apps/details?id=com.oberon.aizodiac&referrer=utm_source%3Dfacebook%26utm_medium%3Dsocial%26utm_campaign%3Dvideo_cta",
+    "youtube": {
+      "title": "POV: You Finally Understand Your Zodiac Sign 🔮 #Shorts",
+      "description": "POV: You finally understand your zodiac sign. Experience personalized astrology tailored to you with AI Zodiac.\n\nExplore more insights on AI Zodiac:\nhttps://aizodiac.life/features/personal-horoscope?utm_source=youtube&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-07\n\nDownload AI Zodiac on Google Play:\nhttps://play.google.com/store/apps/details?id=com.oberon.aizodiac&referrer=utm_source%3Dyoutube%26utm_medium%3Dsocial%26utm_campaign%3Dshort_cta\n\n#Shorts #astrology #aizodiac #horoscope #zodiacsigns #pov #astrologytok",
+      "tags": [
+        "AI Zodiac",
+        "astrology",
+        "horoscope",
+        "zodiac",
+        "Shorts",
+        "zodiac signs",
+        "birth chart",
+        "self_discovery"
+      ]
+    }
+  },
+  "metadata": {
+    "series": "ai_zodiac_promo_30",
+    "sequenceNumber": 7,
+    "videoFileName": "7.mp4",
+    "videoFilePath": "C:\\Users\\opeti\\APP\\AI Zodiac\\AI Zodiac promo\\1 havi\\Sep 26 - okt 24\\7.mp4",
+    "sourceDescriptionNumber": 7,
+    "exactSourceTitle": "POV: You finally understand your zodiac sign.",
+    "visual": "A confused person looks at generic horoscope content before transitioning into a personalized AI astrology experience and the AI Zodiac logo.",
+    "voiceover": "POV: You finally understand your zodiac sign. Personalized astrology with AI Zodiac. Download AI Zodiac.",
+    "category": "self_discovery",
+    "format": "promotional_video",
+    "contentId": "promo-video-07",
+    "destinationPath": "/features/personal-horoscope",
+    "scheduledPublishTimeUtc": "18:00:00Z",
+    "scheduledPublicationDateTime": "2026-10-03T18:00:00Z",
+    "qualityGate": "QUALITY_GATE_PASS",
+    "generatedAt": "2026-09-27T18:49:03.852Z"
+  }
+}

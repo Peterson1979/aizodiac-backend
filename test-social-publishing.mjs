@@ -38,11 +38,14 @@ import {
 import { InstagramAdapter } from "./lib/social/adapters/instagramAdapter.js";
 import { FacebookAdapter } from "./lib/social/adapters/facebookAdapter.js";
 import { PinterestAdapter } from "./lib/social/adapters/pinterestAdapter.js";
+import { YouTubeAdapter } from "./lib/social/adapters/youtubeAdapter.js";
 import { VideoAdapterStub } from "./lib/social/adapters/videoAdapter.stub.js";
 import { executeSocialPublishing, createDefaultAdapters } from "./lib/social/publishCoordinator.js";
 import { savePrepareState, PREPARE_STAGES } from "./lib/social/prepareStateHelper.js";
 import { QUALITY_GATE_STATUS } from "./lib/social/quality/socialQualityGate.js";
 import { DEFAULT_APP_PLAY_STORE_URL, FACEBOOK_TRACKING_PLAY_STORE_URL, ensureFacebookGooglePlayLink } from "./lib/social/content/dailyContentGenerator.js";
+import { generateDailyVideoManifest, YOUTUBE_TRACKING_PLAY_STORE_URL, PINTEREST_VIDEO_TRACKING_PLAY_STORE_URL } from "./lib/social/content/videoCatalog.js";
+import { getYoutubeTokenState, saveYoutubeTokenState } from "./lib/social/stateHelper.js";
 import cronHandler from "./api/cron/publishDailySocial.js";
 import canaryHandler from "./api/cron/canarySocialPublish.js";
 
@@ -123,6 +126,9 @@ class MockRedis {
     pinterestAccessToken: "pina_test_access_token_123",
     pinterestRefreshToken: "pinr_test_refresh_token_456",
     pinterestBoardId: "9876543210",
+    youtubeClientId: "test_yt_client_id_123.apps.googleusercontent.com",
+    youtubeClientSecret: "test_yt_client_secret_456",
+    youtubeRefreshToken: "1//test_yt_refresh_token_789",
   });
   const validCheck = validateSocialConfig(validConfig, ALL_CONFIGURED_DESTINATIONS);
   assert.equal(validCheck.valid, true, "Fully populated multi-destination config should pass validation");
@@ -1942,7 +1948,562 @@ class MockRedis {
   }
 }
 
+// ============================================================================
+// TEST 12: YouTube Shorts & Pinterest Video Pin Multi-Destination Matrix
+// ============================================================================
+{
+  console.log("\n[TEST 12] YouTube Shorts & Pinterest Video Pin Multi-Destination Matrix");
+
+  const videoConfig = getSocialConfig({
+    autoPublishEnabled: true,
+    metaPageAccessToken: "EAAB_test_token_12345",
+    metaPageId: "1002938472918",
+    instagramAccountId: "17841400123456789",
+    pinterestAccessToken: "pina_test_access_token_123",
+    pinterestRefreshToken: "pinr_test_refresh_token_456",
+    pinterestBoardId: "9876543210",
+    pinterestAccessTier: "standard",
+    youtubeClientId: "test_yt_client_id_123.apps.googleusercontent.com",
+    youtubeClientSecret: "test_yt_client_secret_456",
+    youtubeRefreshToken: "1//test_yt_refresh_token_789",
+    youtubeChannelId: "UC_aizodiac_official_123",
+  });
+
+  const dummyVideoBuffer = Buffer.from("fake_mp4_video_data_10s_short");
+
+  // Scenario 1: YouTube Adapter Direct Upload Flow
+  {
+    let refreshedToken = false;
+    let sessionCreated = false;
+    let videoUploaded = false;
+
+    const mockFetch = async (url, options = {}) => {
+      const urlStr = String(url);
+
+      // 1. Google OAuth Token Refresh
+      if (urlStr.includes("oauth2.googleapis.com/token")) {
+        refreshedToken = true;
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            access_token: "ya29.a0_mock_fresh_youtube_token_999",
+            expires_in: 3600,
+            token_type: "Bearer",
+          }),
+        };
+      }
+
+      // 2. Resumable Upload Session Creation
+      if (urlStr.includes("upload/youtube/v3/videos?uploadType=resumable")) {
+        sessionCreated = true;
+        assert.equal(options.headers?.Authorization, "Bearer ya29.a0_mock_fresh_youtube_token_999");
+        assert.equal(options.headers?.["X-Upload-Content-Type"], "video/mp4");
+        const body = JSON.parse(options.body);
+        assert.ok(body.snippet.title.includes("#Shorts"));
+        assert.ok(body.snippet.description.includes(YOUTUBE_TRACKING_PLAY_STORE_URL));
+        assert.equal(body.status.selfDeclaredMadeForKids, false);
+
+        return {
+          ok: true,
+          status: 200,
+          headers: new Headers({
+            location: "https://upload.youtube.com/upload/youtube/v3/videos?upload_id=yt_upload_session_abc123",
+          }),
+          json: async () => ({}),
+        };
+      }
+
+      // 3. Binary Video Upload
+      if (urlStr.includes("upload_id=yt_upload_session_abc123")) {
+        videoUploaded = true;
+        assert.equal(options.method, "PUT");
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            id: "dQw4w9WgXcQ",
+            snippet: { title: "AI Zodiac Short" },
+          }),
+        };
+      }
+
+      // 4. Source Video Download from R2
+      if (urlStr.endsWith(".mp4")) {
+        return {
+          ok: true,
+          status: 200,
+          arrayBuffer: async () => dummyVideoBuffer.buffer,
+        };
+      }
+
+      throw new Error(`Unexpected fetch URL in YouTube test: ${urlStr}`);
+    };
+
+    const redis = new MockRedis();
+    const manifest = generateDailyVideoManifest({
+      publishDate: "2026-10-01",
+      mediaBaseUrl: "https://media.aizodiac.app",
+    });
+
+    const ytAdapter = new YouTubeAdapter();
+    const res = await ytAdapter.publish({
+      manifest,
+      config: videoConfig,
+      redis,
+      fetchFn: mockFetch,
+    });
+
+    assert.equal(res.success, true);
+    assert.equal(res.status, PUBLISH_STATUS.PUBLISHED);
+    assert.equal(res.postId, "dQw4w9WgXcQ");
+    assert.ok(refreshedToken, "OAuth token should be refreshed");
+    assert.ok(sessionCreated, "Resumable session should be created");
+    assert.ok(videoUploaded, "Video binary should be uploaded");
+
+    // Verify token cached in Redis
+    const tokenState = await getYoutubeTokenState(redis, videoConfig);
+    assert.equal(tokenState.accessToken, "ya29.a0_mock_fresh_youtube_token_999");
+
+    console.log("  ✓ Scenario 1: YouTube Short upload succeeds with Google OAuth refresh and resumable upload session");
+  }
+
+  // Scenario 2: Pinterest Video Pin Flow
+  {
+    let mediaRegistered = false;
+    let mediaUploadedToS3 = false;
+    let mediaPolled = false;
+    let pinCreated = false;
+
+    const mockFetch = async (url, options = {}) => {
+      const urlStr = String(url);
+
+      // 1. Pinterest Token Refresh
+      if (urlStr.includes("api.pinterest.com/v5/oauth/token")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            access_token: "pina_refreshed_access_token_888",
+            refresh_token: "pinr_rotated_refresh_token_999",
+            expires_in: 2592000,
+          }),
+        };
+      }
+
+      // 2. Register Video Media
+      if (urlStr.includes("api.pinterest.com/v5/media") && options.method === "POST") {
+        mediaRegistered = true;
+        const body = JSON.parse(options.body);
+        assert.equal(body.media_type, "video");
+        return {
+          ok: true,
+          status: 201,
+          json: async () => ({
+            media_id: "pin_media_video_777",
+            upload_url: "https://pinterest-media-upload.s3.amazonaws.com/upload",
+            upload_parameters: { key: "pin_media_video_777", policy: "abc" },
+          }),
+        };
+      }
+
+      // 3. S3 Media Upload
+      if (urlStr.includes("pinterest-media-upload.s3.amazonaws.com")) {
+        mediaUploadedToS3 = true;
+        return {
+          ok: true,
+          status: 204,
+          text: async () => "",
+        };
+      }
+
+      // 4. Poll Media Status
+      if (urlStr.includes("api.pinterest.com/v5/media/pin_media_video_777") && (!options.method || options.method === "GET")) {
+        mediaPolled = true;
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            media_id: "pin_media_video_777",
+            status: "succeeded",
+          }),
+        };
+      }
+
+      // 5. Create Video Pin
+      if (urlStr.includes("api.pinterest.com/v5/pins") && options.method === "POST") {
+        pinCreated = true;
+        const body = JSON.parse(options.body);
+        assert.equal(body.media_source?.source_type, "video_id");
+        assert.equal(body.media_source?.media_id, "pin_media_video_777");
+        assert.ok(body.description.includes(PINTEREST_VIDEO_TRACKING_PLAY_STORE_URL));
+        return {
+          ok: true,
+          status: 201,
+          json: async () => ({
+            id: "pin_post_video_555",
+            title: body.title,
+          }),
+        };
+      }
+
+      // 6. Source Video Download from R2
+      if (urlStr.endsWith(".mp4")) {
+        return {
+          ok: true,
+          status: 200,
+          arrayBuffer: async () => dummyVideoBuffer.buffer,
+        };
+      }
+
+      throw new Error(`Unexpected fetch URL in Pinterest video test: ${urlStr}`);
+    };
+
+    const redis = new MockRedis();
+    const manifest = generateDailyVideoManifest({
+      publishDate: "2026-10-02",
+      mediaBaseUrl: "https://media.aizodiac.app",
+    });
+
+    const pinAdapter = new PinterestAdapter();
+    const res = await pinAdapter.publish({
+      manifest,
+      config: videoConfig,
+      redis,
+      fetchFn: mockFetch,
+    });
+
+    assert.equal(res.success, true);
+    assert.equal(res.status, PUBLISH_STATUS.PUBLISHED);
+    assert.equal(res.postId, "pin_post_video_555");
+    assert.ok(mediaRegistered, "Media registration should be called");
+    assert.ok(mediaUploadedToS3, "Media should be uploaded to S3");
+    assert.ok(mediaPolled, "Media processing status should be polled");
+    assert.ok(pinCreated, "Pin should be created with source_type=video_id");
+
+    console.log("  ✓ Scenario 2: Pinterest Video Pin flow completes 4-stage media registration, S3 upload, polling, and Pin creation");
+  }
+
+  // Scenario 3: End-to-End Multi-Destination Video Publishing via executeSocialPublishing
+  {
+    const date = "2026-10-03";
+    const redis = new MockRedis();
+    await savePrepareState(redis, date, { publishDate: date, stage: PREPARE_STAGES.QUALITY_GATE_PASS });
+
+    const manifest = generateDailyVideoManifest({
+      publishDate: date,
+      mediaBaseUrl: "https://media.aizodiac.app",
+    });
+
+    let ytCalls = 0;
+    let pinCalls = 0;
+
+    const adapters = {
+      [DESTINATIONS.YOUTUBE]: {
+        publish: async () => {
+          ytCalls++;
+          return { success: true, status: PUBLISH_STATUS.PUBLISHED, postId: "yt_video_001", publishedAt: new Date().toISOString() };
+        },
+      },
+      [DESTINATIONS.PINTEREST]: {
+        publish: async () => {
+          pinCalls++;
+          return { success: true, status: PUBLISH_STATUS.PUBLISHED, postId: "pin_video_001", publishedAt: new Date().toISOString() };
+        },
+      },
+    };
+
+    const res = await executeSocialPublishing({
+      redis,
+      config: videoConfig,
+      targetDate: date,
+      manifest,
+      adapters,
+    });
+
+    assert.equal(res.success, true);
+    assert.equal(res.status, PUBLISH_STATUS.PUBLISHED);
+    assert.equal(ytCalls, 1);
+    assert.equal(pinCalls, 1);
+
+    const postState = await getPostState(redis, date);
+    assert.equal(postState.platforms[DESTINATIONS.YOUTUBE].status, PUBLISH_STATUS.PUBLISHED);
+    assert.equal(postState.platforms[DESTINATIONS.YOUTUBE].postId, "yt_video_001");
+    assert.equal(postState.platforms[DESTINATIONS.PINTEREST].status, PUBLISH_STATUS.PUBLISHED);
+    assert.equal(postState.platforms[DESTINATIONS.PINTEREST].postId, "pin_video_001");
+
+    console.log("  ✓ Scenario 3: executeSocialPublishing coordinates multi-destination video run (YouTube + Pinterest) concurrently");
+  }
+
+  // Scenario 4: Idempotent Retries Skip Already Published Video Destinations
+  {
+    const date = "2026-10-03";
+    const redis = new MockRedis();
+    await savePrepareState(redis, date, { publishDate: date, stage: PREPARE_STAGES.QUALITY_GATE_PASS });
+
+    // Seed post state as already published for both YouTube & Pinterest
+    await savePostState(redis, date, {
+      publishDate: date,
+      overallStatus: PUBLISH_STATUS.PUBLISHED,
+      platforms: {
+        [DESTINATIONS.YOUTUBE]: { status: PUBLISH_STATUS.PUBLISHED, postId: "yt_video_001", publishedAt: "2026-10-03T10:00:00Z" },
+        [DESTINATIONS.PINTEREST]: { status: PUBLISH_STATUS.PUBLISHED, postId: "pin_video_001", publishedAt: "2026-10-03T10:00:00Z" },
+      },
+    });
+
+    const manifest = generateDailyVideoManifest({
+      publishDate: date,
+      mediaBaseUrl: "https://media.aizodiac.app",
+    });
+
+    let ytCalls = 0;
+    let pinCalls = 0;
+
+    const adapters = {
+      [DESTINATIONS.YOUTUBE]: {
+        publish: async () => { ytCalls++; return { success: true }; },
+      },
+      [DESTINATIONS.PINTEREST]: {
+        publish: async () => { pinCalls++; return { success: true }; },
+      },
+    };
+
+    const res = await executeSocialPublishing({
+      redis,
+      config: videoConfig,
+      targetDate: date,
+      manifest,
+      adapters,
+    });
+
+    assert.equal(res.success, true);
+    assert.equal(res.status, "ALL_PLATFORMS_SKIPPED");
+    assert.equal(ytCalls, 0, "YouTube upload must be strictly skipped");
+    assert.equal(pinCalls, 0, "Pinterest video upload must be strictly skipped");
+    assert.equal(res.skipped[DESTINATIONS.YOUTUBE].status, PUBLISH_STATUS.PUBLISHED);
+    assert.equal(res.skipped[DESTINATIONS.PINTEREST].status, PUBLISH_STATUS.PUBLISHED);
+
+    console.log("  ✓ Scenario 4: Idempotency guard strictly skips previously published YouTube & Pinterest videos with ZERO write calls");
+  }
+
+  // Scenario 5: Partial Failure Recovery (YouTube OK, Pinterest FAIL -> Retry Skips YouTube and Reruns Pinterest)
+  {
+    const date = "2026-10-04";
+    const redis = new MockRedis();
+    await savePrepareState(redis, date, { publishDate: date, stage: PREPARE_STAGES.QUALITY_GATE_PASS });
+
+    const manifest = generateDailyVideoManifest({
+      publishDate: date,
+      mediaBaseUrl: "https://media.aizodiac.app",
+    });
+
+    let ytCallCount = 0;
+    let pinCallCount = 0;
+
+    const failingAdapters = {
+      [DESTINATIONS.YOUTUBE]: {
+        publish: async () => {
+          ytCallCount++;
+          return { success: true, status: PUBLISH_STATUS.PUBLISHED, postId: "yt_success_1", publishedAt: new Date().toISOString() };
+        },
+      },
+      [DESTINATIONS.PINTEREST]: {
+        publish: async () => {
+          pinCallCount++;
+          return { success: false, status: PUBLISH_STATUS.FAILED, error: { message: "Pinterest 500 Internal Error" } };
+        },
+      },
+    };
+
+    // Run 1: YouTube succeeds, Pinterest fails
+    const run1 = await executeSocialPublishing({
+      redis,
+      config: videoConfig,
+      targetDate: date,
+      manifest,
+      adapters: failingAdapters,
+    });
+
+    assert.equal(run1.success, true); // PARTIAL_SUCCESS has outer success: true
+    assert.equal(run1.status, "PARTIAL_SUCCESS");
+    assert.equal(ytCallCount, 1);
+    assert.equal(pinCallCount, 1);
+
+    const midState = await getPostState(redis, date);
+    assert.equal(midState.platforms[DESTINATIONS.YOUTUBE].status, PUBLISH_STATUS.PUBLISHED);
+    assert.equal(midState.platforms[DESTINATIONS.PINTEREST].status, PUBLISH_STATUS.FAILED);
+
+    // Run 2: Retry with fixed Pinterest adapter
+    const retryAdapters = {
+      [DESTINATIONS.YOUTUBE]: {
+        publish: async () => {
+          ytCallCount++;
+          return { success: true, status: PUBLISH_STATUS.PUBLISHED, postId: "yt_unexpected_duplicate" };
+        },
+      },
+      [DESTINATIONS.PINTEREST]: {
+        publish: async () => {
+          pinCallCount++;
+          return { success: true, status: PUBLISH_STATUS.PUBLISHED, postId: "pin_recovered_2", publishedAt: new Date().toISOString() };
+        },
+      },
+    };
+
+    const run2 = await executeSocialPublishing({
+      redis,
+      config: videoConfig,
+      targetDate: date,
+      manifest,
+      adapters: retryAdapters,
+    });
+
+    assert.equal(run2.success, true);
+    assert.equal(run2.status, PUBLISH_STATUS.PUBLISHED);
+    assert.equal(ytCallCount, 1, "YouTube should NOT have been re-invoked on retry");
+    assert.equal(pinCallCount, 2, "Pinterest should have been re-invoked on retry");
+
+    const finalState = await getPostState(redis, date);
+    assert.equal(finalState.platforms[DESTINATIONS.YOUTUBE].status, PUBLISH_STATUS.PUBLISHED);
+    assert.equal(finalState.platforms[DESTINATIONS.YOUTUBE].postId, "yt_success_1");
+    assert.equal(finalState.platforms[DESTINATIONS.PINTEREST].status, PUBLISH_STATUS.PUBLISHED);
+    assert.equal(finalState.platforms[DESTINATIONS.PINTEREST].postId, "pin_recovered_2");
+
+    console.log("  ✓ Scenario 5: Partial failure recovery isolates failure: YouTube skipped on retry, Pinterest re-attempted and succeeded");
+  }
+
+  // Scenario 6: Ambiguous Network Write on YouTube flagged as RECONCILIATION_REQUIRED
+  {
+    const date = "2026-10-05";
+    const redis = new MockRedis();
+    await savePrepareState(redis, date, { publishDate: date, stage: PREPARE_STAGES.QUALITY_GATE_PASS });
+
+    const manifest = generateDailyVideoManifest({
+      publishDate: date,
+      mediaBaseUrl: "https://media.aizodiac.app",
+    });
+
+    const ambiguousAdapters = {
+      [DESTINATIONS.YOUTUBE]: {
+        publish: async () => {
+          return {
+            success: false,
+            status: PUBLISH_STATUS.RECONCILIATION_REQUIRED,
+            reconciliationData: { uploadUrl: "https://upload.youtube.com/..." },
+            error: { message: "Network socket hangup during binary stream upload" },
+          };
+        },
+      },
+      [DESTINATIONS.PINTEREST]: {
+        publish: async () => {
+          return { success: true, status: PUBLISH_STATUS.PUBLISHED, postId: "pin_ok_3" };
+        },
+      },
+    };
+
+    const run = await executeSocialPublishing({
+      redis,
+      config: videoConfig,
+      targetDate: date,
+      manifest,
+      adapters: ambiguousAdapters,
+    });
+
+    assert.equal(run.results[DESTINATIONS.YOUTUBE].status, PUBLISH_STATUS.RECONCILIATION_REQUIRED);
+
+    // Subsequent retry must skip YouTube due to RECONCILIATION_REQUIRED
+    let ytRetryCalls = 0;
+    const retryRes = await executeSocialPublishing({
+      redis,
+      config: videoConfig,
+      targetDate: date,
+      manifest,
+      adapters: {
+        [DESTINATIONS.YOUTUBE]: { publish: async () => { ytRetryCalls++; return { success: true }; } },
+        [DESTINATIONS.PINTEREST]: { publish: async () => { return { success: true }; } },
+      },
+    });
+
+    assert.equal(ytRetryCalls, 0, "Ambiguous write must block automated retry");
+    assert.equal(retryRes.skipped[DESTINATIONS.YOUTUBE].status, PUBLISH_STATUS.RECONCILIATION_REQUIRED);
+
+    console.log("  ✓ Scenario 6: Ambiguous YouTube write is flagged RECONCILIATION_REQUIRED and prevents duplicate uploads");
+  }
+
+  // Scenario 7: Carousel vs Video Destination Routing in Pinterest Adapter
+  {
+    const pinAdapter = new PinterestAdapter();
+
+    // Image carousel manifest should use image_url source
+    let sourceUsed = null;
+    const mockImageFetch = async (url, options = {}) => {
+      const urlStr = String(url);
+      if (urlStr.includes("oauth/token")) {
+        return { ok: true, status: 200, json: async () => ({ access_token: "pin_tok", refresh_token: "pin_ref", expires_in: 3600 }) };
+      }
+      if (urlStr.includes("api.pinterest.com/v5/pins")) {
+        const body = JSON.parse(options.body);
+        sourceUsed = body.media_source.source_type;
+        return { ok: true, status: 201, json: async () => ({ id: "pin_img_123" }) };
+      }
+      throw new Error(`Unexpected URL: ${urlStr}`);
+    };
+
+    const imageManifest = {
+      date: "2026-10-06",
+      id: "social-2026-10-06",
+      type: "carousel",
+      media: [{ url: "https://media.aizodiac.app/cover.png", altText: "Cover | AI Zodiac" }],
+      captions: { pinterest: { title: "Pin Title", description: "Pin Desc", link: "https://aizodiac.com" } },
+    };
+
+    await pinAdapter.publish({ manifest: imageManifest, config: videoConfig, redis: new MockRedis(), fetchFn: mockImageFetch });
+    assert.equal(sourceUsed, "image_url", "Carousel manifest must use image_url source");
+
+    console.log("  ✓ Scenario 7: Pinterest adapter accurately distinguishes between image carousel ('image_url') and video ('video_id')");
+  }
+
+  // Scenario 8: Dry-Run Mode on Video Manifest
+  {
+    const date = "2026-10-07";
+    const redis = new MockRedis();
+    await savePrepareState(redis, date, { publishDate: date, stage: PREPARE_STAGES.QUALITY_GATE_PASS });
+
+    const manifest = generateDailyVideoManifest({
+      publishDate: date,
+      mediaBaseUrl: "https://media.aizodiac.app",
+    });
+
+    const mockDryFetch = async (url, options = {}) => {
+      if (options.method === "HEAD") {
+        return { ok: true, status: 200 };
+      }
+      if (String(url).includes("oauth2.googleapis.com") || String(url).includes("oauth/token")) {
+        return { ok: true, status: 200, json: async () => ({ access_token: "tok" }) };
+      }
+      return { ok: true, status: 200, json: async () => ({}) };
+    };
+
+    const dryRes = await executeSocialPublishing({
+      redis,
+      config: videoConfig,
+      targetDate: date,
+      manifest,
+      dryRun: true,
+      fetchFn: mockDryFetch,
+    });
+
+    assert.equal(dryRes.success, true);
+    assert.equal(dryRes.dryRun, true);
+    assert.equal(dryRes.manifestType, MEDIA_TYPES.VIDEO);
+    assert.ok(dryRes.mediaChecks.length === 1);
+    assert.equal(dryRes.mediaChecks[0].reachable, true);
+
+    console.log("  ✓ Scenario 8: Dry-run mode validates video manifest and adapter connectivity with zero write calls");
+  }
+}
+
 console.log("\n==================================================");
 console.log("ALL SOCIAL PUBLISHING TESTS PASSED SUCCESSFULLY! 🎉");
 console.log("==================================================");
+
 

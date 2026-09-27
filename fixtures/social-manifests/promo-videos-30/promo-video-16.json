@@ -1,0 +1,58 @@
+{
+  "date": "2026-10-12",
+  "id": "promo-video-2026-10-12",
+  "type": "video",
+  "media": [
+    {
+      "url": "https://pub-4169b32ebff84de78189ef9a010baa5c.r2.dev/videos/promo/16.mp4",
+      "type": "video/mp4",
+      "duration": 10,
+      "aspectRatio": "9:16",
+      "altText": "What is your rising sign saying about you? | AI Zodiac",
+      "fileName": "16.mp4",
+      "localFilePath": "C:\\Users\\opeti\\APP\\AI Zodiac\\AI Zodiac promo\\1 havi\\Sep 26 - okt 24\\16.mp4"
+    }
+  ],
+  "destinations": [
+    "instagram",
+    "facebook",
+    "youtube"
+  ],
+  "destinationUrl": "https://aizodiac.life/features/ascendant?utm_source=youtube&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-16",
+  "captions": {
+    "instagram": "✨ What is your rising sign saying about you?\n\nYour Ascendant sign shapes your outward energy, first impressions, and spontaneous approach to the world.\n\nExplore more with AI Zodiac — link in bio.\n\n#astrology #aizodiac #risingsign #ascendantsign #birthchart #astrologyvideo",
+    "facebook": "✨ What is your rising sign saying about you?\n\nDiscover how your Ascendant defines your personal presence, aura, and first impressions on AI Zodiac.\n\nExplore more insights on AI Zodiac:\nhttps://aizodiac.life/features/ascendant\n\nDownload AI Zodiac on Google Play:\nhttps://play.google.com/store/apps/details?id=com.oberon.aizodiac&referrer=utm_source%3Dfacebook%26utm_medium%3Dsocial%26utm_campaign%3Dvideo_cta",
+    "youtube": {
+      "title": "What Is Your Rising Sign Saying About You? 🌅 #Shorts",
+      "description": "What is your rising sign saying about you? Find your Ascendant and outward persona with AI Zodiac.\n\nExplore more insights on AI Zodiac:\nhttps://aizodiac.life/features/ascendant?utm_source=youtube&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-16\n\nDownload AI Zodiac on Google Play:\nhttps://play.google.com/store/apps/details?id=com.oberon.aizodiac&referrer=utm_source%3Dyoutube%26utm_medium%3Dsocial%26utm_campaign%3Dshort_cta\n\n#Shorts #astrology #aizodiac #risingsign #ascendant #birthchart #zodiac",
+      "tags": [
+        "AI Zodiac",
+        "astrology",
+        "horoscope",
+        "zodiac",
+        "Shorts",
+        "zodiac signs",
+        "birth chart",
+        "self_discovery"
+      ]
+    }
+  },
+  "metadata": {
+    "series": "ai_zodiac_promo_30",
+    "sequenceNumber": 16,
+    "videoFileName": "16.mp4",
+    "videoFilePath": "C:\\Users\\opeti\\APP\\AI Zodiac\\AI Zodiac promo\\1 havi\\Sep 26 - okt 24\\16.mp4",
+    "sourceDescriptionNumber": 16,
+    "exactSourceTitle": "What is your rising sign saying about you?",
+    "visual": "A celestial horizon reveals an ascendant symbol rising above it, followed by a quick visual explanation and the AI Zodiac logo.",
+    "voiceover": "What is your rising sign saying about you? Find your Ascendant with AI Zodiac. Download AI Zodiac.",
+    "category": "self_discovery",
+    "format": "promotional_video",
+    "contentId": "promo-video-16",
+    "destinationPath": "/features/ascendant",
+    "scheduledPublishTimeUtc": "18:00:00Z",
+    "scheduledPublicationDateTime": "2026-10-12T18:00:00Z",
+    "qualityGate": "QUALITY_GATE_PASS",
+    "generatedAt": "2026-09-27T18:49:03.863Z"
+  }
+}

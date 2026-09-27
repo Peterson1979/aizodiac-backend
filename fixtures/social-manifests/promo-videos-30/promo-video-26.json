@@ -1,0 +1,58 @@
+{
+  "date": "2026-10-22",
+  "id": "promo-video-2026-10-22",
+  "type": "video",
+  "media": [
+    {
+      "url": "https://pub-4169b32ebff84de78189ef9a010baa5c.r2.dev/videos/promo/26.mp4",
+      "type": "video/mp4",
+      "duration": 10,
+      "aspectRatio": "9:16",
+      "altText": "Astrology meets artificial intelligence. | AI Zodiac",
+      "fileName": "26.mp4",
+      "localFilePath": "C:\\Users\\opeti\\APP\\AI Zodiac\\AI Zodiac promo\\1 havi\\Sep 26 - okt 24\\26.mp4"
+    }
+  ],
+  "destinations": [
+    "instagram",
+    "facebook",
+    "youtube"
+  ],
+  "destinationUrl": "https://aizodiac.life/articles/how-ai-creates-personalized-astrology-insights?utm_source=youtube&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-26",
+  "captions": {
+    "instagram": "✨ Astrology meets artificial intelligence.\n\nCenturies of celestial wisdom powered by modern AI precision to give you daily actionable clarity with AI Zodiac.\n\nExplore more with AI Zodiac — link in bio.\n\n#astrology #aizodiac #aiastrology #astrologyapp #horoscopeapp #astrologyvideo",
+    "facebook": "✨ Astrology meets artificial intelligence.\n\nExperience how AI Zodiac combines timeless astrological archetypes with intelligent personal synthesis.\n\nExplore more insights on AI Zodiac:\nhttps://aizodiac.life/articles/how-ai-creates-personalized-astrology-insights\n\nDownload AI Zodiac on Google Play:\nhttps://play.google.com/store/apps/details?id=com.oberon.aizodiac&referrer=utm_source%3Dfacebook%26utm_medium%3Dsocial%26utm_campaign%3Dvideo_cta",
+    "youtube": {
+      "title": "Astrology Meets Artificial Intelligence 🪐🤖 #Shorts",
+      "description": "Astrology meets artificial intelligence. Meet AI Zodiac, your personal AI astrologer on Android.\n\nExplore more insights on AI Zodiac:\nhttps://aizodiac.life/articles/how-ai-creates-personalized-astrology-insights?utm_source=youtube&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-26\n\nDownload AI Zodiac on Google Play:\nhttps://play.google.com/store/apps/details?id=com.oberon.aizodiac&referrer=utm_source%3Dyoutube%26utm_medium%3Dsocial%26utm_campaign%3Dshort_cta\n\n#Shorts #astrology #aizodiac #aiastrology #innovation #astrologyapp #zodiac",
+      "tags": [
+        "AI Zodiac",
+        "astrology",
+        "horoscope",
+        "zodiac",
+        "Shorts",
+        "zodiac signs",
+        "birth chart",
+        "ai_astrology"
+      ]
+    }
+  },
+  "metadata": {
+    "series": "ai_zodiac_promo_30",
+    "sequenceNumber": 26,
+    "videoFileName": "26.mp4",
+    "videoFilePath": "C:\\Users\\opeti\\APP\\AI Zodiac\\AI Zodiac promo\\1 havi\\Sep 26 - okt 24\\26.mp4",
+    "sourceDescriptionNumber": 26,
+    "exactSourceTitle": "Astrology meets artificial intelligence.",
+    "visual": "Ancient celestial symbols transform into futuristic AI graphics and a modern smartphone interface in a dramatic visual contrast.",
+    "voiceover": "Astrology meets artificial intelligence. Meet AI Zodiac. Download AI Zodiac.",
+    "category": "ai_astrology",
+    "format": "promotional_video",
+    "contentId": "promo-video-26",
+    "destinationPath": "/articles/how-ai-creates-personalized-astrology-insights",
+    "scheduledPublishTimeUtc": "18:00:00Z",
+    "scheduledPublicationDateTime": "2026-10-22T18:00:00Z",
+    "qualityGate": "QUALITY_GATE_PASS",
+    "generatedAt": "2026-09-27T18:49:03.873Z"
+  }
+}
