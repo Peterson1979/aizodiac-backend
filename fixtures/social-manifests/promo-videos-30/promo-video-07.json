@@ -16,7 +16,8 @@
   "destinations": [
     "instagram",
     "facebook",
-    "youtube"
+    "youtube",
+    "pinterest"
   ],
   "destinationUrl": "https://aizodiac.life/features/personal-horoscope?utm_source=youtube&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-07",
   "captions": {
@@ -35,6 +36,11 @@
         "birth chart",
         "self_discovery"
       ]
+    },
+    "pinterest": {
+      "title": "POV: You finally understand your zodiac sign.",
+      "description": "✨ POV: You finally understand your zodiac sign.\n\nExperience personalized astrology that speaks directly to your unique birth chart placements and daily transits on AI Zodiac.\n\nExplore on AI Zodiac:\nhttps://aizodiac.life/features/personal-horoscope?utm_source=pinterest&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-07",
+      "link": "https://aizodiac.life/features/personal-horoscope?utm_source=pinterest&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-07"
     }
   },
   "metadata": {

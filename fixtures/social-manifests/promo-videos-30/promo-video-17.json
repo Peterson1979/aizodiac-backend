@@ -16,7 +16,8 @@
   "destinations": [
     "instagram",
     "facebook",
-    "youtube"
+    "youtube",
+    "pinterest"
   ],
   "destinationUrl": "https://aizodiac.life/features/personal-calendar?utm_source=youtube&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-17",
   "captions": {
@@ -35,6 +36,11 @@
         "birth chart",
         "daily_insight"
       ]
+    },
+    "pinterest": {
+      "title": "Mercury retrograde? Ask AI Zodiac.",
+      "description": "✨ Mercury retrograde? Ask AI Zodiac.\n\nStay calm and prepared with personalized astrological timing and transit forecasts on AI Zodiac.\n\nExplore on AI Zodiac:\nhttps://aizodiac.life/features/personal-calendar?utm_source=pinterest&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-17",
+      "link": "https://aizodiac.life/features/personal-calendar?utm_source=pinterest&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-17"
     }
   },
   "metadata": {

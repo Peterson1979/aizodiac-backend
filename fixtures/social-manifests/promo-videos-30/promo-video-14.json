@@ -16,7 +16,8 @@
   "destinations": [
     "instagram",
     "facebook",
-    "youtube"
+    "youtube",
+    "pinterest"
   ],
   "destinationUrl": "https://aizodiac.life/tools/birth-chart?utm_source=youtube&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-14",
   "captions": {
@@ -35,6 +36,11 @@
         "birth chart",
         "self_discovery"
       ]
+    },
+    "pinterest": {
+      "title": "Ever wondered why you are… you?",
+      "description": "✨ Ever wondered why you are… you?\n\nExplore the planetary placements and cosmic blueprint that make you uniquely who you are on AI Zodiac.\n\nExplore on AI Zodiac:\nhttps://aizodiac.life/tools/birth-chart?utm_source=pinterest&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-14",
+      "link": "https://aizodiac.life/tools/birth-chart?utm_source=pinterest&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-14"
     }
   },
   "metadata": {

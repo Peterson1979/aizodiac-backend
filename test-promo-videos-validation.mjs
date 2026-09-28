@@ -117,9 +117,9 @@ for (let i = 0; i < 30; i++) {
   seenDates.add(content.date);
 
   // 4. Destinations Check
-  assert.deepEqual(content.destinations, ["instagram", "facebook", "youtube"], "Destinations must be exactly ['instagram', 'facebook', 'youtube']");
-  assert.ok(!content.destinations.includes("pinterest"), "Pinterest must NOT be targeted");
-  assert.equal(content.captions.pinterest, undefined, "Pinterest captions must NOT be present");
+  assert.deepEqual(content.destinations, ["instagram", "facebook", "youtube", "pinterest"], "Destinations must be exactly ['instagram', 'facebook', 'youtube', 'pinterest']");
+  assert.ok(content.destinations.includes("pinterest"), "Pinterest must be targeted");
+  assert.ok(content.captions.pinterest && typeof content.captions.pinterest === "object", "Pinterest captions must be present");
 
   // 5. Captions Check
   assert.ok(content.captions.instagram && typeof content.captions.instagram === "string", "Instagram caption must be non-empty string");
@@ -129,6 +129,9 @@ for (let i = 0; i < 30; i++) {
   assert.ok(content.captions.youtube && typeof content.captions.youtube === "object", "YouTube caption must be object");
   assert.ok(content.captions.youtube.title && content.captions.youtube.title.length <= 100, "YouTube title must be <= 100 chars");
   assert.ok(content.captions.youtube.description && content.captions.youtube.description.includes("play.google.com"), "YouTube description must contain Google Play link");
+  assert.ok(content.captions.pinterest.title && content.captions.pinterest.title.length <= 100, "Pinterest title must be <= 100 chars");
+  assert.ok(content.captions.pinterest.description && content.captions.pinterest.description.length <= 500, "Pinterest description must be <= 500 chars");
+  assert.ok(content.captions.pinterest.link && content.captions.pinterest.link.startsWith("https://"), "Pinterest link must be HTTPS");
 
   // 6. Media Item Check
   assert.equal(content.media.length, 1, "Media array must contain exactly 1 video");

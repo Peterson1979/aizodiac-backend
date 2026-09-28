@@ -16,7 +16,8 @@
   "destinations": [
     "instagram",
     "facebook",
-    "youtube"
+    "youtube",
+    "pinterest"
   ],
   "destinationUrl": "https://aizodiac.life/features/zodiac-traits?utm_source=youtube&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-21",
   "captions": {
@@ -35,6 +36,11 @@
         "birth chart",
         "personality"
       ]
+    },
+    "pinterest": {
+      "title": "Tell me your sign without telling me your sign.",
+      "description": "✨ Tell me your sign without telling me your sign.\n\nDiscover the relatable personality traits and humorous quirks that make your sign unique on AI Zodiac.\n\nExplore on AI Zodiac:\nhttps://aizodiac.life/features/zodiac-traits?utm_source=pinterest&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-21",
+      "link": "https://aizodiac.life/features/zodiac-traits?utm_source=pinterest&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-21"
     }
   },
   "metadata": {

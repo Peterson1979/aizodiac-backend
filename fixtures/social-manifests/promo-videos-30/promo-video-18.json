@@ -16,7 +16,8 @@
   "destinations": [
     "instagram",
     "facebook",
-    "youtube"
+    "youtube",
+    "pinterest"
   ],
   "destinationUrl": "https://aizodiac.life/features/ask-ai?utm_source=youtube&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-18",
   "captions": {
@@ -35,6 +36,11 @@
         "birth chart",
         "ai_astrology"
       ]
+    },
+    "pinterest": {
+      "title": "What if your phone knew your zodiac better than you?",
+      "description": "✨ What if your phone knew your zodiac better than you?\n\nMeet AI Zodiac — your personal Android AI astrology companion offering chart insights and daily forecasts.\n\nExplore on AI Zodiac:\nhttps://aizodiac.life/features/ask-ai?utm_source=pinterest&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-18",
+      "link": "https://aizodiac.life/features/ask-ai?utm_source=pinterest&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-18"
     }
   },
   "metadata": {

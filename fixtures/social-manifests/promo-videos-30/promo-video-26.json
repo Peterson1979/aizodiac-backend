@@ -16,7 +16,8 @@
   "destinations": [
     "instagram",
     "facebook",
-    "youtube"
+    "youtube",
+    "pinterest"
   ],
   "destinationUrl": "https://aizodiac.life/articles/how-ai-creates-personalized-astrology-insights?utm_source=youtube&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-26",
   "captions": {
@@ -35,6 +36,11 @@
         "birth chart",
         "ai_astrology"
       ]
+    },
+    "pinterest": {
+      "title": "Astrology meets artificial intelligence.",
+      "description": "✨ Astrology meets artificial intelligence.\n\nExperience how AI Zodiac combines timeless astrological archetypes with intelligent personal synthesis.\n\nExplore on AI Zodiac:\nhttps://aizodiac.life/articles/how-ai-creates-personalized-astrology-insights?utm_source=pinterest&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-26",
+      "link": "https://aizodiac.life/articles/how-ai-creates-personalized-astrology-insights?utm_source=pinterest&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-26"
     }
   },
   "metadata": {

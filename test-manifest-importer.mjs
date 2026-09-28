@@ -50,6 +50,8 @@ class MockRedis {
   }
 }
 
+import { savePrepareState, PREPARE_STAGES } from "./lib/social/prepareStateHelper.js";
+
 // Sample test batch data
 const validBatch = [
   {
@@ -61,6 +63,9 @@ const validBatch = [
       instagram: "IG 1",
       facebook: "FB 1",
       pinterest: { title: "Pin 1", description: "Desc 1", link: "https://aizodiac.life" },
+    },
+    metadata: {
+      qualityGate: "QUALITY_GATE_PASS",
     },
   },
   {
@@ -76,6 +81,9 @@ const validBatch = [
       facebook: "FB 2",
       pinterest: { title: "Pin 2", description: "Desc 2", link: "https://aizodiac.life" },
     },
+    metadata: {
+      qualityGate: "QUALITY_GATE_PASS",
+    },
   },
   {
     date: "2026-09-03",
@@ -86,6 +94,9 @@ const validBatch = [
       instagram: "IG 3",
       facebook: "FB 3",
       pinterest: { title: "Pin 3", description: "Desc 3", link: "https://aizodiac.life" },
+    },
+    metadata: {
+      qualityGate: "QUALITY_GATE_PASS",
     },
   },
 ];
@@ -277,6 +288,7 @@ const validBatch = [
     redis,
     apply: true,
   });
+  await savePrepareState(redis, "2026-09-01", { stage: PREPARE_STAGES.QUALITY_GATE_PASS });
 
   const config = getSocialConfig({
     autoPublishEnabled: true,
@@ -330,6 +342,7 @@ const validBatch = [
     redis,
     apply: true,
   });
+  await savePrepareState(redis, "2026-09-01", { stage: PREPARE_STAGES.QUALITY_GATE_PASS });
 
   const config = getSocialConfig({
     autoPublishEnabled: true,

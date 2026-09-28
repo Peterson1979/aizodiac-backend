@@ -16,7 +16,8 @@
   "destinations": [
     "instagram",
     "facebook",
-    "youtube"
+    "youtube",
+    "pinterest"
   ],
   "destinationUrl": "https://aizodiac.life/tools/birth-chart?utm_source=youtube&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-04",
   "captions": {
@@ -35,6 +36,11 @@
         "birth chart",
         "self_discovery"
       ]
+    },
+    "pinterest": {
+      "title": "Your birth date holds more than you think.",
+      "description": "✨ Your birth date holds more than you think.\n\nTransform your birth date into a personalized astrological blueprint and daily transit forecast on AI Zodiac.\n\nExplore on AI Zodiac:\nhttps://aizodiac.life/tools/birth-chart?utm_source=pinterest&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-04",
+      "link": "https://aizodiac.life/tools/birth-chart?utm_source=pinterest&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-04"
     }
   },
   "metadata": {

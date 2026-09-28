@@ -16,7 +16,8 @@
   "destinations": [
     "instagram",
     "facebook",
-    "youtube"
+    "youtube",
+    "pinterest"
   ],
   "destinationUrl": "https://aizodiac.life/articles/the-big-three-sun-moon-rising-signs?utm_source=youtube&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-25",
   "captions": {
@@ -35,6 +36,11 @@
         "birth chart",
         "self_discovery"
       ]
+    },
+    "pinterest": {
+      "title": "You are more than your sun sign.",
+      "description": "✨ You are more than your sun sign.\n\nDiscover how your Sun, Moon, and Ascendant work together to create your full astrological identity on AI Zodiac.\n\nExplore on AI Zodiac:\nhttps://aizodiac.life/articles/the-big-three-sun-moon-rising-signs?utm_source=pinterest&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-25",
+      "link": "https://aizodiac.life/articles/the-big-three-sun-moon-rising-signs?utm_source=pinterest&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-25"
     }
   },
   "metadata": {

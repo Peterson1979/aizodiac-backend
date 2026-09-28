@@ -16,7 +16,8 @@
   "destinations": [
     "instagram",
     "facebook",
-    "youtube"
+    "youtube",
+    "pinterest"
   ],
   "destinationUrl": "https://aizodiac.life/tools/compatibility?utm_source=youtube&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-15",
   "captions": {
@@ -35,6 +36,11 @@
         "birth chart",
         "love_compatibility"
       ]
+    },
+    "pinterest": {
+      "title": "Your next conversation starter is in the stars.",
+      "description": "✨ Your next conversation starter is in the stars.\n\nExplore playful and in-depth zodiac compatibility between any combination of signs on AI Zodiac.\n\nExplore on AI Zodiac:\nhttps://aizodiac.life/tools/compatibility?utm_source=pinterest&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-15",
+      "link": "https://aizodiac.life/tools/compatibility?utm_source=pinterest&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-15"
     }
   },
   "metadata": {

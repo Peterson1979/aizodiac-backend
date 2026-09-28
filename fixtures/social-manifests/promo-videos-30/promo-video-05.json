@@ -16,7 +16,8 @@
   "destinations": [
     "instagram",
     "facebook",
-    "youtube"
+    "youtube",
+    "pinterest"
   ],
   "destinationUrl": "https://aizodiac.life/features/ask-ai?utm_source=youtube&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-05",
   "captions": {
@@ -35,6 +36,11 @@
         "birth chart",
         "ai_astrology"
       ]
+    },
+    "pinterest": {
+      "title": "Ask AI what your stars say.",
+      "description": "✨ Ask AI what your stars say.\n\nHave real questions about your natal chart, relationship dynamics, or current transits? Chat directly with the AI Astrologer on AI Zodiac.\n\nExplore on AI Zodiac:\nhttps://aizodiac.life/features/ask-ai?utm_source=pinterest&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-05",
+      "link": "https://aizodiac.life/features/ask-ai?utm_source=pinterest&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-05"
     }
   },
   "metadata": {

@@ -16,7 +16,8 @@
   "destinations": [
     "instagram",
     "facebook",
-    "youtube"
+    "youtube",
+    "pinterest"
   ],
   "destinationUrl": "https://aizodiac.life/tools/birth-chart?utm_source=youtube&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-08",
   "captions": {
@@ -35,6 +36,11 @@
         "birth chart",
         "self_discovery"
       ]
+    },
+    "pinterest": {
+      "title": "Stop guessing. Ask your birth chart.",
+      "description": "✨ Stop guessing. Ask your birth chart.\n\nDecode every planet and house in your astrological chart with AI Zodiac — your personal AI astrology companion.\n\nExplore on AI Zodiac:\nhttps://aizodiac.life/tools/birth-chart?utm_source=pinterest&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-08",
+      "link": "https://aizodiac.life/tools/birth-chart?utm_source=pinterest&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-08"
     }
   },
   "metadata": {

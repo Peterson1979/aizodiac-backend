@@ -16,7 +16,8 @@
   "destinations": [
     "instagram",
     "facebook",
-    "youtube"
+    "youtube",
+    "pinterest"
   ],
   "destinationUrl": "https://aizodiac.life/?utm_source=youtube&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-30",
   "captions": {
@@ -35,6 +36,11 @@
         "birth chart",
         "self_discovery"
       ]
+    },
+    "pinterest": {
+      "title": "Ready to discover your zodiac story?",
+      "description": "✨ Ready to discover your zodiac story?\n\nDownload AI Zodiac to experience birth-chart calibrated daily horoscopes, love synastry, and conversational AI astrology.\n\nExplore on AI Zodiac:\nhttps://aizodiac.life/?utm_source=pinterest&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-30",
+      "link": "https://aizodiac.life/?utm_source=pinterest&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-30"
     }
   },
   "metadata": {

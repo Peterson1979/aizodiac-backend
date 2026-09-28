@@ -16,7 +16,8 @@
   "destinations": [
     "instagram",
     "facebook",
-    "youtube"
+    "youtube",
+    "pinterest"
   ],
   "destinationUrl": "https://aizodiac.life/tools/birth-chart?utm_source=youtube&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-28",
   "captions": {
@@ -35,6 +36,11 @@
         "birth chart",
         "self_discovery"
       ]
+    },
+    "pinterest": {
+      "title": "Which version of you is written in the stars?",
+      "description": "✨ Which version of you is written in the stars?\n\nExplore your multi-faceted personality and astrological blueprint on AI Zodiac.\n\nExplore on AI Zodiac:\nhttps://aizodiac.life/tools/birth-chart?utm_source=pinterest&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-28",
+      "link": "https://aizodiac.life/tools/birth-chart?utm_source=pinterest&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-28"
     }
   },
   "metadata": {

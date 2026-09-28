@@ -16,7 +16,8 @@
   "destinations": [
     "instagram",
     "facebook",
-    "youtube"
+    "youtube",
+    "pinterest"
   ],
   "destinationUrl": "https://aizodiac.life/tools/compatibility?utm_source=youtube&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-19",
   "captions": {
@@ -35,6 +36,11 @@
         "birth chart",
         "love_compatibility"
       ]
+    },
+    "pinterest": {
+      "title": "Your perfect match might be written in the stars.",
+      "description": "✨ Your perfect match might be written in the stars.\n\nExplore comprehensive zodiac compatibility and synastry insights with AI Zodiac.\n\nExplore on AI Zodiac:\nhttps://aizodiac.life/tools/compatibility?utm_source=pinterest&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-19",
+      "link": "https://aizodiac.life/tools/compatibility?utm_source=pinterest&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-19"
     }
   },
   "metadata": {

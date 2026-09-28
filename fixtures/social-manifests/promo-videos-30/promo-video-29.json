@@ -16,7 +16,8 @@
   "destinations": [
     "instagram",
     "facebook",
-    "youtube"
+    "youtube",
+    "pinterest"
   ],
   "destinationUrl": "https://aizodiac.life/features/ask-ai?utm_source=youtube&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-29",
   "captions": {
@@ -35,6 +36,11 @@
         "birth chart",
         "ai_astrology"
       ]
+    },
+    "pinterest": {
+      "title": "One question can start a whole cosmic journey.",
+      "description": "✨ One question can start a whole cosmic journey.\n\nAsk your most pressing astrology questions to the AI Astrologer on AI Zodiac.\n\nExplore on AI Zodiac:\nhttps://aizodiac.life/features/ask-ai?utm_source=pinterest&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-29",
+      "link": "https://aizodiac.life/features/ask-ai?utm_source=pinterest&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-29"
     }
   },
   "metadata": {

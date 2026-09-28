@@ -16,7 +16,8 @@
   "destinations": [
     "instagram",
     "facebook",
-    "youtube"
+    "youtube",
+    "pinterest"
   ],
   "destinationUrl": "https://aizodiac.life/features/ascendant?utm_source=youtube&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-16",
   "captions": {
@@ -35,6 +36,11 @@
         "birth chart",
         "self_discovery"
       ]
+    },
+    "pinterest": {
+      "title": "What is your rising sign saying about you?",
+      "description": "✨ What is your rising sign saying about you?\n\nDiscover how your Ascendant defines your personal presence, aura, and first impressions on AI Zodiac.\n\nExplore on AI Zodiac:\nhttps://aizodiac.life/features/ascendant?utm_source=pinterest&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-16",
+      "link": "https://aizodiac.life/features/ascendant?utm_source=pinterest&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-16"
     }
   },
   "metadata": {

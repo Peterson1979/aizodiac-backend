@@ -16,7 +16,8 @@
   "destinations": [
     "instagram",
     "facebook",
-    "youtube"
+    "youtube",
+    "pinterest"
   ],
   "destinationUrl": "https://aizodiac.life/features/ask-ai?utm_source=youtube&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-10",
   "captions": {
@@ -35,6 +36,11 @@
         "birth chart",
         "ai_astrology"
       ]
+    },
+    "pinterest": {
+      "title": "Can AI read your stars?",
+      "description": "✨ Can AI read your stars?\n\nSee how modern artificial intelligence combines ancient astrological wisdom with precise transit calculations on AI Zodiac.\n\nExplore on AI Zodiac:\nhttps://aizodiac.life/features/ask-ai?utm_source=pinterest&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-10",
+      "link": "https://aizodiac.life/features/ask-ai?utm_source=pinterest&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-10"
     }
   },
   "metadata": {

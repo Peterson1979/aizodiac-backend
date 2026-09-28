@@ -16,7 +16,8 @@
   "destinations": [
     "instagram",
     "facebook",
-    "youtube"
+    "youtube",
+    "pinterest"
   ],
   "destinationUrl": "https://aizodiac.life/tools/birth-chart?utm_source=youtube&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-23",
   "captions": {
@@ -35,6 +36,11 @@
         "birth chart",
         "self_discovery"
       ]
+    },
+    "pinterest": {
+      "title": "Your birth chart is basically your cosmic fingerprint.",
+      "description": "✨ Your birth chart is basically your cosmic fingerprint.\n\nExplore your unique 12-house natal chart and planetary alignments with AI Zodiac.\n\nExplore on AI Zodiac:\nhttps://aizodiac.life/tools/birth-chart?utm_source=pinterest&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-23",
+      "link": "https://aizodiac.life/tools/birth-chart?utm_source=pinterest&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-23"
     }
   },
   "metadata": {

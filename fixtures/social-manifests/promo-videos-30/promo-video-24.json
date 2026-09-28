@@ -16,7 +16,8 @@
   "destinations": [
     "instagram",
     "facebook",
-    "youtube"
+    "youtube",
+    "pinterest"
   ],
   "destinationUrl": "https://aizodiac.life/features/personal-horoscope?utm_source=youtube&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-24",
   "captions": {
@@ -35,6 +36,11 @@
         "birth chart",
         "daily_insight"
       ]
+    },
+    "pinterest": {
+      "title": "What does your sign need to hear today?",
+      "description": "✨ What does your sign need to hear today?\n\nStart your morning with personalized astrological insights and mindful transit guidance on AI Zodiac.\n\nExplore on AI Zodiac:\nhttps://aizodiac.life/features/personal-horoscope?utm_source=pinterest&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-24",
+      "link": "https://aizodiac.life/features/personal-horoscope?utm_source=pinterest&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-24"
     }
   },
   "metadata": {

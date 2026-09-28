@@ -16,7 +16,8 @@
   "destinations": [
     "instagram",
     "facebook",
-    "youtube"
+    "youtube",
+    "pinterest"
   ],
   "destinationUrl": "https://aizodiac.life/features/zodiac-traits?utm_source=youtube&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-13",
   "captions": {
@@ -35,6 +36,11 @@
         "birth chart",
         "zodiac_psychology"
       ]
+    },
+    "pinterest": {
+      "title": "Your zodiac sign has a hidden side.",
+      "description": "✨ Your zodiac sign has a hidden side.\n\nExplore the deeper, complex layers and shadow archetypes of your sign on AI Zodiac.\n\nExplore on AI Zodiac:\nhttps://aizodiac.life/features/zodiac-traits?utm_source=pinterest&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-13",
+      "link": "https://aizodiac.life/features/zodiac-traits?utm_source=pinterest&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-13"
     }
   },
   "metadata": {

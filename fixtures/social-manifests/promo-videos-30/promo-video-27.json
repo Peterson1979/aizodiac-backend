@@ -16,7 +16,8 @@
   "destinations": [
     "instagram",
     "facebook",
-    "youtube"
+    "youtube",
+    "pinterest"
   ],
   "destinationUrl": "https://aizodiac.life/tools/compatibility?utm_source=youtube&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-27",
   "captions": {
@@ -35,6 +36,11 @@
         "birth chart",
         "love_compatibility"
       ]
+    },
+    "pinterest": {
+      "title": "Before your next date, check this.",
+      "description": "✨ Before your next date, check this.\n\nExplore zodiac compatibility, communication bridges, and chemistry between any two signs on AI Zodiac.\n\nExplore on AI Zodiac:\nhttps://aizodiac.life/tools/compatibility?utm_source=pinterest&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-27",
+      "link": "https://aizodiac.life/tools/compatibility?utm_source=pinterest&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-27"
     }
   },
   "metadata": {

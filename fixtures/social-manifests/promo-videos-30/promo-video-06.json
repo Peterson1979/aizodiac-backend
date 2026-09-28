@@ -16,7 +16,8 @@
   "destinations": [
     "instagram",
     "facebook",
-    "youtube"
+    "youtube",
+    "pinterest"
   ],
   "destinationUrl": "https://aizodiac.life/features/zodiac-traits?utm_source=youtube&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-06",
   "captions": {
@@ -35,6 +36,11 @@
         "birth chart",
         "zodiac_psychology"
       ]
+    },
+    "pinterest": {
+      "title": "Which zodiac sign is secretly the most intense?",
+      "description": "✨ Which zodiac sign is secretly the most intense?\n\nExplore the profound psychological depths, hidden motivations, and intense traits of every zodiac sign on AI Zodiac.\n\nExplore on AI Zodiac:\nhttps://aizodiac.life/features/zodiac-traits?utm_source=pinterest&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-06",
+      "link": "https://aizodiac.life/features/zodiac-traits?utm_source=pinterest&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-06"
     }
   },
   "metadata": {

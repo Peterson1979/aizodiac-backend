@@ -16,7 +16,8 @@
   "destinations": [
     "instagram",
     "facebook",
-    "youtube"
+    "youtube",
+    "pinterest"
   ],
   "destinationUrl": "https://aizodiac.life/features/zodiac-traits?utm_source=youtube&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-01",
   "captions": {
@@ -35,6 +36,11 @@
         "birth chart",
         "self_discovery"
       ]
+    },
+    "pinterest": {
+      "title": "What does your zodiac sign REALLY say about you?",
+      "description": "✨ What does your zodiac sign REALLY say about you?\n\nDiscover the psychological traits, strengths, and deeper planetary patterns behind your sign with AI Zodiac.\n\nExplore on AI Zodiac:\nhttps://aizodiac.life/features/zodiac-traits?utm_source=pinterest&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-01",
+      "link": "https://aizodiac.life/features/zodiac-traits?utm_source=pinterest&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-01"
     }
   },
   "metadata": {

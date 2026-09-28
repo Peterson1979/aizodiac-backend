@@ -16,7 +16,8 @@
   "destinations": [
     "instagram",
     "facebook",
-    "youtube"
+    "youtube",
+    "pinterest"
   ],
   "destinationUrl": "https://aizodiac.life/features/zodiac-traits?utm_source=youtube&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-09",
   "captions": {
@@ -35,6 +36,11 @@
         "birth chart",
         "personality"
       ]
+    },
+    "pinterest": {
+      "title": "3 things your zodiac sign might reveal.",
+      "description": "✨ 3 things your zodiac sign might reveal.\n\n3 things your zodiac sign might reveal:\n\n1. Your instinctive emotional responses\n2. How you connect in relationships\n3. Your timing for key personal breakthroughs\n\nDiscover yours on AI Zodiac:\nhttps://aizodiac.life/features/zodiac-traits\n\nExplore on AI Zodiac:\nhttps://aizodiac.life/features/zodiac-traits?utm_source=pinterest&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-09",
+      "link": "https://aizodiac.life/features/zodiac-traits?utm_source=pinterest&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-09"
     }
   },
   "metadata": {

@@ -16,7 +16,8 @@
   "destinations": [
     "instagram",
     "facebook",
-    "youtube"
+    "youtube",
+    "pinterest"
   ],
   "destinationUrl": "https://aizodiac.life/features/love-compatibility?utm_source=youtube&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-12",
   "captions": {
@@ -35,6 +36,11 @@
         "birth chart",
         "love_compatibility"
       ]
+    },
+    "pinterest": {
+      "title": "What kind of lover are you?",
+      "description": "✨ What kind of lover are you?\n\nUncover your unique romantic archetype and relationship love language through your astrological profile on AI Zodiac.\n\nExplore on AI Zodiac:\nhttps://aizodiac.life/features/love-compatibility?utm_source=pinterest&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-12",
+      "link": "https://aizodiac.life/features/love-compatibility?utm_source=pinterest&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-12"
     }
   },
   "metadata": {

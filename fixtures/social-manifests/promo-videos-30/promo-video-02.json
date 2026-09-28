@@ -16,7 +16,8 @@
   "destinations": [
     "instagram",
     "facebook",
-    "youtube"
+    "youtube",
+    "pinterest"
   ],
   "destinationUrl": "https://aizodiac.life/features/zodiac-traits?utm_source=youtube&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-02",
   "captions": {
@@ -35,6 +36,11 @@
         "birth chart",
         "personality"
       ]
+    },
+    "pinterest": {
+      "title": "Your zodiac sign might explain more than you think.",
+      "description": "✨ Your zodiac sign might explain more than you think.\n\nExplore your unique personality traits, natural talents, and emotional dynamics calibrated by AI astrology.\n\nExplore on AI Zodiac:\nhttps://aizodiac.life/features/zodiac-traits?utm_source=pinterest&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-02",
+      "link": "https://aizodiac.life/features/zodiac-traits?utm_source=pinterest&utm_medium=social&utm_campaign=promo_video&utm_content=promo-video-02"
     }
   },
   "metadata": {
