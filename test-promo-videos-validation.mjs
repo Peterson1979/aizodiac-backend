@@ -117,8 +117,9 @@ for (let i = 0; i < 30; i++) {
   seenDates.add(content.date);
 
   // 4. Destinations Check
-  assert.deepEqual(content.destinations, ["instagram", "facebook", "youtube", "pinterest"], "Destinations must be exactly ['instagram', 'facebook', 'youtube', 'pinterest']");
-  assert.ok(content.destinations.includes("pinterest"), "Pinterest must be targeted");
+  assert.deepEqual(content.destinations, ["instagram", "facebook", "youtube", "pinterest", "pinterest_secondary"], "Destinations must be exactly ['instagram', 'facebook', 'youtube', 'pinterest', 'pinterest_secondary']");
+  assert.ok(content.destinations.includes("pinterest"), "Pinterest primary must be targeted");
+  assert.ok(content.destinations.includes("pinterest_secondary"), "Pinterest secondary (LifeMode) must be targeted");
   assert.ok(content.captions.pinterest && typeof content.captions.pinterest === "object", "Pinterest captions must be present");
 
   // 5. Captions Check

@@ -9,7 +9,7 @@ import { isPromoVideoCampaignDate } from "../../lib/social/content/promoVideoReg
 export const maxDuration = 60;
 
 /**
- * Dedicated video publishing destinations (AI Zodiac IG + AI Zodiac FB + LifeMode IG + LifeMode FB + YouTube + Pinterest).
+ * Dedicated video publishing destinations (AI Zodiac IG + AI Zodiac FB + LifeMode IG + LifeMode FB + YouTube + AI Zodiac Pinterest + LifeMode Pinterest).
  */
 export const PROMO_VIDEO_DESTINATIONS = Object.freeze([
   DESTINATIONS.INSTAGRAM_PRIMARY,
@@ -18,6 +18,7 @@ export const PROMO_VIDEO_DESTINATIONS = Object.freeze([
   DESTINATIONS.FACEBOOK_SECONDARY,
   DESTINATIONS.YOUTUBE,
   DESTINATIONS.PINTEREST,
+  DESTINATIONS.PINTEREST_SECONDARY,
 ]);
 
 /**

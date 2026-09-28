@@ -126,6 +126,9 @@ class MockRedis {
     pinterestAccessToken: "pina_test_access_token_123",
     pinterestRefreshToken: "pinr_test_refresh_token_456",
     pinterestBoardId: "9876543210",
+    lifemodePinterestAccessToken: "pina_test_lifemode_access_token_123",
+    lifemodePinterestRefreshToken: "pinr_test_lifemode_refresh_token_456",
+    lifemodePinterestBoardId: "495607202683292084",
     youtubeClientId: "test_yt_client_id_123.apps.googleusercontent.com",
     youtubeClientSecret: "test_yt_client_secret_456",
     youtubeRefreshToken: "1//test_yt_refresh_token_789",
@@ -953,9 +956,137 @@ class MockRedis {
   assert.equal(savedState.refreshToken, "pinr_rotated_token_999");
   assert.ok(savedState.expiresAt > Date.now() + 20 * 86400 * 1000);
 
+  // 3. LifeMode Pinterest Secondary (LifeModeHQ Astrology Board 495607202683292084)
+  const secondaryAdapter = new PinterestAdapter({
+    name: DESTINATIONS.PINTEREST_SECONDARY,
+    getAppId: (c) => c.lifemodePinterestAppId,
+    getAppSecret: (c) => c.lifemodePinterestAppSecret,
+    getAccessToken: (c) => c.lifemodePinterestAccessToken,
+    getRefreshToken: (c) => c.lifemodePinterestRefreshToken,
+    getBoardId: (c) => c.lifemodePinterestBoardId,
+    getAccessTier: (c) => c.lifemodePinterestAccessTier || "trial",
+    getAllowTrialPosting: (c) => Boolean(c.lifemodePinterestAllowTrialPosting),
+  });
+
+  // 3a. Credential Isolation: Primary credentials do NOT satisfy secondary requirement
+  const primaryOnlyConfigForPin = getSocialConfig({
+    pinterestAppId: "pin_app_primary",
+    pinterestAppSecret: "pin_secret_primary",
+    pinterestAccessToken: "pina_primary_token",
+    pinterestRefreshToken: "pinr_primary_token",
+    pinterestBoardId: "9876543210",
+    pinterestAccessTier: "standard",
+  });
+  const secValCheck = secondaryAdapter.validateConfig(primaryOnlyConfigForPin);
+  assert.equal(secValCheck.valid, false, "Secondary Pinterest must fail when only primary credentials exist");
+  assert.ok(secValCheck.errors.some(e => e.includes("LIFEMODE_PINTEREST_ACCESS_TOKEN")), "Must report missing LifeMode access token");
+  assert.ok(secValCheck.errors.some(e => e.includes("LIFEMODE_PINTEREST_BOARD_ID")), "Must report missing LifeMode board ID");
+
+  // 3b. Fully configured LifeMode Pinterest
+  const lifemodePinConfig = getSocialConfig({
+    pinterestAppId: "pin_app_primary",
+    pinterestAppSecret: "pin_secret_primary",
+    pinterestAccessToken: "pina_primary_token",
+    pinterestRefreshToken: "pinr_primary_token",
+    pinterestBoardId: "9876543210",
+    pinterestAccessTier: "standard",
+    lifemodePinterestAppId: "lm_pin_app_999",
+    lifemodePinterestAppSecret: "lm_pin_secret_888",
+    lifemodePinterestAccessToken: "pina_lifemode_initial_token",
+    lifemodePinterestRefreshToken: "pinr_lifemode_initial_refresh",
+    lifemodePinterestBoardId: "495607202683292084",
+    lifemodePinterestAccessTier: "standard",
+  });
+
+  const secValSuccess = secondaryAdapter.validateConfig(lifemodePinConfig);
+  assert.equal(secValSuccess.valid, true, "Valid LifeMode Pinterest config must pass validation");
+
+  // 3c. Health Check against @lifemodehq
+  const mockFetchHealth = async (url) => {
+    if (url.includes("/user_account")) {
+      return new Response(JSON.stringify({ username: "lifemodehq", id: "495607271401849587", account_type: "business" }), { status: 200 });
+    }
+    throw new Error(`Unexpected URL: ${url}`);
+  };
+
+  const healthRes = await secondaryAdapter.checkHealth({
+    config: lifemodePinConfig,
+    redis,
+    fetchFn: mockFetchHealth,
+  });
+  assert.equal(healthRes.healthy, true);
+  assert.equal(healthRes.details.username, "lifemodehq");
+  assert.equal(healthRes.details.boardId, "495607202683292084");
+  assert.equal(healthRes.details.destination, DESTINATIONS.PINTEREST_SECONDARY);
+
+  // 3d. Isolated Token State Storage in Redis
+  await savePinterestTokenState(redis, {
+    accessToken: "pina_lifemode_expiring",
+    refreshToken: "pinr_lifemode_refresh_123",
+    expiresAt: Date.now() + 1800 * 1000, // Expiring in 30 mins (< 48h)
+  }, DESTINATIONS.PINTEREST_SECONDARY);
+
+  // Verify primary auth key in Redis is untouched
+  const primaryStateBefore = await getPinterestTokenState(redis, lifemodePinConfig, DESTINATIONS.PINTEREST);
+  assert.equal(primaryStateBefore.accessToken, "pina_fresh_token_888");
+
+  let lmRefreshCalled = false;
+  let lmPinCreated = false;
+  let lmPayloadBoardId = null;
+
+  const mockFetchLMPinterest = async (url, options) => {
+    if (url.includes("/oauth/token")) {
+      lmRefreshCalled = true;
+      const basicAuth = Buffer.from("lm_pin_app_999:lm_pin_secret_888").toString("base64");
+      assert.equal(options.headers.Authorization, `Basic ${basicAuth}`, "LifeMode OAuth refresh MUST use LifeMode app credentials");
+      assert.ok(options.body.includes("refresh_token=pinr_lifemode_refresh_123"));
+      return new Response(
+        JSON.stringify({
+          access_token: "pina_lifemode_rotated_token_777",
+          refresh_token: "pinr_lifemode_rotated_token_666",
+          expires_in: 2592000,
+          refresh_token_expires_in: 5184000,
+        }),
+        { status: 200 }
+      );
+    }
+    if (url.includes("/v5/pins")) {
+      lmPinCreated = true;
+      assert.equal(options.headers.Authorization, "Bearer pina_lifemode_rotated_token_777");
+      const body = JSON.parse(options.body);
+      lmPayloadBoardId = body.board_id;
+      return new Response(JSON.stringify({ id: "pin_lifemode_astrology_999" }), { status: 201 });
+    }
+    return new Response("Not found", { status: 404 });
+  };
+
+  const resSecondary = await secondaryAdapter.publish({
+    manifest: pinManifest,
+    config: lifemodePinConfig,
+    redis,
+    fetchFn: mockFetchLMPinterest,
+  });
+
+  assert.equal(resSecondary.success, true);
+  assert.equal(resSecondary.status, PUBLISH_STATUS.PUBLISHED);
+  assert.equal(resSecondary.postId, "pin_lifemode_astrology_999");
+  assert.equal(lmRefreshCalled, true, "LifeMode token refresh must have executed");
+  assert.equal(lmPinCreated, true, "LifeMode pin must have been created");
+  assert.equal(lmPayloadBoardId, "495607202683292084", "LifeMode pin must target Astrology board ID 495607202683292084");
+
+  // Verify secondary token state saved under isolated Redis key
+  const savedSecState = await getPinterestTokenState(redis, lifemodePinConfig, DESTINATIONS.PINTEREST_SECONDARY);
+  assert.equal(savedSecState.accessToken, "pina_lifemode_rotated_token_777");
+  assert.equal(savedSecState.refreshToken, "pinr_lifemode_rotated_token_666");
+
+  // Verify primary token state in Redis remained completely untouched
+  const primaryStateAfter = await getPinterestTokenState(redis, lifemodePinConfig, DESTINATIONS.PINTEREST);
+  assert.equal(primaryStateAfter.accessToken, "pina_fresh_token_888");
+
   console.log("  ✓ Trial access tier properly gated and prevented from public publishing");
   console.log("  ✓ Continuous OAuth refresh triggered and rotated credentials saved to Redis");
   console.log("  ✓ Pinterest Pin creation succeeded using freshly rotated access token");
+  console.log("  ✓ LifeModeHQ secondary Pinterest targets Astrology board 495607202683292084 with isolated token storage");
 }
 
 // ============================================================================
