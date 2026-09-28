@@ -9,12 +9,14 @@ import { isPromoVideoCampaignDate } from "../../lib/social/content/promoVideoReg
 export const maxDuration = 60;
 
 /**
- * Dedicated video publishing destinations (Instagram Primary + Facebook Primary + YouTube).
+ * Dedicated video publishing destinations (AI Zodiac IG + AI Zodiac FB + LifeMode IG + LifeMode FB + YouTube).
  * Strictly excludes Pinterest.
  */
 export const PROMO_VIDEO_DESTINATIONS = Object.freeze([
   DESTINATIONS.INSTAGRAM_PRIMARY,
   DESTINATIONS.FACEBOOK_PRIMARY,
+  DESTINATIONS.INSTAGRAM_SECONDARY,
+  DESTINATIONS.FACEBOOK_SECONDARY,
   DESTINATIONS.YOUTUBE,
 ]);
 

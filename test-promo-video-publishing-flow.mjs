@@ -141,27 +141,31 @@ async function runTests() {
   assert.deepEqual(dryRunResult.targetPlatforms, [
     DESTINATIONS.INSTAGRAM_PRIMARY,
     DESTINATIONS.FACEBOOK_PRIMARY,
+    DESTINATIONS.INSTAGRAM_SECONDARY,
+    DESTINATIONS.FACEBOOK_SECONDARY,
     DESTINATIONS.YOUTUBE,
   ]);
   assert.equal(redis.store.size, 0, "Dry-run must make 0 Redis writes");
-  console.log("  ✓ Dry-run completed with zero writes");
+  console.log("  ✓ Dry-run completed with zero writes across all 5 destinations");
 
-  // [TEST 5] Full Video 1 Publishing Mock Execution (IG + FB + YT)
-  console.log("\n[TEST 5] Full Video 1 Publishing Mock Execution (IG + FB + YT)");
-  let publishedIG = false;
-  let publishedFB = false;
+  // [TEST 5] Full Video 1 Publishing Mock Execution (AI Zodiac IG/FB + LifeMode IG/FB + YouTube)
+  console.log("\n[TEST 5] Full Video 1 Publishing Mock Execution (5 destinations)");
+  let publishedIGPrimary = false;
+  let publishedFBPrimary = false;
+  let publishedIGSecondary = false;
+  let publishedFBSecondary = false;
   let publishedYT = false;
 
   const mockAdapters = {
     [DESTINATIONS.INSTAGRAM_PRIMARY]: {
       name: DESTINATIONS.INSTAGRAM_PRIMARY,
       async publish({ manifest }) {
-        publishedIG = true;
+        publishedIGPrimary = true;
         return {
           success: true,
           status: PUBLISH_STATUS.PUBLISHED,
-          postId: "ig_reel_123456",
-          containerId: "ig_container_999",
+          postId: "ig_primary_reel_123",
+          containerId: "ig_primary_container_999",
           publishedAt: new Date().toISOString(),
         };
       },
@@ -169,11 +173,36 @@ async function runTests() {
     [DESTINATIONS.FACEBOOK_PRIMARY]: {
       name: DESTINATIONS.FACEBOOK_PRIMARY,
       async publish({ manifest }) {
-        publishedFB = true;
+        publishedFBPrimary = true;
         return {
           success: true,
           status: PUBLISH_STATUS.PUBLISHED,
-          postId: "fb_video_789012",
+          postId: "fb_primary_video_456",
+          publishedAt: new Date().toISOString(),
+        };
+      },
+    },
+    [DESTINATIONS.INSTAGRAM_SECONDARY]: {
+      name: DESTINATIONS.INSTAGRAM_SECONDARY,
+      async publish({ manifest }) {
+        publishedIGSecondary = true;
+        return {
+          success: true,
+          status: PUBLISH_STATUS.PUBLISHED,
+          postId: "ig_secondary_reel_789",
+          containerId: "ig_secondary_container_888",
+          publishedAt: new Date().toISOString(),
+        };
+      },
+    },
+    [DESTINATIONS.FACEBOOK_SECONDARY]: {
+      name: DESTINATIONS.FACEBOOK_SECONDARY,
+      async publish({ manifest }) {
+        publishedFBSecondary = true;
+        return {
+          success: true,
+          status: PUBLISH_STATUS.PUBLISHED,
+          postId: "fb_secondary_video_101",
           publishedAt: new Date().toISOString(),
         };
       },
@@ -203,8 +232,10 @@ async function runTests() {
 
   assert.equal(publishResult.success, true);
   assert.equal(publishResult.status, PUBLISH_STATUS.PUBLISHED);
-  assert.equal(publishedIG, true, "Instagram Primary must be published");
-  assert.equal(publishedFB, true, "Facebook Primary must be published");
+  assert.equal(publishedIGPrimary, true, "AI Zodiac Instagram Primary must be published");
+  assert.equal(publishedFBPrimary, true, "AI Zodiac Facebook Primary must be published");
+  assert.equal(publishedIGSecondary, true, "LifeMode Instagram Secondary must be published");
+  assert.equal(publishedFBSecondary, true, "LifeMode Facebook Secondary must be published");
   assert.equal(publishedYT, true, "YouTube must be published");
 
   // Verify state in Redis
@@ -212,31 +243,45 @@ async function runTests() {
   assert.ok(videoState, "Video post state must be saved in Redis");
   assert.equal(videoState.overallStatus, PUBLISH_STATUS.PUBLISHED);
   assert.equal(videoState.platforms[DESTINATIONS.INSTAGRAM_PRIMARY].status, PUBLISH_STATUS.PUBLISHED);
-  assert.equal(videoState.platforms[DESTINATIONS.INSTAGRAM_PRIMARY].postId, "ig_reel_123456");
+  assert.equal(videoState.platforms[DESTINATIONS.INSTAGRAM_PRIMARY].postId, "ig_primary_reel_123");
   assert.equal(videoState.platforms[DESTINATIONS.FACEBOOK_PRIMARY].status, PUBLISH_STATUS.PUBLISHED);
-  assert.equal(videoState.platforms[DESTINATIONS.FACEBOOK_PRIMARY].postId, "fb_video_789012");
+  assert.equal(videoState.platforms[DESTINATIONS.FACEBOOK_PRIMARY].postId, "fb_primary_video_456");
+  assert.equal(videoState.platforms[DESTINATIONS.INSTAGRAM_SECONDARY].status, PUBLISH_STATUS.PUBLISHED);
+  assert.equal(videoState.platforms[DESTINATIONS.INSTAGRAM_SECONDARY].postId, "ig_secondary_reel_789");
+  assert.equal(videoState.platforms[DESTINATIONS.FACEBOOK_SECONDARY].status, PUBLISH_STATUS.PUBLISHED);
+  assert.equal(videoState.platforms[DESTINATIONS.FACEBOOK_SECONDARY].postId, "fb_secondary_video_101");
   assert.equal(videoState.platforms[DESTINATIONS.YOUTUBE].status, PUBLISH_STATUS.PUBLISHED);
   assert.equal(videoState.platforms[DESTINATIONS.YOUTUBE].postId, "yt_video_abcdef");
 
   // Verify carousel state for the same date is UNTOUCHED (null)
   const carouselState = await getPostState(redis, "2026-09-27");
   assert.equal(carouselState, null, "Carousel state must remain null/untouched");
-  console.log("  ✓ Video 1 published to Instagram, Facebook, and YouTube with complete carousel isolation");
+  console.log("  ✓ Video 1 published to all 5 destinations (AI Zodiac IG/FB + LifeMode IG/FB + YouTube) with complete carousel isolation");
 
   // [TEST 6] Strict Idempotency Guard on Retry
   console.log("\n[TEST 6] Strict Idempotency Guard on Retry");
-  let reattemptedIG = false;
-  let reattemptedFB = false;
+  let reattemptedIGPrimary = false;
+  let reattemptedFBPrimary = false;
+  let reattemptedIGSecondary = false;
+  let reattemptedFBSecondary = false;
   let reattemptedYT = false;
 
   const retryAdapters = {
     [DESTINATIONS.INSTAGRAM_PRIMARY]: {
       name: DESTINATIONS.INSTAGRAM_PRIMARY,
-      async publish() { reattemptedIG = true; return { success: true, status: PUBLISH_STATUS.PUBLISHED }; },
+      async publish() { reattemptedIGPrimary = true; return { success: true, status: PUBLISH_STATUS.PUBLISHED }; },
     },
     [DESTINATIONS.FACEBOOK_PRIMARY]: {
       name: DESTINATIONS.FACEBOOK_PRIMARY,
-      async publish() { reattemptedFB = true; return { success: true, status: PUBLISH_STATUS.PUBLISHED }; },
+      async publish() { reattemptedFBPrimary = true; return { success: true, status: PUBLISH_STATUS.PUBLISHED }; },
+    },
+    [DESTINATIONS.INSTAGRAM_SECONDARY]: {
+      name: DESTINATIONS.INSTAGRAM_SECONDARY,
+      async publish() { reattemptedIGSecondary = true; return { success: true, status: PUBLISH_STATUS.PUBLISHED }; },
+    },
+    [DESTINATIONS.FACEBOOK_SECONDARY]: {
+      name: DESTINATIONS.FACEBOOK_SECONDARY,
+      async publish() { reattemptedFBSecondary = true; return { success: true, status: PUBLISH_STATUS.PUBLISHED }; },
     },
     [DESTINATIONS.YOUTUBE]: {
       name: DESTINATIONS.YOUTUBE,
@@ -255,18 +300,23 @@ async function runTests() {
 
   assert.equal(retryResult.success, true);
   assert.equal(retryResult.status, "ALL_PLATFORMS_SKIPPED");
-  assert.equal(reattemptedIG, false, "Must not re-publish Instagram");
-  assert.equal(reattemptedFB, false, "Must not re-publish Facebook");
+  assert.equal(reattemptedIGPrimary, false, "Must not re-publish Instagram Primary");
+  assert.equal(reattemptedFBPrimary, false, "Must not re-publish Facebook Primary");
+  assert.equal(reattemptedIGSecondary, false, "Must not re-publish LifeMode Instagram");
+  assert.equal(reattemptedFBSecondary, false, "Must not re-publish LifeMode Facebook");
   assert.equal(reattemptedYT, false, "Must not re-publish YouTube");
   assert.equal(retryResult.skipped[DESTINATIONS.INSTAGRAM_PRIMARY].reason, "ALREADY_PUBLISHED");
   assert.equal(retryResult.skipped[DESTINATIONS.FACEBOOK_PRIMARY].reason, "ALREADY_PUBLISHED");
+  assert.equal(retryResult.skipped[DESTINATIONS.INSTAGRAM_SECONDARY].reason, "ALREADY_PUBLISHED");
+  assert.equal(retryResult.skipped[DESTINATIONS.FACEBOOK_SECONDARY].reason, "ALREADY_PUBLISHED");
   assert.equal(retryResult.skipped[DESTINATIONS.YOUTUBE].reason, "ALREADY_PUBLISHED");
-  console.log("  ✓ Strict idempotency verified: retry skips all 3 destinations with 0 write calls");
+  console.log("  ✓ Strict idempotency verified: retry skips all 5 destinations with 0 write calls");
 
   // [TEST 7] Partial Failure Recovery & Isolation
   console.log("\n[TEST 7] Partial Failure Recovery & Isolation");
   const partialRedis = new MockRedis();
   let fbPublishCount = 0;
+  let lmFbPublishCount = 0;
   let ytPublishCount = 0;
 
   const failYTAdapters = {
@@ -277,6 +327,14 @@ async function runTests() {
     [DESTINATIONS.FACEBOOK_PRIMARY]: {
       name: DESTINATIONS.FACEBOOK_PRIMARY,
       async publish() { fbPublishCount++; return { success: true, status: PUBLISH_STATUS.PUBLISHED, postId: "fb_1" }; },
+    },
+    [DESTINATIONS.INSTAGRAM_SECONDARY]: {
+      name: DESTINATIONS.INSTAGRAM_SECONDARY,
+      async publish() { return { success: true, status: PUBLISH_STATUS.PUBLISHED, postId: "lm_ig_1" }; },
+    },
+    [DESTINATIONS.FACEBOOK_SECONDARY]: {
+      name: DESTINATIONS.FACEBOOK_SECONDARY,
+      async publish() { lmFbPublishCount++; return { success: true, status: PUBLISH_STATUS.PUBLISHED, postId: "lm_fb_1" }; },
     },
     [DESTINATIONS.YOUTUBE]: {
       name: DESTINATIONS.YOUTUBE,
@@ -296,6 +354,8 @@ async function runTests() {
   assert.equal(initialRun.status, "PARTIAL_SUCCESS");
   assert.equal(initialRun.results[DESTINATIONS.INSTAGRAM_PRIMARY].status, PUBLISH_STATUS.PUBLISHED);
   assert.equal(initialRun.results[DESTINATIONS.FACEBOOK_PRIMARY].status, PUBLISH_STATUS.PUBLISHED);
+  assert.equal(initialRun.results[DESTINATIONS.INSTAGRAM_SECONDARY].status, PUBLISH_STATUS.PUBLISHED);
+  assert.equal(initialRun.results[DESTINATIONS.FACEBOOK_SECONDARY].status, PUBLISH_STATUS.PUBLISHED);
   assert.equal(initialRun.results[DESTINATIONS.YOUTUBE].status, PUBLISH_STATUS.FAILED);
 
   // Retry with fixed YouTube adapter
@@ -306,6 +366,14 @@ async function runTests() {
     },
     [DESTINATIONS.FACEBOOK_PRIMARY]: {
       name: DESTINATIONS.FACEBOOK_PRIMARY,
+      async publish() { throw new Error("Should not be called"); },
+    },
+    [DESTINATIONS.INSTAGRAM_SECONDARY]: {
+      name: DESTINATIONS.INSTAGRAM_SECONDARY,
+      async publish() { throw new Error("Should not be called"); },
+    },
+    [DESTINATIONS.FACEBOOK_SECONDARY]: {
+      name: DESTINATIONS.FACEBOOK_SECONDARY,
       async publish() { throw new Error("Should not be called"); },
     },
     [DESTINATIONS.YOUTUBE]: {
@@ -326,10 +394,13 @@ async function runTests() {
   assert.equal(recoveredRun.status, PUBLISH_STATUS.PUBLISHED);
   assert.equal(recoveredRun.skipped[DESTINATIONS.INSTAGRAM_PRIMARY].reason, "ALREADY_PUBLISHED");
   assert.equal(recoveredRun.skipped[DESTINATIONS.FACEBOOK_PRIMARY].reason, "ALREADY_PUBLISHED");
+  assert.equal(recoveredRun.skipped[DESTINATIONS.INSTAGRAM_SECONDARY].reason, "ALREADY_PUBLISHED");
+  assert.equal(recoveredRun.skipped[DESTINATIONS.FACEBOOK_SECONDARY].reason, "ALREADY_PUBLISHED");
   assert.equal(recoveredRun.results[DESTINATIONS.YOUTUBE].status, PUBLISH_STATUS.PUBLISHED);
-  assert.equal(fbPublishCount, 1, "Facebook must only have been published once");
+  assert.equal(fbPublishCount, 1, "Facebook Primary must only have been published once");
+  assert.equal(lmFbPublishCount, 1, "LifeMode Facebook Secondary must only have been published once");
   assert.equal(ytPublishCount, 2, "YouTube was retried and succeeded");
-  console.log("  ✓ Partial failure recovery verified: ONLY failed destination re-attempted");
+  console.log("  ✓ Partial failure recovery verified: ONLY failed destination re-attempted across all 5 destinations");
 
   // [TEST 8] Serverless Cron Endpoint publishDailyVideo.js
   console.log("\n[TEST 8] Serverless Cron Endpoint api/cron/publishDailyVideo.js");
