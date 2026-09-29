@@ -37,7 +37,7 @@ function getRedisClient() {
 
 /**
  * Daily scheduled serverless cron & catch-up handler for AI Zodiac promo video publication.
- * Permanent schedule: 18:00 UTC daily (0 18 * * *).
+ * Permanent schedule: 19:00 UTC daily (0 19 * * *).
  */
 export default async function handler(req, res) {
   // Allow GET and POST for cron and operational invocations

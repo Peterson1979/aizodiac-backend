@@ -41,11 +41,11 @@
     },
     {
       "path": "/api/cron/publishDailySocial",
-      "schedule": "0 12 * * *"
+      "schedule": "0 11 * * *"
     },
     {
       "path": "/api/cron/publishDailyVideo",
-      "schedule": "0 18 * * *"
+      "schedule": "0 19 * * *"
     },
     {
       "path": "/api/cron/canarySocialPublish?action=tokenHealth",
