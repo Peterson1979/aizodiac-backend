@@ -132,40 +132,53 @@ class MockRedis {
     youtubeClientId: "test_yt_client_id_123.apps.googleusercontent.com",
     youtubeClientSecret: "test_yt_client_secret_456",
     youtubeRefreshToken: "1//test_yt_refresh_token_789",
+    lifemodeYoutubeRefreshToken: "1//test_lifemode_yt_refresh_token_999",
   });
   const validCheck = validateSocialConfig(validConfig, ALL_CONFIGURED_DESTINATIONS);
   assert.equal(validCheck.valid, true, "Fully populated multi-destination config should pass validation");
 
+  // LifeMode YouTube config defaults and fallback check
+  assert.equal(validConfig.lifemodeYoutubeClientId, "test_yt_client_id_123.apps.googleusercontent.com", "LifeMode YT client ID should fallback to primary YT client ID");
+  assert.equal(validConfig.lifemodeYoutubeClientSecret, "test_yt_client_secret_456", "LifeMode YT client secret should fallback to primary YT client secret");
+  assert.equal(validConfig.lifemodeYoutubeChannelId, "UC0S9aU2uKFsg5x55jkwqYlg", "LifeMode YT channel ID should default to UC0S9aU2uKFsg5x55jkwqYlg");
+  assert.equal(validConfig.lifemodeYoutubePrivacyStatus, "public", "LifeMode YT privacy status should default to public");
+  assert.equal(validConfig.lifemodeYoutubeCategoryId, "24", "LifeMode YT category ID should default to 24");
+
+  const sanitizedView = getSanitizedConfigView(validConfig);
+  assert.equal(sanitizedView.metaTokenConfigured, true);
+  assert.equal(sanitizedView.lifemodeMetaTokenConfigured, true);
+  assert.equal(sanitizedView.pinterestTokenConfigured, true);
+  assert.equal(sanitizedView.lifemodeYoutubeTokenConfigured, true);
+  assert.ok(sanitizedView.lifemodeYoutubeChannelId.includes("Ylg"));
+  assert.ok(sanitizedView.metaPageId.startsWith("***"), "Primary Page ID should be masked");
+  assert.ok(sanitizedView.lifemodeMetaPageId.startsWith("***"), "LifeMode Page ID should be masked");
+  assert.ok(sanitizedView.instagramAccountId.startsWith("***"), "Primary IG Account ID should be masked");
+  assert.ok(sanitizedView.lifemodeInstagramAccountId.startsWith("***"), "LifeMode IG Account ID should be masked");
+
   // Secret redaction test covering LifeMode and primary tokens
-  const rawSecretString = "Error with EAAB1234567890abcdef and EAAB_lifemode_token_67890 and pina_secret999 and Bearer my_cron_secret";
+  const rawSecretString = "Error with EAAB1234567890abcdef and EAAB_lifemode_token_67890 and pina_secret999 and Bearer my_cron_secret and 1//test_lifemode_yt_refresh_token_999";
   const redactedString = redactSecrets(rawSecretString);
   assert.ok(!redactedString.includes("EAAB1234567890abcdef"), "Primary Meta token must be redacted");
   assert.ok(!redactedString.includes("EAAB_lifemode_token_67890"), "LifeMode Meta token must be redacted");
   assert.ok(!redactedString.includes("pina_secret999"), "Pinterest token must be redacted");
   assert.ok(!redactedString.includes("my_cron_secret"), "Bearer auth must be redacted");
+  assert.ok(!redactedString.includes("test_lifemode_yt_refresh_token_999"), "LifeMode YouTube refresh token must be redacted");
 
   const secretObj = {
     metaPageAccessToken: "EAABsecret",
     lifemodeMetaPageAccessToken: "EAABlifemodesecret",
+    lifemodeYoutubeRefreshToken: "1//test_lifemode_yt_refresh_token_999",
     cronSecret: "super_secret_cron",
     nested: { password: "pass", status: "OK", token: "xyz" },
   };
   const redactedObj = redactSecrets(secretObj);
   assert.equal(redactedObj.metaPageAccessToken, "[REDACTED]");
   assert.equal(redactedObj.lifemodeMetaPageAccessToken, "[REDACTED]");
+  assert.equal(redactedObj.lifemodeYoutubeRefreshToken, "[REDACTED]");
   assert.equal(redactedObj.cronSecret, "[REDACTED]");
   assert.equal(redactedObj.nested.password, "[REDACTED]");
   assert.equal(redactedObj.nested.token, "[REDACTED]");
   assert.equal(redactedObj.nested.status, "OK");
-
-  const sanitizedView = getSanitizedConfigView(validConfig);
-  assert.equal(sanitizedView.metaTokenConfigured, true);
-  assert.equal(sanitizedView.lifemodeMetaTokenConfigured, true);
-  assert.equal(sanitizedView.pinterestTokenConfigured, true);
-  assert.ok(sanitizedView.metaPageId.startsWith("***"), "Primary Page ID should be masked");
-  assert.ok(sanitizedView.lifemodeMetaPageId.startsWith("***"), "LifeMode Page ID should be masked");
-  assert.ok(sanitizedView.instagramAccountId.startsWith("***"), "Primary IG Account ID should be masked");
-  assert.ok(sanitizedView.lifemodeInstagramAccountId.startsWith("***"), "LifeMode IG Account ID should be masked");
 
   console.log("  ✓ Config validation properly enforces required destination keys for Primary and LifeMode");
   console.log("  ✓ Secret redaction reliably scrubs primary and LifeMode tokens from strings and deep objects");
@@ -2630,6 +2643,194 @@ class MockRedis {
     assert.equal(dryRes.mediaChecks[0].reachable, true);
 
     console.log("  ✓ Scenario 8: Dry-run mode validates video manifest and adapter connectivity with zero write calls");
+  }
+
+  // Scenario 9: LifeMode YouTube Adapter Direct Upload Flow with Isolated Redis Auth Key
+  {
+    const lmVideoConfig = getSocialConfig({
+      autoPublishEnabled: true,
+      youtubeClientId: "test_yt_client_id_123.apps.googleusercontent.com",
+      youtubeClientSecret: "test_yt_client_secret_456",
+      youtubeRefreshToken: "1//test_primary_yt_refresh_token",
+      lifemodeYoutubeRefreshToken: "1//test_lifemode_yt_refresh_token_888",
+      lifemodeYoutubeChannelId: "UC0S9aU2uKFsg5x55jkwqYlg",
+    });
+
+    let lmRefreshedToken = false;
+    let lmSessionCreated = false;
+    let lmVideoUploaded = false;
+
+    const mockLmFetch = async (url, options = {}) => {
+      const urlStr = String(url);
+
+      // Google OAuth Token Refresh for LifeMode
+      if (urlStr.includes("oauth2.googleapis.com/token")) {
+        lmRefreshedToken = true;
+        const bodyParams = new URLSearchParams(options.body);
+        assert.equal(bodyParams.get("refresh_token"), "1//test_lifemode_yt_refresh_token_888", "Must use LifeMode refresh token");
+        assert.equal(bodyParams.get("client_id"), "test_yt_client_id_123.apps.googleusercontent.com");
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            access_token: "ya29.a0_mock_lifemode_youtube_token_888",
+            expires_in: 3600,
+            token_type: "Bearer",
+          }),
+        };
+      }
+
+      // Resumable Upload Session Creation
+      if (urlStr.includes("upload/youtube/v3/videos?uploadType=resumable")) {
+        lmSessionCreated = true;
+        assert.equal(options.headers?.Authorization, "Bearer ya29.a0_mock_lifemode_youtube_token_888");
+        return {
+          ok: true,
+          status: 200,
+          headers: new Headers({
+            location: "https://upload.youtube.com/upload/youtube/v3/videos?upload_id=yt_lm_session_xyz789",
+          }),
+          json: async () => ({}),
+        };
+      }
+
+      // Binary Video Upload
+      if (urlStr.includes("upload_id=yt_lm_session_xyz789")) {
+        lmVideoUploaded = true;
+        assert.equal(options.method, "PUT");
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            id: "lm_yt_video_12345",
+            snippet: { title: "LifeMode Short" },
+          }),
+        };
+      }
+
+      // Source Video Download
+      if (urlStr.endsWith(".mp4")) {
+        return {
+          ok: true,
+          status: 200,
+          arrayBuffer: async () => dummyVideoBuffer.buffer,
+        };
+      }
+
+      throw new Error(`Unexpected fetch URL in LifeMode YouTube test: ${urlStr}`);
+    };
+
+    const redis = new MockRedis();
+    // Pre-populate Primary YouTube state in Redis to verify it is NOT overwritten
+    await saveYoutubeTokenState(redis, {
+      accessToken: "ya29.primary_token_stays_safe",
+      refreshToken: "1//primary_refresh",
+      expiresAt: Date.now() + 3600000,
+    });
+
+    const manifest = generateDailyVideoManifest({
+      publishDate: "2026-10-02",
+      mediaBaseUrl: "https://media.aizodiac.app",
+    });
+
+    const lmYtAdapter = new YouTubeAdapter({ name: DESTINATIONS.YOUTUBE_LIFEMODE });
+    const res = await lmYtAdapter.publish({
+      manifest,
+      config: lmVideoConfig,
+      redis,
+      fetchFn: mockLmFetch,
+    });
+
+    assert.equal(res.success, true);
+    assert.equal(res.status, PUBLISH_STATUS.PUBLISHED);
+    assert.equal(res.postId, "lm_yt_video_12345");
+    assert.ok(lmRefreshedToken, "LifeMode OAuth token should be refreshed");
+    assert.ok(lmSessionCreated, "LifeMode Resumable session should be created");
+    assert.ok(lmVideoUploaded, "LifeMode Video binary should be uploaded");
+
+    // Verify LifeMode token cached in separate Redis key
+    const lmTokenState = await getYoutubeTokenState(redis, lmVideoConfig, DESTINATIONS.YOUTUBE_LIFEMODE);
+    assert.equal(lmTokenState.accessToken, "ya29.a0_mock_lifemode_youtube_token_888");
+
+    // Verify Primary YouTube token was NOT modified/overwritten
+    const primaryTokenState = await getYoutubeTokenState(redis, lmVideoConfig);
+    assert.equal(primaryTokenState.accessToken, "ya29.primary_token_stays_safe", "Primary YouTube token state must remain completely isolated and intact");
+
+    console.log("  ✓ Scenario 9: LifeMode YouTube adapter succeeds with separate refresh token and isolated Redis auth key (aiz:social:auth:youtube:lifemode)");
+  }
+
+  // Scenario 10: Dual YouTube Publishing Matrix (AI Zodiac YouTube + LifeMode YouTube)
+  {
+    const dualConfig = getSocialConfig({
+      autoPublishEnabled: true,
+      youtubeClientId: "test_yt_client_id_123.apps.googleusercontent.com",
+      youtubeClientSecret: "test_yt_client_secret_456",
+      youtubeRefreshToken: "1//test_primary_yt_refresh_token",
+      lifemodeYoutubeRefreshToken: "1//test_lifemode_yt_refresh_token_888",
+    });
+
+    let primaryYTPublished = false;
+    let lifemodeYTPublished = false;
+
+    const dualAdapters = {
+      [DESTINATIONS.YOUTUBE]: {
+        name: DESTINATIONS.YOUTUBE,
+        async publish() {
+          primaryYTPublished = true;
+          return {
+            success: true,
+            status: PUBLISH_STATUS.PUBLISHED,
+            postId: "yt_primary_vid_111",
+            publishedAt: new Date().toISOString(),
+          };
+        },
+      },
+      [DESTINATIONS.YOUTUBE_LIFEMODE]: {
+        name: DESTINATIONS.YOUTUBE_LIFEMODE,
+        async publish() {
+          lifemodeYTPublished = true;
+          return {
+            success: true,
+            status: PUBLISH_STATUS.PUBLISHED,
+            postId: "yt_lifemode_vid_222",
+            publishedAt: new Date().toISOString(),
+          };
+        },
+      },
+    };
+
+    const redis = new MockRedis();
+    const manifest = generateDailyVideoManifest({
+      publishDate: "2026-10-03",
+      mediaBaseUrl: "https://media.aizodiac.app",
+    });
+
+    const result = await executeSocialPublishing({
+      redis,
+      config: dualConfig,
+      targetDate: "2026-10-03",
+      stream: "video",
+      manifest,
+      platforms: [DESTINATIONS.YOUTUBE, DESTINATIONS.YOUTUBE_LIFEMODE],
+      adapters: dualAdapters,
+      isCanary: true,
+    });
+
+    assert.equal(result.success, true);
+    assert.equal(result.status, PUBLISH_STATUS.PUBLISHED);
+    assert.equal(primaryYTPublished, true, "Primary YouTube must be published");
+    assert.equal(lifemodeYTPublished, true, "LifeMode YouTube must be published");
+    assert.equal(result.results[DESTINATIONS.YOUTUBE].postId, "yt_primary_vid_111");
+    assert.equal(result.results[DESTINATIONS.YOUTUBE_LIFEMODE].postId, "yt_lifemode_vid_222");
+
+    // Check post state isolation in Redis
+    const postState = await getPostState(redis, "2026-10-03", { stream: "video" });
+    assert.equal(postState.platforms[DESTINATIONS.YOUTUBE].status, PUBLISH_STATUS.PUBLISHED);
+    assert.equal(postState.platforms[DESTINATIONS.YOUTUBE].postId, "yt_primary_vid_111");
+    assert.equal(postState.platforms[DESTINATIONS.YOUTUBE_LIFEMODE].status, PUBLISH_STATUS.PUBLISHED);
+    assert.equal(postState.platforms[DESTINATIONS.YOUTUBE_LIFEMODE].postId, "yt_lifemode_vid_222");
+
+    console.log("  ✓ Scenario 10: Dual YouTube publishing (AI Zodiac + LifeMode) coordinates concurrently with independent post state and zero cross-contamination");
   }
 }
 

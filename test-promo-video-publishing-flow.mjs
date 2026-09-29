@@ -90,7 +90,7 @@ async function runTests() {
   assert.equal(v1.metadata.sequenceNumber, 1, "Video 1 sequence must be 1");
   assert.equal(v1.metadata.videoFileName, "1.mp4", "Video 1 file must be 1.mp4");
   assert.equal(v1.metadata.exactSourceTitle, "What does your zodiac sign REALLY say about you?");
-  assert.deepEqual(v1.destinations, ["instagram", "facebook", "youtube", "pinterest", "pinterest_secondary"]);
+  assert.deepEqual(v1.destinations, ["instagram", "facebook", "youtube", "youtube_lifemode", "pinterest", "pinterest_secondary"]);
 
   const v30 = getPromoVideoManifestForDate("2026-10-26");
   assert.ok(v30, "Video 30 manifest must exist");
@@ -144,19 +144,21 @@ async function runTests() {
     DESTINATIONS.INSTAGRAM_SECONDARY,
     DESTINATIONS.FACEBOOK_SECONDARY,
     DESTINATIONS.YOUTUBE,
+    DESTINATIONS.YOUTUBE_LIFEMODE,
     DESTINATIONS.PINTEREST,
     DESTINATIONS.PINTEREST_SECONDARY,
   ]);
   assert.equal(redis.store.size, 0, "Dry-run must make 0 Redis writes");
-  console.log("  ✓ Dry-run completed with zero writes across all 7 destinations");
+  console.log("  ✓ Dry-run completed with zero writes across all 8 destinations");
 
-  // [TEST 5] Full Video 1 Publishing Mock Execution (AI Zodiac IG/FB + LifeMode IG/FB + YouTube + AI Zodiac Pinterest + LifeMode Pinterest)
-  console.log("\n[TEST 5] Full Video 1 Publishing Mock Execution (7 destinations)");
+  // [TEST 5] Full Video 1 Publishing Mock Execution (AI Zodiac IG/FB + LifeMode IG/FB + AI Zodiac YT + LifeMode YT + AI Zodiac Pinterest + LifeMode Pinterest)
+  console.log("\n[TEST 5] Full Video 1 Publishing Mock Execution (8 destinations)");
   let publishedIGPrimary = false;
   let publishedFBPrimary = false;
   let publishedIGSecondary = false;
   let publishedFBSecondary = false;
   let publishedYT = false;
+  let publishedYTLifeMode = false;
   let publishedPinterestPrimary = false;
   let publishedPinterestSecondary = false;
 
@@ -223,6 +225,18 @@ async function runTests() {
         };
       },
     },
+    [DESTINATIONS.YOUTUBE_LIFEMODE]: {
+      name: DESTINATIONS.YOUTUBE_LIFEMODE,
+      async publish({ manifest }) {
+        publishedYTLifeMode = true;
+        return {
+          success: true,
+          status: PUBLISH_STATUS.PUBLISHED,
+          postId: "yt_lifemode_video_999",
+          publishedAt: new Date().toISOString(),
+        };
+      },
+    },
     [DESTINATIONS.PINTEREST]: {
       name: DESTINATIONS.PINTEREST,
       async publish({ manifest }) {
@@ -264,7 +278,8 @@ async function runTests() {
   assert.equal(publishedFBPrimary, true, "AI Zodiac Facebook Primary must be published");
   assert.equal(publishedIGSecondary, true, "LifeMode Instagram Secondary must be published");
   assert.equal(publishedFBSecondary, true, "LifeMode Facebook Secondary must be published");
-  assert.equal(publishedYT, true, "YouTube must be published");
+  assert.equal(publishedYT, true, "AI Zodiac YouTube must be published");
+  assert.equal(publishedYTLifeMode, true, "LifeMode YouTube must be published");
   assert.equal(publishedPinterestPrimary, true, "AI Zodiac Pinterest Primary must be published");
   assert.equal(publishedPinterestSecondary, true, "LifeMode Pinterest Secondary must be published");
 
@@ -282,6 +297,8 @@ async function runTests() {
   assert.equal(videoState.platforms[DESTINATIONS.FACEBOOK_SECONDARY].postId, "fb_secondary_video_101");
   assert.equal(videoState.platforms[DESTINATIONS.YOUTUBE].status, PUBLISH_STATUS.PUBLISHED);
   assert.equal(videoState.platforms[DESTINATIONS.YOUTUBE].postId, "yt_video_abcdef");
+  assert.equal(videoState.platforms[DESTINATIONS.YOUTUBE_LIFEMODE].status, PUBLISH_STATUS.PUBLISHED);
+  assert.equal(videoState.platforms[DESTINATIONS.YOUTUBE_LIFEMODE].postId, "yt_lifemode_video_999");
   assert.equal(videoState.platforms[DESTINATIONS.PINTEREST].status, PUBLISH_STATUS.PUBLISHED);
   assert.equal(videoState.platforms[DESTINATIONS.PINTEREST].postId, "pin_video_1110559658053621012");
   assert.equal(videoState.platforms[DESTINATIONS.PINTEREST_SECONDARY].status, PUBLISH_STATUS.PUBLISHED);
@@ -290,7 +307,7 @@ async function runTests() {
   // Verify carousel state for the same date is UNTOUCHED (null)
   const carouselState = await getPostState(redis, "2026-09-27");
   assert.equal(carouselState, null, "Carousel state must remain null/untouched");
-  console.log("  ✓ Video 1 published to all 7 destinations (AI Zodiac IG/FB + LifeMode IG/FB + YouTube + AI Zodiac Pinterest + LifeMode Pinterest) with complete carousel isolation");
+  console.log("  ✓ Video 1 published to all 8 destinations (AI Zodiac IG/FB + LifeMode IG/FB + AI Zodiac YT + LifeMode YT + AI Zodiac Pinterest + LifeMode Pinterest) with complete carousel isolation");
 
   // [TEST 6] Strict Idempotency Guard on Retry
   console.log("\n[TEST 6] Strict Idempotency Guard on Retry");
@@ -299,6 +316,7 @@ async function runTests() {
   let reattemptedIGSecondary = false;
   let reattemptedFBSecondary = false;
   let reattemptedYT = false;
+  let reattemptedYTLifeMode = false;
   let reattemptedPinterestPrimary = false;
   let reattemptedPinterestSecondary = false;
 
@@ -322,6 +340,10 @@ async function runTests() {
     [DESTINATIONS.YOUTUBE]: {
       name: DESTINATIONS.YOUTUBE,
       async publish() { reattemptedYT = true; return { success: true, status: PUBLISH_STATUS.PUBLISHED }; },
+    },
+    [DESTINATIONS.YOUTUBE_LIFEMODE]: {
+      name: DESTINATIONS.YOUTUBE_LIFEMODE,
+      async publish() { reattemptedYTLifeMode = true; return { success: true, status: PUBLISH_STATUS.PUBLISHED }; },
     },
     [DESTINATIONS.PINTEREST]: {
       name: DESTINATIONS.PINTEREST,
@@ -349,6 +371,7 @@ async function runTests() {
   assert.equal(reattemptedIGSecondary, false, "Must not re-publish LifeMode Instagram");
   assert.equal(reattemptedFBSecondary, false, "Must not re-publish LifeMode Facebook");
   assert.equal(reattemptedYT, false, "Must not re-publish YouTube");
+  assert.equal(reattemptedYTLifeMode, false, "Must not re-publish LifeMode YouTube");
   assert.equal(reattemptedPinterestPrimary, false, "Must not re-publish AI Zodiac Pinterest");
   assert.equal(reattemptedPinterestSecondary, false, "Must not re-publish LifeMode Pinterest");
   assert.equal(retryResult.skipped[DESTINATIONS.INSTAGRAM_PRIMARY].reason, "ALREADY_PUBLISHED");
@@ -356,9 +379,10 @@ async function runTests() {
   assert.equal(retryResult.skipped[DESTINATIONS.INSTAGRAM_SECONDARY].reason, "ALREADY_PUBLISHED");
   assert.equal(retryResult.skipped[DESTINATIONS.FACEBOOK_SECONDARY].reason, "ALREADY_PUBLISHED");
   assert.equal(retryResult.skipped[DESTINATIONS.YOUTUBE].reason, "ALREADY_PUBLISHED");
+  assert.equal(retryResult.skipped[DESTINATIONS.YOUTUBE_LIFEMODE].reason, "ALREADY_PUBLISHED");
   assert.equal(retryResult.skipped[DESTINATIONS.PINTEREST].reason, "ALREADY_PUBLISHED");
   assert.equal(retryResult.skipped[DESTINATIONS.PINTEREST_SECONDARY].reason, "ALREADY_PUBLISHED");
-  console.log("  ✓ Strict idempotency verified: retry skips all 7 destinations with 0 write calls");
+  console.log("  ✓ Strict idempotency verified: retry skips all 8 destinations with 0 write calls");
 
   // [TEST 7] Partial Failure Recovery & Isolation
   console.log("\n[TEST 7] Partial Failure Recovery & Isolation");
@@ -366,6 +390,7 @@ async function runTests() {
   let fbPublishCount = 0;
   let lmFbPublishCount = 0;
   let ytPublishCount = 0;
+  let lmYtPublishCount = 0;
   let pinPublishCount = 0;
   let lmPinPublishCount = 0;
 
@@ -389,6 +414,10 @@ async function runTests() {
     [DESTINATIONS.YOUTUBE]: {
       name: DESTINATIONS.YOUTUBE,
       async publish() { ytPublishCount++; return { success: false, status: PUBLISH_STATUS.FAILED, error: { message: "Quota exceeded" } }; },
+    },
+    [DESTINATIONS.YOUTUBE_LIFEMODE]: {
+      name: DESTINATIONS.YOUTUBE_LIFEMODE,
+      async publish() { lmYtPublishCount++; return { success: true, status: PUBLISH_STATUS.PUBLISHED, postId: "lm_yt_1" }; },
     },
     [DESTINATIONS.PINTEREST]: {
       name: DESTINATIONS.PINTEREST,
@@ -415,6 +444,7 @@ async function runTests() {
   assert.equal(initialRun.results[DESTINATIONS.INSTAGRAM_SECONDARY].status, PUBLISH_STATUS.PUBLISHED);
   assert.equal(initialRun.results[DESTINATIONS.FACEBOOK_SECONDARY].status, PUBLISH_STATUS.PUBLISHED);
   assert.equal(initialRun.results[DESTINATIONS.YOUTUBE].status, PUBLISH_STATUS.FAILED);
+  assert.equal(initialRun.results[DESTINATIONS.YOUTUBE_LIFEMODE].status, PUBLISH_STATUS.PUBLISHED);
   assert.equal(initialRun.results[DESTINATIONS.PINTEREST].status, PUBLISH_STATUS.PUBLISHED);
   assert.equal(initialRun.results[DESTINATIONS.PINTEREST_SECONDARY].status, PUBLISH_STATUS.PUBLISHED);
 
@@ -440,6 +470,10 @@ async function runTests() {
       name: DESTINATIONS.YOUTUBE,
       async publish() { ytPublishCount++; return { success: true, status: PUBLISH_STATUS.PUBLISHED, postId: "yt_fixed_1" }; },
     },
+    [DESTINATIONS.YOUTUBE_LIFEMODE]: {
+      name: DESTINATIONS.YOUTUBE_LIFEMODE,
+      async publish() { throw new Error("Should not be called"); },
+    },
     [DESTINATIONS.PINTEREST]: {
       name: DESTINATIONS.PINTEREST,
       async publish() { throw new Error("Should not be called"); },
@@ -464,15 +498,17 @@ async function runTests() {
   assert.equal(recoveredRun.skipped[DESTINATIONS.FACEBOOK_PRIMARY].reason, "ALREADY_PUBLISHED");
   assert.equal(recoveredRun.skipped[DESTINATIONS.INSTAGRAM_SECONDARY].reason, "ALREADY_PUBLISHED");
   assert.equal(recoveredRun.skipped[DESTINATIONS.FACEBOOK_SECONDARY].reason, "ALREADY_PUBLISHED");
+  assert.equal(recoveredRun.skipped[DESTINATIONS.YOUTUBE_LIFEMODE].reason, "ALREADY_PUBLISHED");
   assert.equal(recoveredRun.skipped[DESTINATIONS.PINTEREST].reason, "ALREADY_PUBLISHED");
   assert.equal(recoveredRun.skipped[DESTINATIONS.PINTEREST_SECONDARY].reason, "ALREADY_PUBLISHED");
   assert.equal(recoveredRun.results[DESTINATIONS.YOUTUBE].status, PUBLISH_STATUS.PUBLISHED);
   assert.equal(fbPublishCount, 1, "Facebook Primary must only have been published once");
   assert.equal(lmFbPublishCount, 1, "LifeMode Facebook Secondary must only have been published once");
+  assert.equal(lmYtPublishCount, 1, "LifeMode YouTube must only have been published once");
   assert.equal(pinPublishCount, 1, "Pinterest Primary must only have been published once");
   assert.equal(lmPinPublishCount, 1, "Pinterest Secondary must only have been published once");
   assert.equal(ytPublishCount, 2, "YouTube was retried and succeeded");
-  console.log("  ✓ Partial failure recovery verified: ONLY failed destination re-attempted across all 7 destinations");
+  console.log("  ✓ Partial failure recovery verified: ONLY failed destination re-attempted across all 8 destinations");
 
   // [TEST 8] Serverless Cron Endpoint publishDailyVideo.js
   console.log("\n[TEST 8] Serverless Cron Endpoint api/cron/publishDailyVideo.js");
