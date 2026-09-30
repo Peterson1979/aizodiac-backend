@@ -9,7 +9,7 @@ import { isPromoVideoCampaignDate } from "../../lib/social/content/promoVideoReg
 export const maxDuration = 60;
 
 /**
- * Dedicated video publishing destinations (AI Zodiac IG + AI Zodiac FB + LifeMode IG + LifeMode FB + AI Zodiac YouTube + LifeMode YouTube + AI Zodiac Pinterest + LifeMode Pinterest).
+ * Dedicated video publishing destinations (AI Zodiac IG + AI Zodiac FB + LifeMode IG + LifeMode FB + AI Zodiac YouTube + LifeMode YouTube + AI Zodiac Pinterest + LifeMode Pinterest + AI Zodiac Threads).
  */
 export const PROMO_VIDEO_DESTINATIONS = Object.freeze([
   DESTINATIONS.INSTAGRAM_PRIMARY,
@@ -20,6 +20,7 @@ export const PROMO_VIDEO_DESTINATIONS = Object.freeze([
   DESTINATIONS.YOUTUBE_LIFEMODE,
   DESTINATIONS.PINTEREST,
   DESTINATIONS.PINTEREST_SECONDARY,
+  DESTINATIONS.THREADS,
 ]);
 
 /**

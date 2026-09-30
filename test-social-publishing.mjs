@@ -123,6 +123,8 @@ class MockRedis {
     lifemodeMetaPageAccessToken: "EAAB_lifemode_token_67890",
     lifemodeMetaPageId: "2009876543210",
     lifemodeInstagramAccountId: "17841400987654321",
+    threadsUserId: "17841499999999999",
+    threadsAccessToken: "THQ_test_threads_token_12345",
     pinterestAccessToken: "pina_test_access_token_123",
     pinterestRefreshToken: "pinr_test_refresh_token_456",
     pinterestBoardId: "9876543210",

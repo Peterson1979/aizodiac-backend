@@ -2,7 +2,7 @@
 import { Redis } from "@upstash/redis";
 import { executeSocialPublishing } from "../../lib/social/publishCoordinator.js";
 import { getSocialConfig, redactSecrets } from "../../lib/social/config.js";
-import { ALL_DESTINATIONS, DESTINATIONS, PLATFORMS } from "../../lib/social/types.js";
+import { ALL_DESTINATIONS, CAROUSEL_DESTINATIONS, DESTINATIONS, PLATFORMS } from "../../lib/social/types.js";
 
 export const maxDuration = 60;
 
@@ -51,12 +51,12 @@ export default async function handler(req, res) {
     });
   }
 
-  // 3. Execute Social Publishing Pipeline (Production cron targets all 4 Meta destinations)
+  // 3. Execute Social Publishing Pipeline (Production cron targets carousel destinations: Meta + Threads)
   try {
     const redis = getRedisClient();
     const result = await executeSocialPublishing({
       redis,
-      platforms: ALL_DESTINATIONS,
+      platforms: CAROUSEL_DESTINATIONS,
       isCanary: false,
       dryRun: false,
     });
