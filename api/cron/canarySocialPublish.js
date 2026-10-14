@@ -8,7 +8,6 @@ import {
   ALL_PLATFORMS,
   DESTINATIONS,
   ALL_DESTINATIONS,
-  ALL_CONFIGURED_DESTINATIONS,
   canonicalizeDestination,
   canonicalizeDestinations,
 } from "../../lib/social/types.js";
@@ -55,36 +54,41 @@ export default async function handler(req, res) {
       const adapters = createDefaultAdapters();
       const healthResults = {};
 
-      for (const destination of ALL_CONFIGURED_DESTINATIONS) {
+      const pinterestDestinations = [DESTINATIONS.PINTEREST, DESTINATIONS.PINTEREST_SECONDARY];
+
+      for (const destination of pinterestDestinations) {
         const adapter = adapters[destination];
         if (adapter && typeof adapter.checkHealth === "function") {
           const health = await adapter.checkHealth({ config, redis });
           healthResults[destination] = {
             healthy: health.healthy,
-            details: health.details || null,
+            details: health.details ? redactSecrets(health.details) : null,
             error: health.error ? redactSecrets(health.error) : null,
+          };
+        } else {
+          healthResults[destination] = {
+            healthy: false,
+            details: null,
+            error: "Pinterest health adapter is not configured",
           };
         }
       }
 
-      // Read Pinterest token state metadata from Redis
-      const pinState = await getPinterestTokenState(redis, config);
-      const pinTokenInfo = {
-        source: pinState.source,
-        hasAccessToken: Boolean(pinState.accessToken),
-        hasRefreshToken: Boolean(pinState.refreshToken),
-        expiresAt: pinState.expiresAt ? new Date(pinState.expiresAt).toISOString() : null,
-        refreshTokenExpiresAt: pinState.refreshTokenExpiresAt ? new Date(pinState.refreshTokenExpiresAt).toISOString() : null,
-        accessTier: config.pinterestAccessTier,
-      };
+      const pinState = await getPinterestTokenState(redis, config, DESTINATIONS.PINTEREST);
 
       return res.status(200).json({
         success: true,
         action: "tokenHealth",
         configView: getSanitizedConfigView(config),
-        platforms: healthResults,
+        pinterestTokenInfo: redactSecrets({
+          source: pinState.source,
+          hasAccessToken: Boolean(pinState.accessToken),
+          hasRefreshToken: Boolean(pinState.refreshToken),
+          expiresAt: pinState.expiresAt ? new Date(pinState.expiresAt).toISOString() : null,
+          refreshTokenExpiresAt: pinState.refreshTokenExpiresAt ? new Date(pinState.refreshTokenExpiresAt).toISOString() : null,
+          accessTier: config.pinterestAccessTier,
+        }),
         destinations: healthResults,
-        pinterestTokenInfo: pinTokenInfo,
         timestamp: new Date().toISOString(),
       });
     } catch (healthErr) {
